@@ -37,10 +37,10 @@ You will present your results during classes, but you should submit your solutio
 Projects that are not presented will not be scores. 
 Al least 50% of the team is required to be present during the project presentation.
 
-1. Project
+1. Project - Classification
 
 
-2. Project
+2. Project - Clustering
 
 
 
