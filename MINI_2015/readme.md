@@ -3,10 +3,28 @@ Advances in Data Mining:
 
 # Motto
 
+> It is a capital mistake to theorize before one has data.
+> Sherlock Holmes
+
 
 # Syllabus
 
-
+* Accessing data and basic data exploration
+* [Classification]
+* k-nearest neighbors algorithm
+* Receiver Operating Characteristic (ROC) and other techniques
+* Decision tree
+* Linear discriminant analysis, Quadratic discriminant analysis
+* Naive Bayes classifier
+* Support Vector Machines
+* Belief Based Gaussian Modelling
+* [Clustering]
+* Hierarchical Clustering
+* k means, Partitioning Around Medoids
+* [Scaling]
+* Principal Component Analysis
+* MultiDimensional Scaling
+* Association Rules
 
 
 Meetings
