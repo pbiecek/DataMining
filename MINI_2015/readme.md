@@ -9,7 +9,7 @@ Advances in Data Mining:
 
 # Syllabus
 
-* Accessing data and basic data exploration
+* Introduction to data exploration
 * [Classification]
 * k-nearest neighbors algorithm
 * Receiver Operating Characteristic (ROC) and other techniques
