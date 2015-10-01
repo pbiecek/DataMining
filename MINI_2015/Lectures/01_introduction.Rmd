@@ -187,8 +187,21 @@ vioplot(pancan$ARHGAP8[pancan$disease == "breast invasive carcinoma"],
         pancan$ARHGAP8[pancan$disease == "ovarian serous cystadenocarcinoma"])
 ```
 
+# Computer classes
+
+1. Load the `PogromcyDanych` package.
+
+2. Use the `setLang()` function to translate columns names into English.
+
+3. For the dataset `auta2012` present numerical and graphical summaries for following variables: Price.in.PLN, Mileage, Brand, Type.of.fuel. 
+
+4. Create a report in knitr with these summaries. Use only cars produced in years 2009-2010.
+
 
 # Home work
 
-Use knitr to create a report with numerical and graphical summaries 
+Use knitr to create a report with numerical and graphical summaries for GermanCredit.
+
+Summarize following variables: Duration, Amount, Class, Personal.Male.Single.
+
 
