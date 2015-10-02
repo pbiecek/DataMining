@@ -9,9 +9,9 @@ Advances in Data Mining:
 
 # Syllabus
 
-* Introduction to data exploration
+* Introduction to data exploration [html](https://rawgithub.com/pbiecek/DataMning/master/MINI_2015/Lectures/01_introduction.html)
 * [Classification]
-* k-nearest neighbors algorithm
+* k-nearest neighbors algorithm [html](https://rawgithub.com/pbiecek/DataMning/master/MINI_2015/Lectures/02_knn.html)
 * Receiver Operating Characteristic (ROC) and other techniques
 * Decision tree
 * Linear discriminant analysis, Quadratic discriminant analysis
