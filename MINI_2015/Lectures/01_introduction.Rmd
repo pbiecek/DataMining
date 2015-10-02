@@ -15,7 +15,7 @@ In this part we are going to cover following topics:
 * how to present basic summaries for vectors
 * how to present summaries for groups
 
-We are going to work with thee datasets: `GermanCredit` from `caret` package, `pancan` from csv/xlsx file, `iris` from `datasets` package.
+We are going to work with three datasets: `GermanCredit` from `caret` package, `pancan` from csv/xlsx file, `iris` from `datasets` package.
 
 # Loading data
 
