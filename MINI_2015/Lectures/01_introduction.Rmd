@@ -12,16 +12,18 @@ output:
 In this part we are going to cover following topics:
 
 * how to read data into R
-* how to present basic summaries for vectors
-* how to present summaries for groups
+* how to present basic summaries for a single variable
+* how to present summaries for pairs of variables
 
 We are going to work with three datasets: `GermanCredit` from `caret` package, `pancan` from csv/xlsx file, `iris` from `datasets` package.
 
 # Loading data
 
+You may read data from many different formats into the R. Let’s cover three typical use cases.
+
 ## Data from core packages
 
-For datasets that are available in base packages it's enough to use the `data()` function in order to load the data into the namespace.
+For datasets that are available in core packages (i.e. `base`, `datasets`) it's enough to use the `data()` function in order to load the data into the namespace.
 
 Here we are going to load famous Anderson's iris data.
 
@@ -32,7 +34,7 @@ head(iris)
 
 ## Data from additional packages
 
-For datasets that are available in other packages load the package and then all datasets are available.
+For datasets that are available in other packages load the package and then all datasets are available. Note that you should install the package first. Use `install.packages(“caret”)` for example.
 
 ```{r}
 library(caret)
@@ -46,7 +48,7 @@ head(GermanCredit[,1:10])
 Use `read.table{}` or `read.xlsx{openxlsx}` in order to read data from csv/xlsx files. 
 Use `load{}` function in order to load data from binary rda files.
 
-Here we are going to read data from The Cancer Genome Atlas. For 5 different cancers we have information about expression of 31 different genes.
+Here we are going to read data from The Cancer Genome Atlas. For 5 different cancers we have information about expressions of 31 different genes.
 
 ```{r}
 load("pancan.rda")
@@ -93,10 +95,10 @@ summary(pancan$PAX8)
 
 ## Graphical summaries for one variable
 
-In many cases it is a good ide to present summaries graphically.
+In many cases it is a good idea to present summaries graphically.
 
 Contingency tables may be presented by barplots. 
-Play with additional arguments like `horiz` or `las` to get nicer graph.
+Play with additional arguments like `horiz` or `las` to get nicer plot.
 
 ```{r}
 # classes of credit Good/Bad
@@ -109,7 +111,7 @@ par(mar=c(5,15,2,2))
 barplot(tab_disease, horiz = TRUE, las=1)
 ```
 
-For continuous variable distributions may be presented with histograms `hist()` or boxplots `boxplot()`.
+For continuous variable the variable distribution may be presented with histograms `hist()` or boxplots `boxplot()`.
 
 ```{r}
 # Age for German Credit data
@@ -195,13 +197,12 @@ vioplot(pancan$ARHGAP8[pancan$disease == "breast invasive carcinoma"],
 
 3. For the dataset `auta2012` present numerical and graphical summaries for following variables: Price.in.PLN, Mileage, Brand, Type.of.fuel. 
 
-4. Create a report in knitr with these summaries. Use only cars produced in years 2009-2010.
+4. Create a report in `knitr` with these summaries. Use only cars produced in years 2009-2010.
 
 
 # Home work
 
-Use knitr to create a report with numerical and graphical summaries for GermanCredit.
+Use `knitr` to create a report with numerical and graphical summaries for GermanCredit.
 
 Summarize following variables: Duration, Amount, Class, Personal.Male.Single.
-
 
