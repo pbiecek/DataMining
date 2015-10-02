@@ -1,0 +1,174 @@
+---
+title: "k-nearest neighbors algorithm"
+author: "Przemyslaw Biecek"
+date: "Data Mining - Advances"
+output: 
+  html_document:
+    toc: TRUE
+---
+
+# Introduction
+
+In this part we are going to cover following topics:
+
+* basics of k-nearest neighbors algorithm
+* how to create knn classifier in R
+
+We are going to work with two datasets: `pancan` and `iris`.
+
+# Overview of the k-nearest neighbors method
+
+The k-nearest neighbors algorithm is a metric based method. 
+Let's start with an example based on two variables / two dimensions. 
+The example below is based on the `pancan` data.
+
+```{r, warning=FALSE, message=FALSE}
+library(ggplot2)
+load("pancan.rda")
+ggplot(pancan, aes(PAX8, GATA3, color=disease)) +
+  geom_point() +
+  theme_bw() + coord_fixed()
+```
+
+The algorithm works in three steps:
+
+* For a new sample a set of k-nearest samples from the training dataset is identified. Let's denote this set as NN. 
+* For samples in the set NN the distribution of classes is calculated.
+* For the new sample the final class is established by majority voting.
+
+```{r}
+ggplot(pancan, aes(PAX8, GATA3, color=disease)) +
+  geom_point() +
+  theme_bw() + coord_fixed() +
+  geom_point(x=2, y=3, size=35, color="black", shape=1) +
+  geom_point(x=2, y=3, size=2, color="black")
+```
+
+
+# How to do kNN in R
+
+Let's do this in R. 
+The kNN method is implemented in a few different packages. Here we are going to use `knn3()` from `caret`. 
+
+```{r, message=FALSE, warning=FALSE}
+library(caret)
+knnFit <- knn3(disease ~ PAX8+GATA3, data = pancan, k=20, prob=TRUE)
+knnFit
+```
+
+The trained classifier is in the `knnFit` object. 
+In order to apply it to the new data one can use the `predict()` function.
+Use `type="class"` to predict classes of new samples.
+
+```{r}
+pred <- predict(knnFit, data.frame(PAX8 = 2, GATA3= 3))
+t(pred)
+par(mar=c(15,3,3,3))
+barplot(pred, las=2)
+
+# majority voting
+predict(knnFit, data.frame(PAX8 = 2, GATA3= 3), type="class")
+```
+
+# Quality of the classifier
+
+How to asses how good is a classifier?
+
+Let's start with contingency table for the predicted labels crossed with true labels.
+
+```{r}
+knnFit <- knn3(disease ~ PAX8+GATA3, data = pancan, k=1)
+pred <- predict(knnFit, pancan, type="class")
+
+tab <- table(true = pancan$disease, predicted = pred)
+tab
+
+sum(diag(tab)) / sum(tab)
+```
+
+## Over fitting
+
+It looks like the performance is 100%. Is it possible? Maybe, but here its a result of over fitting.
+
+One should not calculate performance of a classifier on the same dataset that have been used for training.
+
+What else we can do?
+
+## Testing and Training
+
+Let's divide the dataset into two subsets: training and testing.
+
+```{r}
+indxTrain <- createDataPartition(y = pancan$disease, p = 0.75)
+str(indxTrain)
+
+pancanTrain <- pancan[indxTrain$Resample1,]
+pancanTest <- pancan[-indxTrain$Resample1,]
+```
+
+Now we can train classifier on the training dataset and test it on the second dataset.
+
+```{r}
+knnFit <- knn3(disease ~ PAX8+GATA3, data = pancanTrain, k=1)
+pred <- predict(knnFit, pancanTest, type="class")
+
+tab <- table(true = pancanTest$disease, predicted = pred)
+tab
+
+sum(diag(tab)) / sum(tab)
+```
+
+# How to choose k?
+
+The performance may be assessed for different k, and based on such results one can select the ,,optimal'' k.
+
+```{r}
+tuneK <- 1:200
+performance <- sapply(tuneK, function(k) {
+  knnFit <- knn3(disease ~ PAX8+GATA3, data = pancanTrain, k=k)
+  tab <- table(true = pancanTest$disease,
+          predict = predict(knnFit, pancanTest, type="class"))
+  sum(diag(tab)) / sum(tab)
+}) 
+
+df <- data.frame(tuneK, performance)
+
+ggplot(df, aes(tuneK, performance)) +
+  geom_point() + 
+  geom_smooth(se=FALSE, span=0.1, size=2) +
+  theme_bw()
+
+```
+
+# Other issues
+
+Note that by default the Euclidian distance is used. To make sure that all variables have the same impact on results one should first normalized each variable used for predictions.
+
+Not that majority voting is not best solution if classes have unequal distribution. In order to deal with unbalanced labels one can consider weighted votes.
+
+# Computer classes
+
+1. Train kNN classifier for the iris dataset
+
+2. Calculate performance for this classifier
+
+3. Normalize all predictive variables (Length's and Width's)
+
+4. Calculate performance for classifier build over normalized variables
+
+# Home work
+
+Use `knitr` to create a report for kNN method based on `GermanCredit` dataset.
+
+Choose 5 variables and build classifier for them. The response variable is the 'Class'
+
+Find optimal `k` and calculate performance for it.
+
+# Additional materials
+
+A Short Introduction to the caret Package
+
+https://cran.r-project.org/web/packages/caret/vignettes/caret.pdf
+
+
+
