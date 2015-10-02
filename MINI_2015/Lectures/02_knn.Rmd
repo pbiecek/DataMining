@@ -25,6 +25,9 @@ The example below is based on the `pancan` data.
 ```{r, warning=FALSE, message=FALSE}
 library(ggplot2)
 load("pancan.rda")
+# change levels for nicer presentation
+levels(pancan$disease) <- c("breast", "glioblastoma", "kidney", "ovarian", "uterine")
+
 ggplot(pancan, aes(PAX8, GATA3, color=disease)) +
   geom_point() +
   theme_bw() + coord_fixed()
@@ -63,7 +66,7 @@ Use `type="class"` to predict classes of new samples.
 ```{r}
 pred <- predict(knnFit, data.frame(PAX8 = 2, GATA3= 3))
 t(pred)
-par(mar=c(15,3,3,3))
+par(mar=c(5,3,3,3))
 barplot(pred, las=2)
 
 # majority voting
