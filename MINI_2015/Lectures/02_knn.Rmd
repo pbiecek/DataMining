@@ -13,12 +13,14 @@ In this part we are going to cover following topics:
 
 * basics of k-nearest neighbors algorithm
 * how to create knn classifier in R
+* how to choose the k parameter in knn classifier
 
-We are going to work with two datasets: `pancan` and `iris`.
+We are going to work with two datasets: `pancan` and `iris`. See the `Introduction` for more details.
 
 # Overview of the k-nearest neighbors method
 
-The k-nearest neighbors algorithm is a metric based method. 
+The k-nearest neighbors algorithm is a distance based method. The default distance is the Euclidian one, but choose the metric wisely. 
+
 Let's start with an example based on two variables / two dimensions. 
 The example below is based on the `pancan` data.
 
@@ -33,11 +35,11 @@ ggplot(pancan, aes(PAX8, GATA3, color=disease)) +
   theme_bw() + coord_fixed()
 ```
 
-The algorithm works in three steps:
+The kNN algorithm works in three steps:
 
 * For a new sample a set of k-nearest samples from the training dataset is identified. Let's denote this set as NN. 
-* For samples in the set NN the distribution of classes is calculated.
-* For the new sample the final class is established by majority voting.
+* For samples in the set NN the distribution of classes is calculated. 
+* For the new sample the final class is established by majority voting. Each sample in NN votes for it’s class.
 
 ```{r}
 ggplot(pancan, aes(PAX8, GATA3, color=disease)) +
@@ -47,10 +49,9 @@ ggplot(pancan, aes(PAX8, GATA3, color=disease)) +
   geom_point(x=2, y=3, size=2, color="black")
 ```
 
+# How to train and use kNN in R
 
-# How to do kNN in R
-
-Let's do this in R. 
+Let's train this classifier with R. 
 The kNN method is implemented in a few different packages. Here we are going to use `knn3()` from `caret`. 
 
 ```{r, message=FALSE, warning=FALSE}
@@ -60,8 +61,8 @@ knnFit
 ```
 
 The trained classifier is in the `knnFit` object. 
-In order to apply it to the new data one can use the `predict()` function.
-Use `type="class"` to predict classes of new samples.
+Use the `predict()` function  in order to apply it to a new data set.
+By default it returns distribution of votes for each sample. Use `type="class"` to predict the class of new samples.
 
 ```{r}
 pred <- predict(knnFit, data.frame(PAX8 = 2, GATA3= 3))
@@ -75,9 +76,9 @@ predict(knnFit, data.frame(PAX8 = 2, GATA3= 3), type="class")
 
 # Quality of the classifier
 
-How to asses how good is a classifier?
+How to asses how good is the trained classifier?
 
-Let's start with contingency table for the predicted labels crossed with true labels.
+Let's start with a contingency table for the predicted labels crossed with true labels.
 
 ```{r}
 knnFit <- knn3(disease ~ PAX8+GATA3, data = pancan, k=1)
@@ -91,11 +92,11 @@ sum(diag(tab)) / sum(tab)
 
 ## Over fitting
 
-It looks like the performance is 100%. Is it possible? Maybe, but here its a result of over fitting.
+It looks like the performance is 100%. Is it possible? Maybe, but here it is a result of over fitting.
 
-One should not calculate performance of a classifier on the same dataset that have been used for training.
+Note: One should not calculate performance of a classifier on the same dataset that have been used for training. Never!
 
-What else we can do?
+What else can we do?
 
 ## Testing and Training
 
@@ -123,7 +124,7 @@ sum(diag(tab)) / sum(tab)
 
 # How to choose k?
 
-The performance may be assessed for different k, and based on such results one can select the ,,optimal'' k.
+The performance may be assessed for different values of parameter k. Based on such results one can select the ,,optimal'' k, i.e. k that maximizes some measure of performance. Here the performance is just the fraction of correct guesses (called accuracy). We will introduce more measures for performance later.
 
 ```{r}
 tuneK <- 1:200
@@ -145,33 +146,32 @@ ggplot(df, aes(tuneK, performance)) +
 
 # Other issues
 
-Note that by default the Euclidian distance is used. To make sure that all variables have the same impact on results one should first normalized each variable used for predictions.
+Note that by default the Euclidian distance is used. To make sure that all variables have the same impact on results one should first normalize each variable that is used for predictions. It is not obligatory, but it is a good practice if different variables are measured in different units.
 
-Not that majority voting is not best solution if classes have unequal distribution. In order to deal with unbalanced labels one can consider weighted votes.
+Note that majority voting is not best solution if classes have unequal distribution. If one class is predominant then it may happen that the classifier will vote for it in every case. In order to deal with unbalanced labels one can consider weighted votes.
 
 # Computer classes
 
-1. Train kNN classifier for the iris dataset
+1. Train the kNN classifier for the `iris` dataset.
 
-2. Calculate performance for this classifier
+2. Calculate the performance for this classifier.
 
-3. Normalize all predictive variables (Length's and Width's)
+3. Normalize all predictive variables (Length's and Width's).
 
-4. Calculate performance for classifier build over normalized variables
+4. Calculate the performance for classifier build over normalized variables (compare with point 2).
 
 # Home work
 
 Use `knitr` to create a report for kNN method based on `GermanCredit` dataset.
 
-Choose 5 variables and build classifier for them. The response variable is the 'Class'
+Choose 5 variables and build classifier for them. The response variable is the 'Class'.
 
 Find optimal `k` and calculate performance for it.
 
 # Additional materials
 
-A Short Introduction to the caret Package
+A Short Introduction to the `caret` Package
 
 https://cran.r-project.org/web/packages/caret/vignettes/caret.pdf
-
 
 
