@@ -173,13 +173,15 @@ mosaicplot(tab2, las=2, main="", color = c("red", "blue"))
 For continuous variable boxplots (`boxplot()`) are very good for making comparisons. 
 Try `vioplot{vioplot}` if you are not scared by densities.
 
-```{r}
+```{r, cache=TRUE, fig.width=10, fig.height=10}
 # Age for German Credit data
 boxplot(GermanCredit$Age ~ GermanCredit$Class)
 
 # expression for selected genes
 par(mar=c(5,15,2,2))
 boxplot(pancan$ARHGAP8 ~ pancan$disease, horizontal = TRUE, las=1)
+
+mosaicplot(Titanic, color=c("red3", "green3"))
 
 library(vioplot)
 par(mar=c(5,5,2,2))
