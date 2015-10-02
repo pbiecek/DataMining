@@ -108,7 +108,7 @@ barplot(tab_credits)
 # diseases/genders in pancan dataset
 tab_disease <- table(pancan$disease)
 par(mar=c(5,15,2,2))
-barplot(tab_disease, horiz = TRUE, las=1)
+barplot(tab_disease, horiz = TRUE, las=2)
 ```
 
 For continuous variable the variable distribution may be presented with histograms `hist()` or boxplots `boxplot()`.
@@ -116,7 +116,7 @@ For continuous variable the variable distribution may be presented with histogra
 ```{r}
 # Age for German Credit data
 par(mar=c(5,5,2,2))
-hist(GermanCredit$Age, col="grey")
+hist(GermanCredit$Age, 100, col="grey")
 boxplot(GermanCredit$Age, horizontal = TRUE)
 
 # expression for selected genes
