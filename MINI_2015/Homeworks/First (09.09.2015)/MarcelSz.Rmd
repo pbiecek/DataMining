@@ -1,0 +1,82 @@
+---
+title: "Homework"
+author: "Marcel Sz"
+date: "2015-10-07"
+output: 
+  html_document:
+    toc: TRUE
+---
+
+## Homework description 
+
+Use `knitr` to create a report with numerical and graphical summaries for GermanCredit.
+
+Summarize following variables: Duration, Amount, Class, Personal.Male.Single.
+
+## Loading data
+```{r}
+library(caret)
+data(GermanCredit)
+```
+
+##Summarizing GermanCredit$Duration
+```{r}
+summary(GermanCredit$Duration)
+
+#Bar plot
+tab_duration <- table(GermanCredit$Duration)
+par(mar=c(2,2,2,2))
+barplot(tab_duration)
+
+#Histogram
+par(mar=c(5,5,2,2))
+hist(GermanCredit$Duration, 30, col="red")
+
+#Box and Whisker Plot
+boxplot(GermanCredit$Duration, horizontal = TRUE)
+
+#Calculating summaries for duration and class (good / bad)
+by(GermanCredit$Duration, GermanCredit$Class, summary)
+```
+
+##Summarizing GermanCredit$Amount
+```{r}
+summary(GermanCredit$Amount)
+
+#Box and Whisker plot representing Amount and Class
+par(mar=c(5,5,2,2))
+boxplot(GermanCredit$Amount ~ GermanCredit$Class)
+
+#Calculating summaries for duration and class (good / bad)
+by(GermanCredit$Amount, GermanCredit$Class, summary)
+```
+
+##Summarizing GermanCredit$Class
+```{r}
+tab_credits <- table(GermanCredit$Class)
+summary(GermanCredit$Class)
+
+#Bar plot
+barplot(tab_credits,col="blue")
+```
+
+##Summarizing GermanCredit$Personal.Male.Single
+```{r}
+summary(GermanCredit$Personal.Male.Single)
+tab_personal <- table(GermanCredit$Class, GermanCredit$Personal.Male.Single)
+prop.table(tab_personal, 2)
+
+#Mosaic plot
+mosaicplot(tab_personal)
+
+#Vio plot
+library(vioplot)
+par(mar=c(5,5,2,2))
+vioplot(GermanCredit$Duration[GermanCredit$Personal.Male.Single == 1],
+        GermanCredit$Duration[GermanCredit$Personal.Male.Single == 0])
+
+```
+
+
+
+
