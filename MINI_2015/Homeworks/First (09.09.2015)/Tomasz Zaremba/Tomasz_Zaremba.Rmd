@@ -1,0 +1,144 @@
+---
+title: "Homework 1"
+author: "Tomasz Zaremba"
+date: "2015-10-08"
+output: 
+  html_document:
+    toc: TRUE
+---
+
+# Home work
+
+Use `knitr` to create a report with numerical and graphical summaries for GermanCredit.
+
+Summarize following variables: Duration, Amount, Class, Personal.Male.Single.
+
+```{r, cache=TRUE}
+
+# Load the set
+library(caret)
+data(GermanCredit)
+
+```
+
+## Example values from columns "Duration", "Amount", "Class" and "Personal.Male.Single":
+
+```{r, cache=TRUE}
+# Let's see what our columns look like
+head(GermanCredit[, c("Duration", "Amount", "Class", "Personal.Male.Single")], 10)
+```
+
+## Numerical summaries for single variables:
+
+```{r, cache=TRUE}
+# Contingency tables for discrete variables
+table(GermanCredit$Class)
+table(GermanCredit$Personal.Male.Single)
+
+# Contingency tables for continuous variables (in intervals)
+table(cut(GermanCredit$Duration, 4))
+table(cut(GermanCredit$Amount, 4))
+
+# Summaries for continuous variables
+summary(GermanCredit$Duration)
+summary(GermanCredit$Amount)
+```
+
+## Graphical summaries for single variables.
+
+Barplots:
+
+```{r, cache=TRUE}
+
+# The majority of credits were paid
+classTable = table(GermanCredit$Class)
+barplot(classTable)
+
+# Most single males paid the credit
+singleMaleTable = table(GermanCredit$Personal.Male.Single)
+barplot(singleMaleTable)
+
+amountTable = table(cut(GermanCredit$Amount, 5))
+barplot(amountTable, horiz=TRUE, las=1)
+
+durationTable = table(cut(GermanCredit$Duration, 5))
+barplot(durationTable, horiz=TRUE, las=1)
+
+```
+
+Histograms:
+
+```{r, cache=TRUE}
+# Credits were rather short
+hist(GermanCredit$Duration, col="lightblue")
+# And small...
+hist(GermanCredit$Amount, 50, col="lightgreen")
+```
+
+Boxplots:
+
+```{r, cache=TRUE}
+# Boxplots confirm what we observed on the histograms
+boxplot(GermanCredit$Duration, horizontal=TRUE)
+boxplot(GermanCredit$Amount, horizontal=TRUE)
+```
+
+## Numerical summaries for pairs of variables.
+
+Proportions tables:
+```{r, cache=TRUE}
+singleMaleClassTable = table(GermanCredit$Class, GermanCredit$Personal.Male.Single)
+singleMaleClassTable
+prop.table(singleMaleClassTable, 1)
+
+amountClassTable = table(GermanCredit$Class, cut(GermanCredit$Amount, 6))
+amountClassTable
+round(100*prop.table(amountClassTable, 1), 1)
+
+durationClassTable = table(GermanCredit$Class, cut(GermanCredit$Duration, 6))
+durationClassTable
+round(100*prop.table(durationClassTable, 1), 1)
+```
+
+```{r, cache=TRUE}
+# Quantiles for amount in two classes: Bad and Good
+by(GermanCredit$Amount, GermanCredit$Class, summary)
+
+# Quantiles for duration in two classes: Bad and Good
+by(GermanCredit$Duration, GermanCredit$Class, summary)
+```
+
+## Graphical summaries for pairs of variables.
+
+Moisaic plots showing relations between two variables:
+
+```{r, cache=TRUE}
+# Most single males paid the credit:
+singleMaleClassTable = table(GermanCredit$Class, GermanCredit$Personal.Male.Single)
+mosaicplot(singleMaleClassTable, main="Single males vs. Class", color = c("lightblue", "lightgreen"))
+
+durationClassTable = table(GermanCredit$Class, cut(GermanCredit$Duration, c(0, 9, 15, 24), c("Short", "Average", "Long")))
+mosaicplot(durationClassTable, main="Duration vs. Class", color = c("lightblue", "lightgreen"))
+
+amountClassTable = table(GermanCredit$Class, cut(GermanCredit$Amount, c(0, 5000, 10000, 20000), c("Small", "Average", "Big")))
+mosaicplot(amountClassTable, main="Credit amount vs. Class", color = c("lightblue", "lightgreen"))
+```
+
+Boxplots for continuous variables:
+
+```{r, cache=TRUE}
+# Distribution of amount in classes Good and Bad
+boxplot(GermanCredit$Amount ~ GermanCredit$Class, horizontal = TRUE)
+# Distribution of Duration in classes Good and Bad
+boxplot(GermanCredit$Duration ~ GermanCredit$Class, horizontal = TRUE)
+```
+
+Violin plot combining a boxplot and a kernel density plot:
+
+```{r, cache=TRUE}
+library(vioplot)
+par(mar=c(5,5,2,2))
+# Relation between Duration and Amount - the majority of credits over 5000 where for ~ 25-40 months
+vioplot(GermanCredit$Duration[GermanCredit$Amount < 5000],
+        GermanCredit$Duration[GermanCredit$Amount >= 5000])
+```
