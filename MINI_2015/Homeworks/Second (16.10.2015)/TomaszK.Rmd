@@ -1,0 +1,46 @@
+---
+title: "Homework 2"
+author: "Tomasz Kozicki"
+date: "15 paüdziernika 2015"
+output: html_document
+---
+
+#Building classifier
+
+```{r}
+library(caret)
+data(GermanCredit)
+
+indxTrain <- createDataPartition(y = GermanCredit$Class, p = 0.75)
+str(indxTrain)
+
+gcTrain <- GermanCredit[indxTrain$Resample1,]
+gcTest <- GermanCredit[-indxTrain$Resample1,]
+
+knnFit <- knn3(Class ~ ResidenceDuration+Age+NumberExistingCredits+NumberPeopleMaintenance+Duration, data = gcTrain, k=1)
+pred <- predict(knnFit, gcTest, type="class")
+
+tab <- table(true = gcTest$Class, predicted = pred)
+tab
+
+sum(diag(tab)) / sum(tab)
+```
+
+#Finding optimal k and calculating its performance
+
+```{r}
+tuneK <- 1:200
+performance <- sapply(tuneK, function(k) {
+  knnFit <- knn3(Class ~ ResidenceDuration+Age+NumberExistingCredits+NumberPeopleMaintenance+Duration, data = gcTrain, k=k)
+  tab <- table(true = gcTest$Class,
+          predict = predict(knnFit, gcTest, type="class"))
+  sum(diag(tab)) / sum(tab)
+}) 
+
+df <- data.frame(tuneK, performance)
+
+ggplot(df, aes(tuneK, performance)) +
+  geom_point() + 
+  geom_smooth(se=FALSE, span=0.1, size=2) +
+  theme_bw()
+```
