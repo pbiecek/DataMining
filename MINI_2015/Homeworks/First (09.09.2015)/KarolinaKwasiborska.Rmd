@@ -1,0 +1,177 @@
+---
+title: "Home work"
+author: "Karolina Kwasiborska"
+date: "2015-10-08"
+output: 
+  html_document:
+    toc: TRUE
+---
+# Exercise
+
+Use `knitr` to create a report with numerical and graphical summaries for GermanCredit.
+
+Summarize following variables: Duration, Amount, Class, Personal.Male.Single.
+
+
+# Loading data
+
+Loading data GermanCredit from package "caret"
+
+```{r}
+library(caret)
+data(GermanCredit)
+```
+
+# Summaries for one variable
+
+## Numerical summaries for one variable
+
+### Contingency tables:
+
+Discrete variables
+```{r}
+table(GermanCredit$Class)
+table(GermanCredit$Personal.Male.Single)
+```
+
+Continuous variables (divided into 4 intervals)
+```{r}
+table(cut(GermanCredit$Duration, 4))
+table(cut(GermanCredit$Amount, 4))
+```
+
+### Summary for continuous variables (5 quartiles and mean):
+```{r}
+summary(GermanCredit$Duration)
+summary(GermanCredit$Amount)
+```
+
+## Graphical summaries for one variable
+
+### Barplots:
+
+Visualization of continuous and discrete variables divided into categories
+
+```{r}
+table_class <- table(GermanCredit$Class)
+barplot(table_class)
+```
+
+Results: there are twice as much 'Good' credits as 'Bad' ones
+
+```{r}
+table_male <- table(GermanCredit$Personal.Male.Single)
+barplot(table_male)
+```
+
+Results: there are a little bit more male single people
+
+```{r}
+table_amount <- table(cut(GermanCredit$Amount, 6))
+par(mar=c(5,15,2,2))
+barplot(table_amount, horiz = TRUE, las=1)
+```
+
+Results: most of credits are small
+
+```{r}
+table_duration <- table(cut(GermanCredit$Duration, 6))
+par(mar=c(5,15,2,2))
+barplot(table_duration, horiz = TRUE, las=1)
+```
+
+Results: most of credits are taken up to 26 years
+
+### Histrograms:
+
+Visualisation of continuous variables arranged in ranges
+
+```{r}
+hist(GermanCredit$Duration, 20, col="blue")
+hist(GermanCredit$Amount, 100, col="grey")
+```
+
+Results: results are similar to the results of barplots but more precise
+
+### Boxplots:
+
+Visualization of quartiles, mean and outliers
+
+```{r}
+boxplot(GermanCredit$Amount, horizontal = TRUE)
+```
+
+Results: there are a lot of outliers
+
+```{r}
+boxplot(GermanCredit$Duration, horizontal = TRUE)
+```
+
+# Summaries for two variables
+
+## Numerical summaries for two variables
+
+### Proportion tables:
+
+Proportions of each variable in terms of 'Good' and 'Bad' credits
+```{r}
+tab <- table(GermanCredit$Class, GermanCredit$Personal.Male.Single)
+tab
+round(100*prop.table(tab, 1),1)
+
+tab <- table(GermanCredit$Class, cut(GermanCredit$Amount, 6))
+tab
+round(100*prop.table(tab, 1),1)
+
+tab <- table(GermanCredit$Class, cut(GermanCredit$Duration, 6))
+tab
+round(100*prop.table(tab, 1),1)
+
+```
+
+### Summaries for different sub-groups('Good' and 'Bad' credits):
+
+```{r}
+by(GermanCredit$Amount, GermanCredit$Class, summary)
+
+by(GermanCredit$Duration, GermanCredit$Class, summary)
+```
+
+## Graphical summaries for two variables
+
+### Mosaicplots:
+
+Visualization of relations between variables
+
+```{r}
+tab <- table(GermanCredit$Class, GermanCredit$Personal.Male.Single)
+tab
+mosaicplot(tab, las=2, main="Personal.Male.Single / Class", color = c("red", "blue"))
+
+tab <- table(GermanCredit$Class, cut(GermanCredit$Amount, 4))
+tab
+mosaicplot(tab, las=2, main="Amount / Class", color = c("red", "blue"))
+
+tab <- table(GermanCredit$Class, cut(GermanCredit$Duration, 4))
+tab
+mosaicplot(tab, las=2, main="Duration / Class", color = c("red", "blue"))
+
+```
+
+### Boxplots:
+
+Comparisons of boxplots in terms of 'Good' and 'Bad' credits
+
+```{r}
+boxplot(GermanCredit$Amount ~ GermanCredit$Class, horizontal = TRUE, las=1)
+boxplot(GermanCredit$Duration ~ GermanCredit$Class, horizontal = TRUE, las=1)
+```
+
+### Vioplot:
+
+```{r}
+library(vioplot)
+par(mar=c(5,5,2,2))
+vioplot(GermanCredit$Amount[GermanCredit$Class == "Good"],
+        GermanCredit$Amount[GermanCredit$Class == "Bad"])
+```

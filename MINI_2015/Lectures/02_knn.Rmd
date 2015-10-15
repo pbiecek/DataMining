@@ -103,6 +103,7 @@ What else can we do?
 Let's divide the dataset into two subsets: training and testing.
 
 ```{r}
+set.seed(1313)
 indxTrain <- createDataPartition(y = pancan$disease, p = 0.75)
 str(indxTrain)
 
@@ -118,8 +119,11 @@ pred <- predict(knnFit, pancanTest, type="class")
 
 tab <- table(true = pancanTest$disease, predicted = pred)
 tab
+tab2 <- prop.table(tab, 1)
+tab2
 
 sum(diag(tab)) / sum(tab)
+sum(diag(tab2)) / sum(tab2)
 ```
 
 # How to choose k?

@@ -57,6 +57,7 @@ Al least 50% of the team is required to be present during the project presentati
 
 1. Project - Classification
 
+https://github.com/pbiecek/DataMining/tree/master/MINI_2015/Project/Project%201
 
 2. Project - Clustering
 
