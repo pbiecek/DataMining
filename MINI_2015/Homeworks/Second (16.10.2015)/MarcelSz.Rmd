@@ -1,0 +1,92 @@
+---
+title: "Homework"
+author: "Marcel Sz"
+date: "2015-10-14"
+output: 
+  html_document:
+    toc: TRUE
+---
+#Homework description 
+Use `knitr` to create a report for kNN method based on `GermanCredit` dataset.
+Choose 5 variables and build classifier for them. The response variable is the 'Class'.
+
+Find optimal `k` and calculate performance for it.
+
+#Loading dataset and necessary library
+```{r}
+library(caret)
+data(GermanCredit)
+```
+#Training classifier
+```{r}
+knnFit <- knn3(Class ~ Duration+Amount+Age+ResidenceDuration+NumberExistingCredits, data = GermanCredit, k=40, prob=TRUE)
+knnFit
+```
+
+#Applying trained classifier (knnFit) to new data set
+```{r}
+pred <- predict(knnFit, data.frame(Amount = 1100, Duration = 24, NumberExistingCredits= 3, Age = 30, ResidenceDuration = 4))
+t(pred)
+par(mar=c(5,3,2,2))
+barplot(pred, las=2)
+
+# majority voting
+pred <- predict(knnFit, data.frame(Amount = 1100, Duration = 24, NumberExistingCredits= 3, Age = 30, ResidenceDuration = 4), type="class")
+```
+
+#Constructing contingency table for the predicted labels to check quality of the classifier
+
+```{r}
+knnFit <- knn3(Class ~ Duration+Amount+Age+ResidenceDuration+NumberExistingCredits, data = GermanCredit, k=40)
+pred <- predict(knnFit, GermanCredit, type="class")
+pred
+tab<-table(true = GermanCredit$Class, predicted = pred)
+tab
+
+sum(diag(tab)) / sum(tab)
+```
+
+#Dividing the dataset into two subsets: training and testing
+```{r}
+set.seed(1000)
+indxTrain <- createDataPartition(y = GermanCredit$Class, p = 0.75)
+str(indxTrain)
+
+GermanCreditTrain <- GermanCredit[indxTrain$Resample1,]
+GermanCreditTest <- GermanCredit[-indxTrain$Resample1,]
+```
+
+#Training classifier on the training dataset and testing it on the second dataset
+```{r}
+knnFit <- knn3(Class ~ Duration+Amount+Age+ CreditHistory.Delay+NumberExistingCredits, data = GermanCreditTrain, k=40, prob=TRUE)
+knnFit
+pred <- predict(knnFit, GermanCreditTest, type="class")
+
+tab <- table(true = GermanCreditTest$Class, predicted = pred)
+tab
+tab2 <- prop.table(tab, 1)
+tab2
+
+sum(diag(tab)) / sum(tab)
+sum(diag(tab2)) / sum(tab2)
+```
+
+#Choosing k and calculating performance
+
+```{r}
+tuneK <- 1:200
+
+performance <- sapply(tuneK, function(k) {
+  knnFit <- knn3(Class ~ Duration+Amount+Age+ResidenceDuration+NumberExistingCredits, data = GermanCreditTrain, k=k)
+  tab <- table(true = GermanCreditTest$Class,
+          predict = predict(knnFit, GermanCreditTest, type="class"))
+  sum(diag(tab)) / sum(tab)
+}) 
+
+df <- data.frame(tuneK, performance)
+
+ggplot(df, aes(tuneK, performance)) +
+  geom_point() + 
+  geom_smooth(se=FALSE, span=0.1, size=2) +
+  theme_bw()
+```
