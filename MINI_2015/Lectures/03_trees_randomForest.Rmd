@@ -37,6 +37,7 @@ ggplot(pima, aes(glucose, insulin, color=factor(test), shape=factor(test))) +
 And now for all variables.
 ```{r, warning=FALSE, message=FALSE, fig.width=10, fig.height=10}
 library(GGally)
+pima$test <- factor(pima$test)
 ggpairs(pima)
 ```
 
