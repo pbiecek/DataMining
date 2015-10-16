@@ -35,14 +35,14 @@ ggplot(pima, aes(glucose, insulin, color=factor(test), shape=factor(test))) +
 ```
 
 And now for all variables.
-```{r, warning=FALSE, message=FALSE}
+```{r, warning=FALSE, message=FALSE, fig.width=10, fig.height=10}
 library(GGally)
 ggpairs(pima)
 ```
 
 ## Origin of a car
 
-In order to compare results please use the `Cars93` dataset. It has many interesting variables about brands of cars. One can use it to identify US cars and non US cars.
+In order to compare results please use the `Cars93` dataset. It has many interesting variables about brands of cars. One can use it to identify cars from USA cars from other countries.
 
 ```{r, message=FALSE, warning=FALSE}
 library(party)
@@ -102,7 +102,7 @@ $$
 I_E(f) = - \sum_{i=1}^g f_i \log_2 (f_i)
 $$
 
-Where $f_i$ if the frequency of label $i$ while $g$ stands for number of groups / classes.
+Where $f_i$ if the frequency of label $i$ in a given node while $g$ stands for number of groups / classes.
 
 ## Predictions
 
@@ -116,7 +116,7 @@ There are many implementations in different packages. Here we are going to cover
 
 Use the `rpart` function to grow a tree. This function handles outcome variable of different classes, use `method="class"` for classification trees. 
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, fig.width=10, fig.height=10}
 library(rpart)
 
 rtree <- rpart(test ~ insulin+glucose, data = pima, method="class")
@@ -141,8 +141,9 @@ For `control` set the object created by `rpart.control`, that describes stopping
 * cp - complexity parameter (default 0.1)
 * maxdepth - maximum depth of a tree (default 30)
 
+A very large tree
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, fig.width=10, fig.height=10}
 tfit <- rpart(test ~ insulin+glucose, data = pima,
     parms=list(split = "gini"),
     control = rpart.control(cp=0))
@@ -331,7 +332,7 @@ head(predict(ffit, type="prob"))
 
 Classifiers that calculate scores / probabilities may be examined with the use of so called ROC. Let’s see an simple example for the trained random forest.
 
-```{r}
+```{r, fig.width=8, fig.height=8}
 prob <- predict(ffit, type="prob")[,2]
 
 library(ROCR)
