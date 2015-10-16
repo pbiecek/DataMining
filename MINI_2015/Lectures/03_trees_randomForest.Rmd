@@ -347,6 +347,7 @@ Download the dataset `adult` (find more about this dataset here: http://archive.
 Train a decision tree and a random forest. 
 Compare performance of both methods. 
 
+Take some time to find variables that are not used by anyone else (sumbissions with same set of variables will not be scored).
 
 ```{r}
 data = read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data",
