@@ -149,6 +149,14 @@ tfit <- rpart(test ~ insulin+glucose, data = pima,
     parms=list(split = "gini"),
     control = rpart.control(cp=0))
 tfit
+
+table(real = pima$test,
+      predicted = predict(tfit, data=pima, type = "class"))
+mean(pima$test ==
+       predict(tfit, data=pima, type = "class"))
+
+
+
 plot(tfit)
 text(tfit)
 ```
