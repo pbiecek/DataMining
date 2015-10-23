@@ -1,0 +1,52 @@
+---
+title: "Homework 3"
+author: "Tomasz K"
+date: "22 paüdziernika 2015"
+output: html_document
+---
+
+```{r}
+adult = read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data",
+        sep=",",header=F,col.names=c("age", "type_employer", "fnlwgt", "education", 
+                "education_num","marital", "occupation", "relationship", "race","sex",
+                "capital_gain", "capital_loss", "hr_per_week","country", "income"),
+        fill=FALSE,strip.white=T)
+head(adult,3)
+```
+
+```{r}
+library(rpart)
+
+tfit <- rpart(income ~ age + education_num + race + sex, data = adult,
+    parms=list(split = "information"), method="class",
+    control = rpart.control(cp=0.01))
+tfit
+plot(tfit)
+text(tfit)
+plotcp(tfit)
+printcp(tfit)
+summary(tfit)
+
+library(caret)
+
+set.seed(1313)
+indxTrain <- createDataPartition(y = adult$income, p = 0.75)
+str(indxTrain)
+
+adultTrain <- adult[indxTrain$Resample1,]
+adultTest <- adult[-indxTrain$Resample1,]
+
+table(real = adultTest$income,
+      predicted = predict(tfit, newdata = adultTest, type = "class"))
+mean(adultTest$income ==
+       predict(tfit, newdata = adultTest, type = "class"))
+```
+
+```{r}
+library(randomForest)
+
+ffit <- randomForest(income ~ age + education_num + race + sex, data=adult, importance = TRUE)
+print(ffit)
+importance(ffit)
+varImpPlot(ffit)
+```
