@@ -1,0 +1,114 @@
+---
+title: "Project 1 - Phase 1"
+author: "Marcel Sz, Tomasz K"
+date: "2015-10-14"
+output: 
+  html_document:
+    toc: TRUE
+---
+#Summary
+##Project description
+Build two classifiers and comparing their performances.
+
+
+#Classifiers
+
+Loading data and necessary libraries
+```{r}
+library(caret)
+australian <- read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/statlog/australian/australian.dat", quote="\"", comment.char="")
+head(australian)
+```
+
+##Knn classifier
+
+###Training classifier
+Transforming integer australian$V15 to factor.
+Response variable has to be factor. In our case australian$V15 is the response variable.
+```{r}
+australian$V15 <- factor(australian$V15)
+
+knnFit <- knn3(V15 ~ ., data = australian, k=40, prob=TRUE)
+knnFit
+```
+'Prob' is true - meaning that, the proportion of the votes for each class are returned as attribute prob.
+
+###Dividing the dataset into two subsets: training and testing
+```{r}
+set.seed(1000)
+indxTrain <- createDataPartition(y = australian$V15, p = 0.75)
+str(indxTrain)
+
+AustralianTrain <- australian[indxTrain$Resample1,]
+AustralianTest <- australian[-indxTrain$Resample1,]
+```
+
+```{r}
+knnFit <- knn3(V15 ~ ., data = AustralianTrain, k=40, prob=TRUE)
+knnFit
+pred <- predict(knnFit, AustralianTest,type="class")
+
+tab <- table(true = AustralianTest$V15, predicted = pred)
+tab
+tab2 <- prop.table(tab, 1)
+tab2
+
+sum(diag(tab)) / sum(tab)
+sum(diag(tab2)) / sum(tab2)
+```
+
+###Choosing k and calculating performance
+Performance can be determined for different ‘k’ parameter values. Taking into account resulting outcomes, one can select ‘k’, which maximizes measure of performance. In this case performance is accuracy.
+
+```{r}
+tuneK <- 1:200
+
+performance <- sapply(tuneK, function(k) {
+  knnFit <- knn3(V15 ~ ., data = AustralianTrain, k=k)
+  tab <- table(true = AustralianTest$V15,
+          predict = predict(knnFit, AustralianTest, type="class"))
+  sum(diag(tab)) / sum(tab)
+}) 
+
+df <- data.frame(tuneK, performance)
+
+ggplot(df, aes(tuneK, performance)) +
+  geom_point() + 
+  geom_smooth(se=FALSE, span=0.1, size=2) +
+  theme_bw()
+```
+
+Performance is the most optimal one for k=37.
+
+##Random forest
+
+Loading library
+```{r}
+library(randomForest)
+ffit <- randomForest(V15 ~ ., data=australian, importance = TRUE)
+print(ffit)
+```
+In our case importance of predictors is assessed.
+
+###Importance scores for variables.
+```{r}
+importance(ffit)
+```
+
+###Importance plot for variables.
+
+```{r,}
+varImpPlot(ffit)
+```
+
+###ROC Curves
+
+We will draw ROC curves to assess performance.
+```{r}
+prob <- predict(ffit, type="prob")[,2]
+library(ROCR)
+fit.pred = prediction(prob, australian$V15)
+fit.perf = performance(fit.pred,"tpr","fpr")
+plot(fit.perf)
+abline(a=0,b=1)
+```

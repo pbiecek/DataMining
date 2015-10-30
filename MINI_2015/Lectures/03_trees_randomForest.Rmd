@@ -37,6 +37,7 @@ ggplot(pima, aes(glucose, insulin, color=factor(test), shape=factor(test))) +
 And now for all variables.
 ```{r, warning=FALSE, message=FALSE, fig.width=10, fig.height=10}
 library(GGally)
+pima$test <- factor(pima$test)
 ggpairs(pima)
 ```
 
@@ -148,6 +149,14 @@ tfit <- rpart(test ~ insulin+glucose, data = pima,
     parms=list(split = "gini"),
     control = rpart.control(cp=0))
 tfit
+
+table(real = pima$test,
+      predicted = predict(tfit, data=pima, type = "class"))
+mean(pima$test ==
+       predict(tfit, data=pima, type = "class"))
+
+
+
 plot(tfit)
 text(tfit)
 ```
