@@ -103,7 +103,7 @@ For both of them it is better to supply categorical variables, so first we are g
 winesb <- wines
 
 winesb$quality <- factor(ifelse(wines$quality > 5, "good", "bad")) 
-table(wines$qualityb)
+table(wines$quality)
 
 for (i in 1:11) {
   winesb[,i] <- cut(winesb[,i], 3)
@@ -113,7 +113,7 @@ for (i in 1:11) {
 
 Let's start with `naiveBayes`.
 
-```{r}
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
 library(e1071)
 
 nbc <- naiveBayes(quality~., data=winesb)
@@ -130,7 +130,7 @@ mean(winesb$quality == pred)
 The advantage of `NaiveBayes` is that it can handle continuous variables as well.
 Let's train it on continuous variables.
 
-```{r}
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
 library(klaR)
 
 nbc <- NaiveBayes(winesb$quality~.-quality, data=wines, usekernel=TRUE)
@@ -152,14 +152,13 @@ We have already discussed the train/test approach. Let us define two more approa
 
 You will find more examples here: http://machinelearningmastery.com/how-to-estimate-model-accuracy-in-r-using-the-caret-package/
 
-## bootstrap samples
-
 ## k-fold cross validation
 
 Let's divide the whole dataset into k-subsets. And then for each subset let's train the classifier on all remaining subsets and test it on the selected one.
 
-```{r}
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
 library(caret)
+library(e1071)
 
 folds <- createFolds(winesb$quality, k = 10)
 
@@ -187,7 +186,7 @@ predictions <- predict(model, winesb)
 confusionMatrix(predictions, winesb$quality)
 ```
 
-Not that you may increase the number of classes to the sample size and this leads to one-leave-out validation. See `method="LOOCV"` for more details.
+Note that you may increase the number of classes to the sample size and this leads to one-leave-out validation. See `method="LOOCV"` for more details.
 
 ## Bootstrap
 
@@ -209,7 +208,7 @@ confusionMatrix(predictions, winesb$quality)
 
 NB assumes independence, so sometimes it may be a good idea to remove highly correlated columns.
 
-```{r}
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
 library(corrplot)
 correlationMatrix <- cor(wines[, 1:11])
 highlyCorrelated <- findCorrelation(correlationMatrix, cutoff = 0.6)
@@ -218,9 +217,9 @@ corrplot(correlationMatrix, method = 'number', tl.cex = 0.5)
 
 Feature importance
 
-```{r}
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
 model <- train(quality~., data=winesb, trControl=train_control, method="nb")
-varImp(model, sacle=TRUE)
+varImp(model, scale=TRUE)
 plot(varImp(model))
 ```
 
@@ -235,7 +234,7 @@ See here: http://jackaljack.github.io/wine-classification-with-R/ for interestin
 Calculate performance for two classes (<>5), three classes (<>4<>6<>) and more classes. 
 Plot the performance as a function on number of classes.
 
-5. Calculate performance (forest/knn/naiveBayes) for new dataset `letters`. Not that we have more than two classes here. 
+5. Calculate performance (forest/knn/naiveBayes) for new dataset `letters`. Note that we have more than two classes here. 
 
 
 # The Homework
