@@ -1,0 +1,110 @@
+---
+title: "Homework 5"
+author: "Neven Pičuljan"
+date: "November 5, 2015"
+output: html_document
+---
+# The Homework
+
+1. By default the `cut` function creates intervals of equal length. But then sometimes one of these intervals contains majority of points.
+
+Let's check what will happen if we divide each variable into three classes but with equal number of observations. Will it improve classification or not?
+
+Compare performance (based on the wine dataset) for two Naive Bayes classifier based on data after categorisation. In one classifier create categories of equal length in the second one of the equal size.
+
+2. Check how the performance of the classifier will change if we will use not all features but only 3 best ones.
+How to choose the best features? Try randomForest for feature importance or boxplots or density plots.
+
+#Solution
+
+```{r, eval=FALSE}
+wines <- read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv", sep=";", header=TRUE)
+
+table(wines$quality)
+
+# categories of equal length
+winesb_eq_length <- wines
+
+winesb_eq_length$quality <- factor(ifelse(wines$quality > 5, "good", "bad")) 
+
+for (i in 1:11) {
+  winesb_eq_length[,i] <- cut(winesb_eq_length[,i], 3)
+}
+
+
+# categories of equal size
+winesb_eq_size <- wines
+
+winesb_eq_size$quality <- factor(ifelse(wines$quality > 5, "good", "bad")) 
+
+for (i in 1:11) {
+  winesb_eq_size[,i] <- cut(winesb_eq_size[,i], quantile(wines[,i], c(0, 0.3333, 0.6666, 1)))
+}
+
+
+library(caret)
+library(e1071)
+
+
+# categories of equal length performance
+folds <- createFolds(winesb_eq_length$quality, k = 10)
+
+perf <- sapply(folds, function(fold) {
+  nbc <- naiveBayes(quality~., data=winesb_eq_length[-fold,])
+  pred <- predict(nbc, winesb_eq_length[fold,])
+  mean(winesb_eq_length$quality[fold] == pred)
+})
+
+mean(perf)
+
+
+# categories of equal size performance
+folds <- createFolds(winesb_eq_size$quality, k = 10)
+
+perf <- sapply(folds, function(fold) {
+  nbc <- naiveBayes(quality~., data=winesb_eq_size[-fold,])
+  pred <- predict(nbc, winesb_eq_size[fold,])
+  mean(winesb_eq_size$quality[fold] == pred)
+})
+
+mean(perf)
+
+
+train_control <- trainControl(method="cv", number=10)
+
+
+# categories of equal length - feature importance
+model <- train(quality~., data=winesb_eq_length, trControl=train_control, method="cforest")
+varImp(model, scale=TRUE)
+plot(varImp(model))
+
+
+# categories of equal size - feature importance
+model <- train(quality~., data=winesb_eq_size, trControl=train_control, method="cforest")
+varImp(model, scale=TRUE)
+plot(varImp(model))
+
+
+# categories of equal length (only 3 most important features) performance
+folds <- createFolds(winesb_eq_length$quality, k = 10)
+
+perf <- sapply(folds, function(fold) {
+  nbc <- naiveBayes(quality~alcohol+volatile.acidity+total.sulfur.dioxide, data=winesb_eq_length[-fold,])
+  pred <- predict(nbc, winesb_eq_length[fold,])
+  mean(winesb_eq_length$quality[fold] == pred)
+})
+
+mean(perf)
+
+
+# categories of equal size (only 3 most important features) performance
+folds <- createFolds(winesb_eq_size$quality, k = 10)
+
+perf <- sapply(folds, function(fold) {
+  nbc <- naiveBayes(quality~alcohol+sulphates+volatile.acidity, data=winesb_eq_size[-fold,])
+  pred <- predict(nbc, winesb_eq_size[fold,])
+  mean(winesb_eq_size$quality[fold] == pred)
+})
+
+mean(perf)
+```
