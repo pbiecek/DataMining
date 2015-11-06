@@ -1,0 +1,130 @@
+---
+title: "Homework_5"
+author: "Ziad Al Bkhetan"
+date: "October 30, 2015"
+output: 
+  html_document:
+    toc : TRUE
+---
+
+
+# Data Loading
+
+```{r}
+wines_def <- read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv", sep=";", header=TRUE)
+head(wines_def)
+
+```
+
+# Data Preparation
+in this phase we will create categorical variables for the continuse variables in two different ways:
+<br> * subranges with the same length, but maybe each subrange has differnt number of samples, using cut function
+<br> * subranges with the same number of samples inside each of them, but they have different lengths, using cut2  function and parameter g = 3
+<br> * in both cases we will have three subranges for variables values.
+<br> * for the target attribute we will create categorical variable with two different values good and bad, so we have binary classification problem.
+ 
+```{r}
+library(grid)
+library(survival)
+library(e1071)
+library(caret)
+library(randomForest)
+library(MASS)
+library(klaR)
+library(Hmisc)
+library (gplots)
+library(rpart)
+
+wines <- wines_def
+wines$quality <- factor(ifelse(wines_def$quality > 5, "good", "bad")) 
+wines_equal_length <- wines
+for (i in 1:11) {
+  wines_equal_length[,i] <- cut(wines[,i], 3)
+}
+summary(wines_equal_length)
+wines_equal_size <- wines
+for (i in 1:11) {
+  wines_equal_size[,i]<- cut2(wines[,i], g=3)
+}
+summary(wines_equal_size)
+
+indxTrain <- createDataPartition(y = wines_equal_size$quality, p = 0.8)
+wines_equal_sizeTrain<- wines_equal_size[indxTrain$Resample1,]
+wines_equal_sizeTest <- wines_equal_size[-indxTrain$Resample1,]
+
+indxTrain <- createDataPartition(y = wines_equal_length$quality, p = 0.8)
+wines_equal_lengthTrain<- wines_equal_length[indxTrain$Resample1,]
+wines_equal_lengthTest <- wines_equal_length[-indxTrain$Resample1,]
+
+```
+
+# Naive Bayes Classifier for ranges with the same length
+we will applay naive bayse for dataset with equal subranges length, using a model containing all attributes.
+
+```{r}
+nbc <- naiveBayes(quality~., data=wines_equal_lengthTrain)
+pred_same_length <- predict(nbc, wines_equal_lengthTest)
+confusionMatrix(pred_same_length, wines_equal_lengthTest$quality)
+
+```
+
+# Naive Bayes Classifier for ranges with the same size
+we will applay naive bayse for dataset with same number of samples in each subrange, using a model containing all attributes.
+
+```{r}
+nbc <- naiveBayes(quality~., data=wines_equal_sizeTrain)
+pred_same_size <- predict(nbc, wines_equal_sizeTest)
+confusionMatrix(pred_same_size, wines_equal_sizeTest$quality)
+
+```
+
+# important Variables using random forests
+I tried to find the important variables in the dataset for the original dataset, and the two datasets after converting the attributes to categorical attributes, and I noticed that the importance of some variables were changed when their values changed from continuse to categorical. you can check the results to see 
+```{r}
+# Default Dataset
+originalDataset <- randomForest(quality~. ,data=wines, importance=TRUE)
+varImpPlot(originalDataset)
+
+# Equal Size Dataset
+equal_size_dataset <- randomForest(quality~. ,data=wines_equal_size, importance=TRUE)
+varImpPlot(equal_size_dataset)
+
+# Equal length Dataset
+equal_length_dataset <- randomForest(quality~. ,data=wines_equal_length, importance=TRUE)
+varImpPlot(equal_length_dataset)
+
+```
+
+# Classifier with the first three important variables
+apply Naive bayes using a model with the first three most important variables for both datasers: equal length and equal size.  
+```{r}
+nbc <- naiveBayes(quality~alcohol+sulphates+total.sulfur.dioxide, data=wines_equal_lengthTrain)
+pred_same_length <- predict(nbc, wines_equal_lengthTest)
+confusionMatrix(pred_same_length, wines_equal_lengthTest$quality)
+
+
+nbc <- naiveBayes(quality~alcohol+sulphates+total.sulfur.dioxide, data=wines_equal_sizeTrain)
+pred_same_size <- predict(nbc, wines_equal_sizeTest)
+confusionMatrix(pred_same_size, wines_equal_sizeTest$quality)
+
+```
+
+# Classifier with the first three important variables for each dataset:
+in the dataset "wines_equal_length" the important variables are : alcohol, sulphates, volatile.acidity, so we used them in the model
+<br>
+in the dataset "wines_equal_size" the important variables are : alcohol, volatile.acidity, total.sulfur.dioxide
+
+```{r}
+nbc <- naiveBayes(quality~alcohol+sulphates+volatile.acidity, data=wines_equal_lengthTrain)
+pred_same_length <- predict(nbc, wines_equal_lengthTest)
+confusionMatrix(pred_same_length, wines_equal_lengthTest$quality)
+
+
+nbc <- naiveBayes(quality~alcohol+volatile.acidity+total.sulfur.dioxide, data=wines_equal_sizeTrain)
+pred_same_size <- predict(nbc, wines_equal_sizeTest)
+confusionMatrix(pred_same_size, wines_equal_sizeTest$quality)
+
+```
+
+# Remarks
+in all cases I noticed that the classifier is better when we use the categorical attributes with the same size ranges  
