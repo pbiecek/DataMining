@@ -1,0 +1,150 @@
+---
+title: "Homework_3"
+author: "Ziad Al Bkhetan"
+date: "October 22, 2015"
+output: 
+  html_document:
+    toc : TRUE
+---
+
+
+# Data Loading
+
+```{r}
+adult_data = read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data",
+                  sep=",",header=F,col.names=c("age", "type_employer", "fnlwgt", "education", 
+                                               "education_num","marital", "occupation", "relationship", "race","sex",
+                                               "capital_gain", "capital_loss", "hr_per_week","country", "income"),
+                  fill=FALSE,strip.white=T)
+head(adult_data)
+
+```
+
+# Data Partitioning
+in this phase we will divide the dataset into two different sets the first one for classifier training while the second is for the classifier testing.
+<br> * partion percentage is 75:25
+<br> * target attribute to maintain good distribution "income"
+ 
+```{r}
+library(lattice)
+library(ggplot2)
+library(caret)
+indxTrainSet <- createDataPartition(y = adult_data$income, p=0.75)
+str(indxTrainSet)
+
+adultDataTrain <- adult_data[indxTrainSet$Resample1,]
+adultDataTest <- adult_data[-indxTrainSet$Resample1,]
+
+```
+
+# Random Forests Tree Training
+
+
+```{r}
+library (randomForest) 
+rfTree <- randomForest(income ~ . ,na.action = na.omit, data=adultDataTrain, importance=TRUE)
+rfTree 
+varImpPlot(rfTree)
+
+
+```
+<br>I will use four variables the first three important variable and fnlwgt variable "random selection" to build the final classifier
+
+```{r}
+rfTree <- randomForest(income ~ capital_gain+capital_loss+marital+fnlwgt ,na.action = na.omit, data=adultDataTrain, importance=TRUE)
+rfTree 
+```
+
+# Random forest Test
+
+```{r}
+rfTab <-table(predicted = predict(rfTree, newdata=adultDataTest, type = "class") , real= adultDataTest$income)
+rfTab
+```
+
+# Results Random Forests Tree:
+
+```{r}
+mesTab <- matrix(c("TP", "FN", "FP", "TN"), ncol=2, nrow = 2, byrow = TRUE)
+colnames(mesTab) <- c("+", "-")
+rownames(mesTab) <- c("+", "-")
+mesTab
+```
+
+Accurcy : the percentage of the correct prediction . (TP + TN) / (TP + TN + FP + FN) 
+
+```{r}
+sum(diag(rfTab)) / sum(rfTab)
+```
+
+Precision : The percentage of positive predictions that are correct (Positive = <=50k, negative = >50k). TP / (TP + FP)
+```{r}
+rfTab[[1]] / (rfTab[[1]] + rfTab[[2]])
+
+```
+Sensitivity : The percentage of positive labeled instances that were predicted as positive. TP / (TP + FN)
+```{r}
+rfTab[[1]] / (rfTab[[1]] + rfTab[[3]])
+
+```
+Specificity : The percentage of negative labeled instances that were predicted as negative. TN / (TN + FP)
+```{r}
+rfTab[[4]] / (rfTab[[4]] + rfTab[[2]])
+
+```
+
+
+# Desicion Tree Training
+ I will use the same model as in the random forest tree to compare these classifiers based on the same mode
+
+```{r}
+library(rpart)
+dtree <- rpart(income ~ capital_gain+capital_loss+marital+fnlwgt, data = adultDataTrain, parms=list(split = "gini"), method="class")
+dtree
+
+```
+
+
+# Decision  Tree Test
+
+```{r}
+dtab <- table(predicted = predict(dtree, newdata=adultDataTest, type = "class") , real= adultDataTest$income)
+
+dtab
+
+
+```
+
+# Results Decision Tree:
+
+```{r}
+mesTab <- matrix(c("TP", "FN", "FP", "TN"), ncol=2, nrow = 2, byrow = TRUE)
+colnames(mesTab) <- c("+", "-")
+rownames(mesTab) <- c("+", "-")
+mesTab
+```
+
+Accurcy : the percentage of the correct prediction . (TP + TN) / (TP + TN + FP + FN) 
+
+```{r}
+sum(diag(dtab)) / sum(dtab)
+```
+
+Precision : The percentage of positive predictions that are correct (Positive = <=50k, negative = >50k). TP / (TP + FP)
+```{r}
+dtab[[1]] / (dtab[[1]] + dtab[[2]])
+
+```
+Sensitivity : The percentage of positive labeled instances that were predicted as positive. TP / (TP + FN)
+```{r}
+dtab[[1]] / (dtab[[1]] + dtab[[3]])
+
+```
+Specificity : The percentage of negative labeled instances that were predicted as negative. TN / (TN + FP)
+```{r}
+dtab[[4]] / (dtab[[4]] + dtab[[2]])
+
+```
+
+# Remarks
+I have noticed that both classifiers have the same accurecy approximatly, but it is related to the dataset it self, and usually the random forests classifier gives better accurecy  
