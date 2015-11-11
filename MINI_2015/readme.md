@@ -36,10 +36,10 @@ Meetings
 * 23 X - [Part 1 - Project 1]
 * 30 X - 
 * 6 XI - [Part 2 - Project 1]
-* 13 XI - 
-* 20 XI - [Part 3 - Project 1]
+* 13 XI - cancelled
+* 20 XI - 
+* 27 XI - [Part 3 - Project 1]
 
-* 27 XI - 
 * 4 XII - 
 * 11 XII - [Part 1 - Project 2]
 * 18 XII - 
