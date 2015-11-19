@@ -1,0 +1,121 @@
+---
+title: "Homework 4"
+author: "Ziad Al Bkhetan"
+date: "October 29, 2015"
+output: 
+  html_document:
+    toc : TRUE
+---
+
+
+# Data Loading
+
+```{r}
+adult_data = read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data",
+        sep=",",header=F,col.names=c("age", "type_employer", "fnlwgt", "education", 
+                "education_num","marital", "occupation", "relationship", "race","sex",
+                "capital_gain", "capital_loss", "hr_per_week","country", "income"),
+        fill=FALSE,strip.white=T)
+head(adult_data,3)
+```
+
+# Data Partitioning
+in this phase we will divide the dataset into two different sets the first one for classifier training while the second is for the classifier testing.
+<br> * partion percentage is 75:25
+<br> * target attribute to maintain good distribution "income"
+ 
+```{r}
+library(lattice)
+library(ggplot2)
+library(caret)
+indxTrainSet <- createDataPartition(y = adult_data$income, p=0.75)
+str(indxTrainSet)
+
+adultDataTrain <- adult_data[indxTrainSet$Resample1,]
+adultDataTest <- adult_data[-indxTrainSet$Resample1,]
+
+```
+
+# Libraries loading
+
+```{r}
+library(randomForest)
+library(caret)
+library (gplots)
+library(ROCR)
+
+```
+
+# ROC Curve for Random Forersts and K Nearest Neighbors
+
+ROC curves for Random forests are in blue 
+<br>
+ROC curves for K nearest Neighbors are in red
+
+k, m from 1 to 5, you can change them in the script, just change max_counter variable
+
+```{r}
+max_counter = 5
+rf <-c()
+knn <-c()
+for(i in 1:max_counter) 
+{
+  
+  rfTree <- randomForest(income ~ capital_gain+capital_loss+marital+fnlwgt ,na.action = na.omit, data=adultDataTrain, importance=TRUE, mtry=i)
+  rfTab <- predict(rfTree, newdata=adultDataTest, type="prob")[,2]
+  
+  fit.pred <- prediction(rfTab, adultDataTest$income)
+  fit.perf <- performance(fit.pred,"tpr","fpr")
+  if (i < 2)
+  {
+    plot(fit.perf, col="blue3")  
+  }else
+  {
+    plot(fit.perf, col="blue3", add=TRUE)
+  }
+  
+  fit.perf <- performance(fit.pred,"auc")
+  rf<- c(rf, fit.perf@y.values[[1]])
+  
+  # KNN Classifier
+  knnc <- knn3(income ~ capital_gain+capital_loss+marital+fnlwgt ,   data=adultDataTrain, k=i)
+  kntab <- predict(knnc, newdata = adultDataTest, type="prob")[,2]
+  
+  fit.pred <- prediction(kntab, adultDataTest$income)
+  fit.perf <- performance(fit.pred,"tpr","fpr")
+  plot(fit.perf, col="red3", add=TRUE)
+  
+  fit.perf <- performance(fit.pred,"auc")
+  knn<- c(knn, fit.perf@y.values[[1]])
+  
+
+  
+}
+
+abline(a=0,b=1)
+
+
+```
+
+# AUC values
+
+for Random forests:
+```{r}
+for (j in 1:max_counter)
+{
+  cat("m = " , j, "  auc = ", rf[j], "\n")
+  
+}
+
+```
+
+
+for K Nearest Neighbors :
+```{r}
+for (j in 1:max_counter)
+{
+  cat("k = " , j, "  auc = ", knn[j], "\n")
+}
+
+```
+
