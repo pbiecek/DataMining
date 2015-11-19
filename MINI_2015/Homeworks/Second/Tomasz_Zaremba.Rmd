@@ -1,0 +1,56 @@
+---
+title: "Homework #2"
+author: "Tomasz Zaremba"
+date: "15.10.2015"
+output: 
+  html_document:
+    toc: TRUE
+---
+
+# Home work
+
+Use `knitr` to create a report for kNN method based on `GermanCredit` dataset.
+
+Choose 5 variables and build classifier for them. The response variable is the 'Class'.
+
+Find optimal `k` and calculate performance for it.
+
+```{r}
+
+# Load the set
+library(caret)
+data(GermanCredit)
+# head(GermanCredit)
+```
+
+Divide the set into learning and testing ones
+
+```{r}
+index = createDataPartition(y = GermanCredit$Class, p = 0.75)
+creditTrain = GermanCredit[index$Resample1,]
+creditTest = GermanCredit[-index$Resample1,] # Take everything except these indexes
+```
+
+Use k-means and see Which k is best
+
+```{r}
+tuneK = 1:150
+performance = sapply(tuneK, function(k) {
+  knnFit = knn3(Class ~ CreditHistory.Critical + Amount + Age + NumberExistingCredits + CreditHistory.Delay, data =     creditTrain, k=k)
+  tab = table(true = creditTest$Class, predict = predict(knnFit, creditTest, type="class"))
+  # Table ilustrating the performance
+  prop.table(tab)
+  # Accuracy from interval [0, 1]
+  sum(diag(tab)) / sum(tab)
+})
+
+df = data.frame(tuneK, performance)
+ggplot(df, aes(tuneK, performance)) + geom_point() + geom_smooth(se=FALSE, span=0.1, size=2) + theme_bw()
+
+# Best k:
+best = which.max(performance)
+best
+# Accuracy for best k:
+performance[best]
+
+```

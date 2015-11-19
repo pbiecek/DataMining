@@ -1,0 +1,49 @@
+---
+title: "Home work 2"
+author: "Karolina Kwasiborska"
+date: "2015-10-15"
+output: 
+  html_document:
+    toc: TRUE
+---
+
+# Home work
+
+Use `knitr` to create a report for kNN method based on `GermanCredit` dataset.
+
+Choose 5 variables and build classifier for them. The response variable is the 'Class'.
+
+Find optimal `k` and calculate performance for it.
+
+#Solution
+
+```{r, warning=FALSE, message=FALSE}
+library(caret)
+data(GermanCredit)
+
+# Testing and Training sets
+set.seed(3214)
+indxTrain <- createDataPartition(y = GermanCredit$Class, p = 0.75)
+str(indxTrain)
+
+trainSet <- GermanCredit[indxTrain$Resample1,]
+testSet <- GermanCredit[-indxTrain$Resample1,]
+
+#  Find optimal k
+tuneK <- 1:200
+performance <- sapply(tuneK, function(k) {
+  knnFit <- knn3(Class ~ Age+Amount+Duration+NumberExistingCredits+CreditHistory.PaidDuly, data = trainSet, k=k)
+  tab <- table(true = testSet$Class,
+          predict = predict(knnFit, testSet, type="class"))
+  tab2 <- prop.table(tab, 1)
+  sum(diag(tab)) / sum(tab)
+}) 
+
+df <- data.frame(tuneK, performance)
+
+ggplot(df, aes(tuneK, performance)) +
+  geom_point() + 
+  geom_smooth(se=FALSE, span=0.1, size=2) +
+  theme_bw()
+
+```
