@@ -50,6 +50,8 @@ mat <- sapply(c( 'LogitBoost', 'xgbTree', 'rf', 'svmRadial'), function (met) {
   confusionMatrix(lettersTest$V1, predict(modelFit, lettersTest))$overall
 })
 
+
+
 round(mat*100,2)
 ```
 
@@ -86,6 +88,15 @@ data %>%
             count = n(),
             day = unique(Weekday)[1]) %>%
   head()
+
+data1000 <- head(data,1000)
+library(tidyr)
+data1000 %>% 
+  group_by(TripType, VisitNumber, DepartmentDescription) %>% 
+  summarise(count = n()) %>%
+  spread(DepartmentDescription, count, fill=0)
+
+
 ```
 
 ## The key is the feature engeneriing
@@ -136,6 +147,19 @@ Iteration 2 (60 minutes):
 * Validate which classes are easy to guess and which are hard
 * Compare performance
 
+
+```{r}
+library(randomForest)
+rf <- randomForest(V1~., data=lettersTrain)
+scores <- predict(rf, lettersTest, type = "prob")
+
+myScores <- sapply(1:nrow(lettersTest), function(i){
+  scores[i, lettersTest$V1[i]]
+})
+
+mean(-log(pmax(myScores,0.05)))
+
+```
 
 # The Homework
 
