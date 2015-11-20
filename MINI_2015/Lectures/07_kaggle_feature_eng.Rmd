@@ -27,7 +27,7 @@ So today, we are going to see how to apply some new methods and then we will foc
 
 So, let's read the letters dataset again, and let's test different classifiers there.
 
-```{r, cache=TRUE}
+```{r, cache=TRUE, message=FALSE, warning=FALSE}
 library(caret)
 letters <- read.table("letter-recognition.data.txt", sep=",")[1:2000,]
 head(letters)
@@ -43,13 +43,12 @@ One approach is to read what other people are using on websites like kaggle. Try
 
 Here we are going to compare random forests, SVM, eXtreme Gradient Boosting (the new sheriff in town) or Boosted Logistic Regression.
 
-```{r, cache=TRUE}
+```{r, cache=TRUE, message=FALSE, warning=FALSE}
 library(caret)
 mat <- sapply(c( 'LogitBoost', 'xgbTree', 'rf', 'svmRadial'), function (met) {
   modelFit<- train(V1~., method=met, data=lettersTrain)
   confusionMatrix(lettersTest$V1, predict(modelFit, lettersTest))$overall
 })
-
 
 
 round(mat*100,2)
@@ -76,26 +75,11 @@ Let's build a classifier for this data
 
 ## Load the data
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 data <- read.table("train.csv", sep=",", head=T)
 
 library(dplyr)
 data %>% filter(VisitNumber == 7)
-
-data %>% 
-  group_by(VisitNumber) %>%
-  summarise(TripType = head(TripType,1),
-            count = n(),
-            day = unique(Weekday)[1]) %>%
-  head()
-
-data1000 <- head(data,1000)
-library(tidyr)
-data1000 %>% 
-  group_by(TripType, VisitNumber, DepartmentDescription) %>% 
-  summarise(count = n()) %>%
-  spread(DepartmentDescription, count, fill=0)
-
 
 ```
 
@@ -147,8 +131,25 @@ Iteration 2 (60 minutes):
 * Validate which classes are easy to guess and which are hard
 * Compare performance
 
+# During classess
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
+
+data %>% 
+  group_by(VisitNumber) %>%
+  summarise(TripType = head(TripType,1),
+            count = n(),
+            day = unique(Weekday)[1]) %>%
+  head()
+
+data1000 <- head(data,1000)
+library(tidyr)
+data1000 %>% 
+  group_by(TripType, VisitNumber, DepartmentDescription) %>% 
+  summarise(count = n()) %>%
+  spread(DepartmentDescription, count, fill=0)
+
+
 library(randomForest)
 rf <- randomForest(V1~., data=lettersTrain)
 scores <- predict(rf, lettersTest, type = "prob")
