@@ -79,6 +79,13 @@ data <- read.table("train.csv", sep=",", head=T)
 
 library(dplyr)
 data %>% filter(VisitNumber == 7)
+
+data %>% 
+  group_by(VisitNumber) %>%
+  summarise(TripType = head(TripType,1),
+            count = n(),
+            day = unique(Weekday)[1]) %>%
+  head()
 ```
 
 ## The key is the feature engeneriing
