@@ -1,0 +1,59 @@
+---
+title: "6th homework"
+author: "Margareta Kusan"
+date: "November 5, 2015"
+output: 
+  html_document:
+    toc : TRUE
+---
+
+Data preprocessing and library loading.
+
+```
+wines <- read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv", sep=";", header=TRUE)
+
+winesb <- wines
+
+winesb$quality <- factor(ifelse(wines$quality > 5, "good", "bad")) 
+
+table(wines$quality)
+
+library(e1071)
+library(caret)
+
+```
+#LDA with k-fold cross validation
+
+```
+folds <- createFolds(winesb$quality, k = 10)
+
+perf <- sapply(folds, function(fold) {
+  ldaw <- lda(quality~., data=winesb[-fold,])
+  pred <- predict(ldaw, winesb[fold,])
+  mean(winesb$quality[fold] == pred)
+})
+
+train_control <- trainControl(method="cv", number=10)
+model <- train(quality~., data=winesb, trControl=train_control, method="lda")
+predictions <- predict(model, winesb)
+confusionMatrix(predictions, winesb$quality)
+
+```
+
+#QDA with k-fold cross validation
+
+```
+folds <- createFolds(winesb$quality, k = 10)
+
+perf <- sapply(folds, function(fold) {
+  qdaw <- qda(quality~., data=winesb[-fold,])
+  pred <- predict(qdaw, winesb[fold,])
+  mean(winesb$quality[fold] == pred)
+})
+
+train_control <- trainControl(method="cv", number=10)
+model <- train(quality~., data=winesb, trControl=train_control, method="qda")
+predictions <- predict(model, winesb)
+confusionMatrix(predictions, winesb$quality)
+
+```
