@@ -1,0 +1,99 @@
+---
+title: "Homework_6"
+author: "Ziad Al Bkhetan"
+date: "November 12, 2015"
+output: 
+  html_document:
+    toc : TRUE
+---
+
+
+# Data Loading
+
+```{r}
+wines_def <- read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv", sep=";", header=TRUE)
+head(wines_def)
+
+```
+
+# Data Preparation
+For the target attribute we will create categorical variable with two different values good and bad, so we have binary classification problem.
+<br>    I have categorised the target variable "quality" to two different values:
+<br>        1: "good" if the original value of this attribute is bigger than 5
+<br>        2: "bad"  if the original value of this attribute is less than or equal 5
+
+and also I will divide the dataset into two different sets the first one for classifier training while the second is for the classifier testing.
+<br>* partion percentage is 80:20
+<br>* target attribute to maintain good distribution "quality"
+
+ 
+```{r}
+library(caret)
+library(randomForest)
+library(MASS)
+
+wines <- wines_def
+wines$quality <- factor(ifelse(wines_def$quality > 5, "good", "bad")) 
+summary(wines)
+
+indxTrain <- createDataPartition(y = wines$quality, p = 0.8)
+winesDataSetTrain<- wines[indxTrain$Resample1,]
+winesDataSetTest <- wines[-indxTrain$Resample1,]
+
+```
+
+# Important Variables Using Random Forests
+In this step I will find the important variables to build classifier model using thiese variables.
+<br>from the  plots we can see that the first four most important variables are : alcohol + sulphates + total.sulfur.dioxide + volatile.acidity, so the final model be :
+quality ~ alcohol + sulphates + total.sulfur.dioxide + volatile.acidity
+
+```{r}
+rf<- randomForest(quality~., data = wines, importance=TRUE)
+importance(rf)
+varImpPlot(rf)
+```
+
+
+# Comparing LDA/QDA Using K-Folds Cross Validation
+
+We will applay LDA and QDA using two different models to compare between them, the first model contains the first four important variables quality ~ alcohol + sulphates + total.sulfur.dioxide + volatile.acidity, while the second contains all variables
+<br>in both cases we will train on the training dataset and test on the testing dataset then compare between these classifiers.
+```{r}
+#First Model
+train_control <- trainControl(method="cv", number=10)
+mat1 <- sapply(c('lda', 'qda'), function (met) {
+  modelFit<- train(quality~alcohol + sulphates + total.sulfur.dioxide + volatile.acidity, method=met,preProcess=c('scale', 'center'), data=winesDataSetTrain, trControl=train_control)
+  confusionMatrix(winesDataSetTest$quality, predict(modelFit, winesDataSetTest))$overall
+})
+
+# second Model
+train_control <- trainControl(method="cv", number=10)
+mat2 <- sapply(c('lda', 'qda'), function (met) {
+  modelFit<- train(quality~., method=met,preProcess=c('scale', 'center'), data=winesDataSetTrain, trControl=train_control)
+  confusionMatrix(winesDataSetTest$quality, predict(modelFit, winesDataSetTest))$overall
+})
+
+```
+
+
+
+# Results
+## Comparision using the First Model
+these are the result using the classifier with this model:
+quality~alcohol + sulphates + total.sulfur.dioxide + volatile.acidity
+```{r}
+round(mat1*100,2)
+
+```
+
+## Comparision Using The Second Model
+Here are the results using the model with all attributes
+quality~.
+```{r}
+round(mat2*100,2)
+
+```
+
+# Remarks
+We can see the difference between these classifiers which change when we use different models.
+<br>it is hard to detrmine which one is better because I got different resaults when I tried the test many times, but in general the diferences were slight and the cloassifiers are approximatly similar.
