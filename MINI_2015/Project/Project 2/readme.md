@@ -10,8 +10,17 @@ Show the flow of visitors across different stations.
 
 Download the dataset from  https://www.dropbox.com/s/okhx69t68k839mw/logs.rda?dl=0
 
-```
+Smaller dataset https://www.dropbox.com/s/shh2oo35gjxixhs/smalllogs.rda?dl=0
 
+```
+> head(logs)
+                 date station visitor     type                               scene
+1 2012-01-01 09:00:52  cnk02a      -1 Entering <Scene:CustomSplash sceneId=Splash>
+2 2012-01-03 08:15:54  cnk02a      -1 Entering <Scene:CustomSplash sceneId=Splash>
+3 2012-01-03 09:31:22  cnk02a  795513  Leaving <Scene:CustomSplash sceneId=Splash>
+4 2012-01-03 09:31:22  cnk02a  795513 Entering       <Scene:Screen sceneId=Screen>
+5 2012-01-03 09:31:45  cnk02a  795513  Leaving       <Scene:Screen sceneId=Screen>
+6 2012-01-03 09:31:45  cnk02a  795513 Entering <Scene:CustomSplash sceneId=Splash>
 ```
 
 # The Goal
