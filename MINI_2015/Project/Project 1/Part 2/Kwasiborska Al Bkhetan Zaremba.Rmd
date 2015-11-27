@@ -239,10 +239,10 @@ bk = model$bestTune[[1]]
 ```
 
 
-# Naive Bays
+# Naive Bayes
 ## Data Preparation
-in this classifier we will split the values of each attribut into three different ranges each of them contain the same number of samples (equal size subranges)
-<br> we will use the function cu2 for splitiing, and factor function when the value either one or zero.
+in this classifier we will split the values of each attribute into three different ranges each of them contain the same number of samples (equal size subranges)
+<br> we will use the function cu2 for splitiing, and factor function when the value is either one or zero.
 ```{r}
 aust_equal_size <- originalaustralianDataSet
 for (i in c(2, 3, 4, 5, 6, 7, 10, 12, 13, 14)) {
@@ -378,6 +378,6 @@ bknn_auc
 ```
 ## Naive Bays 
 ```{r}
-kfknn_auc
-bknn_auc
+nb_b.fit_auc@y.values[[1]]
+nb_k.fit_auc@y.values[[1]]
 ```
