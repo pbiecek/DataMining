@@ -1,0 +1,29 @@
+---
+title: "Homework 6"
+author: "Tomasz K"
+date: "19 listopada 2015"
+output: html_document
+---
+
+#Loading and preparing data
+```{r}
+winesb <- read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv", sep=";", header=TRUE)
+winesb$quality <- factor(ifelse(winesb$quality > 5, "good", "bad")) 
+```
+
+#Applying k-folds Cross Validation to LDA/QDA
+```{r}
+library(caret)
+
+train_control <- trainControl(method="cv", number=10)
+
+mat <- sapply(c('lda', 'qda'), function (met) {
+  modelFit<- train(quality~., method=met,preProcess=c('scale', 'center'), data=winesb, trControl=train_control)
+  confusionMatrix(winesb$quality, predict(modelFit, winesb))$overall
+})
+
+round(mat*100,2)
+```
+
+#Comment
+The accuracy as well as kappa of LDA is slightly better than those of QDA (74.55 vs 74.42), this could point to a conclusion that for wines data set this discriminant analysis is more suitable because of linear character of data classification.
