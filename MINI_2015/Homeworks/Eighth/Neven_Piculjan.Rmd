@@ -1,0 +1,251 @@
+---
+title: "Homework 8"
+author: "Neven Piculjan"
+date: "2015-12-1"
+output: 
+  html_document:
+  toc: TRUE
+---
+# The Homework
+
+Homework is to check why three different groups got three different rf performances.
+
+#Solution
+
+# First approach: Margareta Kušan, Neven Pičuljan
+```{r, warning=FALSE, message=FALSE}
+# Dataset loading
+australian = read.table("C://Users/Neven/Desktop/australian.txt",
+                        sep=" ",header=F,col.names=c("A1", "A2", "A3", "A4", 
+                                                     "A5","A6", "A7", "A8", "A9","A10",
+                                                     "A11", "A12", "A13","A14", "A15"),
+                        fill=FALSE,strip.white=T)
+
+#Casting australian$A15 to factor variable
+
+australian$A15 <- factor(ifelse(australian$A15 > 0, "Yes", "No")) 
+
+library(caret)
+
+set.seed(1313)
+indxTrain <- createDataPartition(y = australian$A15, p = 0.75)
+str(indxTrain)
+
+australianTrain <- australian[indxTrain$Resample1,]
+australianTest <- australian[-indxTrain$Resample1,]
+
+# Measuring accuracy for chosen classifiers with all variables
+
+# Details (hyperparameters tuning, etc.) are given in modelFit variable
+classifiers <- c('rf')
+accuracy_all_classifiers <- sapply(classifiers, function (met) {
+  modelFit<- train(A15~., method=met, data=australianTrain)
+  confusionMatrix(australianTest$A15, predict(modelFit, australianTest))$overall
+})
+
+accuracy_all_classifiers <- t(round(accuracy_all_classifiers*100,2))
+names(accuracy_all_classifiers) <- classifiers
+accuracy_A <- sort(accuracy_all_classifiers[1:1, 1:1], decreasing = TRUE)
+
+# Measuring AUC for chosen classifiers with all variables
+library(ROCR)
+auc_all_classifiers <- c()
+for (i in classifiers) {
+  ffit <- train(A15~.,  method=i, data=australian, trControl=trainControl(classProbs=TRUE))
+  prob <- predict(ffit, australian, type = "prob")[,2]
+  
+  fit.pred = prediction(prob, australian$A15)
+  fit.perf = performance(fit.pred,"auc")
+  auc_all_classifiers <- c(auc_all_classifiers, fit.perf@y.values[[1]])
+}
+
+auc_all_classifiers <- as.numeric(auc_all_classifiers)
+names(auc_all_classifiers) <- classifiers
+auc_A <- sort(auc_all_classifiers, decreasing = TRUE)
+
+# Measuring variable importance for chosen classifiers
+train_control <- trainControl(method="cv", number=10)
+for (i in classifiers){
+  model <- train(A15~., data=australian, trControl=train_control, method=i)
+  varImp(model, scale = TRUE)
+}
+
+# Measuring accuracy and AUC for chosen classifiers with three most important variables
+
+# Details (hyperparameters tuning, etc.) are given in *_modelFit variables
+
+# Accuracy and AUC for rf with only three most important variables
+rf_modelFit<- train(A15~A8+A10+A7, method='rf', data=australianTrain)
+rf_acc <- confusionMatrix(australianTest$A15, predict(rf_modelFit, australianTest))$overall
+rf_acc <- t(round(rf_acc*100,2))[1]
+
+ffit <- train(A15~A8+A10+A7,  method='rf', data=australian, trControl=trainControl(classProbs=TRUE))
+prob <- predict(ffit, australian, type = "prob")[,2]
+fit.pred = prediction(prob, australian$A15)
+fit.perf = performance(fit.pred,"auc")
+rf_auc <- fit.perf@y.values[[1]]
+
+accuracy_all_classifiers_three_most_important <- c(rf_acc)
+accuracy_all_classifiers_three_most_important <- as.numeric(accuracy_all_classifiers_three_most_important)
+names(accuracy_all_classifiers_three_most_important) <- classifiers
+accuracy_three_most_important_A <- sort(accuracy_all_classifiers_three_most_important, decreasing = TRUE)
+
+auc_all_classifiers_three_most_important <- c(rf_auc)
+auc_all_classifiers_three_most_important <- as.numeric(auc_all_classifiers_three_most_important)
+names(auc_all_classifiers_three_most_important) <- classifiers
+auc_three_most_important_A <- sort(auc_all_classifiers_three_most_important, decreasing = TRUE)
+
+names(accuracy_A) <- c('rf')
+```
+
+# Second approach: Tomasz K, Marcel Sz
+```{r, warning=FALSE, message=FALSE}
+
+train_control <- trainControl(method="cv", number=10)
+rf <- train(A15 ~ ., data=australian, trControl=train_control, method="rf")
+importance <- varImp(rf, scale=FALSE)
+
+classifiers <- c('rf')
+info <- sapply(classifiers, function (met) {
+  train_control <- trainControl(method="cv", number=10)
+  model <- train(A15 ~ ., method=met, data=australian, trControl=train_control, preProcess=c('scale', 'center'))
+  confusionMatrix(australian$A15, predict(model, australian))$overall
+})
+accuracies = round(info*100,2)
+accuracy_B <- as.numeric(accuracies[1:1])
+names(accuracy_B) <- classifiers
+
+
+classifiers <- c('rf')
+info <- sapply(classifiers, function (met) {
+  train_control <- trainControl(method="cv", number=10)
+  model <- train(A15 ~ A8 + A7 + A10 + A14 + A3, method=met, data=australian, trControl=train_control, preProcess=c('scale', 'center'))
+  confusionMatrix(australian$A15, predict(model, australian))$overall
+})
+accuracies = round(info*100,2)
+accuracy_three_most_important_B <- as.numeric(accuracies[1:1])
+names(accuracy_three_most_important_B) <- classifiers
+
+aucs <- c()
+for (cl in classifiers) {
+  train_control <- trainControl(method="cv", number=10)
+  model <- train(A15 ~ .,  method=cl, data=australian, trControl=trainControl(classProbs=TRUE))
+  prob <- predict(model, australian, type = "prob")[,2]
+  
+  fit.pred = prediction(prob, australian$A15)
+  fit.perf = performance(fit.pred,"auc")
+  aucs <- c(aucs, fit.perf@y.values[[1]])
+}
+auc_B <- as.numeric(aucs)
+names(auc_B) <- classifiers
+```
+
+# Third approach: Karolina Kwasiborska, Tomasz Zaremba, Ziad Al Bkhetan
+```{r, warning=FALSE, message=FALSE}
+library(mlbench)
+library(caret)
+library(randomForest)
+library(rpart)
+library(e1071)
+library(MASS)
+library(gbm)
+library(Hmisc)
+library(ROCR)
+library(pls)
+library(rrcov)
+library(klaR)
+australianDataSet = read.table("C://Users/Neven/Desktop/australian.txt",
+                               sep=" ",header=F,col.names=c("A1", "A2", "A3", "A4", 
+                                                            "A5","A6", "A7", "A8", "A9","A10",
+                                                            "A11", "A12", "A13","A14", "A15"),
+                               fill=FALSE,strip.white=T)
+
+originalaustralianDataSet <-australianDataSet
+australianDataSet$A15 <- factor(ifelse(australianDataSet$A15 == 0, "One", "Zero"))
+#partitioning
+indxTrain <- createDataPartition(y = australianDataSet$A15, p = 0.8)
+australianDataSetTrain<- australianDataSet[indxTrain$Resample1,]
+australianDataSetTest <- australianDataSet[-indxTrain$Resample1,]
+# Data normalization
+normalize <- function(x) {
+  scale(x)
+}
+
+australianDataSetNormalized <- as.data.frame(lapply(australianDataSet[, 1:14], normalize))
+australianDataSetNormalized$A15 <-australianDataSet$A15
+# Training and Testing Datasets
+indxTrain <- createDataPartition(y = australianDataSetNormalized$A15, p = 0.8)
+australianDataSetNormalizedTrain<- australianDataSetNormalized[indxTrain$Resample1,]
+australianDataSetNormalizedTest <- australianDataSetNormalized[-indxTrain$Resample1,]
+
+# Data Categorization
+aust_equal_size <- originalaustralianDataSet
+for (i in c(2, 3, 4, 5, 6, 7, 10, 12, 13, 14)) {
+  aust_equal_size[,i]<- cut2(australianDataSet[,i], g=3)
+}
+aust_equal_size$A15 <- factor(ifelse(aust_equal_size$A15 == 0, "One", "Zero")) 
+aust_equal_size$A1 <-factor(aust_equal_size$A1)
+aust_equal_size$A8 <-factor(aust_equal_size$A8)
+aust_equal_size$A9 <-factor(aust_equal_size$A9)
+aust_equal_size$A11 <-factor(aust_equal_size$A11)
+# Partitioning 
+indxTrain <- createDataPartition(y = aust_equal_size$A15, p = 0.8)
+aust_equal_sizeTrain<- aust_equal_size[indxTrain$Resample1,]
+aust_equal_sizeTest <- aust_equal_size[-indxTrain$Resample1,]
+
+# Features Importance
+
+allVariablesForest <- randomForest(A15 ~ ., data = australianDataSet, importance = TRUE, na.action = na.omit)
+varImpPlot(allVariablesForest)
+
+
+# Classifiers Training And Testing
+
+# prepare training scheme
+control <- trainControl(method="repeatedcv", number=10, repeats=3, classProbs=T, savePredictions = T)
+classifiersCount = 1
+counter = 1
+outMat<-matrix(list(), nrow=classifiersCount, ncol=2)
+conf_mat <-matrix(list(), nrow=classifiersCount, ncol=1)
+rocMat<-matrix(list(), nrow=classifiersCount, ncol=2)
+
+
+trainDS <- australianDataSetTrain
+testDS <- australianDataSetTest
+
+
+currModel<- train(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data=trainDS, method='rf', trControl=control)
+predTab <- predict(currModel, testDS)
+outMat <- table(true = testDS$A15, predicted = predTab)
+# Accuracy
+accuracy_three_most_important_C <- round((sum(diag(outMat)) / sum(outMat))*100, 2)
+names(accuracy_three_most_important_C) <- c('rf')
+# Confusion matrix
+conf_mat <- confusionMatrix(predTab, testDS$A15)
+# ROC and AUC
+
+predTabPro <- predict(currModel, newdata=testDS, type="prob")[,2] 
+pred <- prediction(predTabPro, testDS$A15)
+rocMat <- performance(pred, "tpr", "fpr")
+# Area Under Curve
+auc_three_most_important_C <- performance(pred,"auc")@y.values[[1]]
+names(auc_three_most_important_C) <- c('rf')
+```
+
+# Results
+```{r, warning=FALSE}
+# Approach A do not do dataset preprocessing and classifier is trained on training set and tested on test set
+print (accuracy_A)
+print (auc_A)
+print (accuracy_three_most_important_A)
+print (auc_three_most_important_A)
+
+# Approach B do not do dataset preprocessing and classifier is trained on training set and tested on training set
+print (accuracy_B)
+print (auc_B)
+print (accuracy_three_most_important_B)
+
+# Approach C do dataset preprocessing and classifier is trained on training set and tested on test set
+print (accuracy_three_most_important_C)
+print (auc_three_most_important_C)
+```
