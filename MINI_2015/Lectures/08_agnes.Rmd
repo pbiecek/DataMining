@@ -1,0 +1,217 @@
+---
+title: "Hierarchical Clustering"
+author: "Przemyslaw Biecek"
+date: "Data Mining - Advances"
+output: 
+  html_document:
+    toc: TRUE
+---
+
+# Clustering
+
+Clustering is the task of grouping objects in such a way that objects in the same group (called a cluster) are more similar to each other than to those in other groups.
+
+Clustering can be performed with the use of different methods/approaches. Today we are going to discuss hierarchical clustering.
+
+
+There are two common approaches to build such hierarchy of clusters (also referred as a dendrogram):
+
+- bottom up (agglomerative) - from small clusters to larger and larger,
+- top down (divisive) - from large clusters to small ones.
+
+First one is implemented in the function `diana{cluster}`, while the second one is implemented in the function `agnes{cluster}`. 
+
+## The distance matrix
+
+Let's use the dataset `Cars93` as an example. The dataset contains information about length and weight of different cars. 
+
+```{r, fig.width=10, fig.height=10}
+library(ggplot2)
+library(MASS)
+library(cluster)
+
+ggplot(Cars93, aes(Length, Weight, label=Make)) +
+  geom_text(size=3) + 
+  theme_bw()
+```
+
+Can we find some groups in this dataset? Can we divide all cars into a few classes?
+
+First, in order to find groups, we shall start with distances. How to calculate the matrix of distances?
+
+It can be done with the `dist()` function. Different measures are implemented there. Typical choices:
+
+- `euclidean`: usual distance between the two vectors $\sqrt(\sum((x_i - y_i)^2))$,
+- `maximum`: maximum distance between two components of x and y,
+- `manhattan`: absolute distance between the two vectors,
+- `canberra`: $\sum(|x_i - y_i| / |x_i + y_i|)$ (usually used for counts),
+- `binary`: vectors are regarded as binary bits, so non-zero elements are `on` and zero elements are `off`. The distance is the proportion of bits in which only one is on amongst those in which at least one is on.
+
+But would it work in our case?
+
+Not really. 
+
+Note that for the two selected variables units are very very different. This is why we should scale these variables first. 
+
+```{r}
+# euclidian distances for original dataset
+mat1 <- dist(Cars93[,c("Length","Weight")])
+as.matrix(mat1)[1:5,1:5]
+
+# euclidian distances for scaled dataset
+mat2 <- dist(scale(Cars93[,c("Length","Weight")]))
+as.matrix(mat2)[1:5,1:5]
+
+# manhattan distances for scaled dataset
+mat3 <- dist(scale(Cars93[,c("Length","Weight")]), method="manhattan")
+as.matrix(mat3)[1:5,1:5]
+```
+
+## The algorithm
+
+The clustering algorithm is a loop with two steps:
+
+- Find two sub clusters that are closest to each other,
+- Merge them into a single cluster until only one cluster remains.
+
+## The linkage 
+
+In the distance matrix one will find distances between particular observations. The linkage defines how to update distances after merging two clusters.
+
+The commons choices are:
+
+* `complete` 	 $\max \{\, d(a,b) : a \in A,\, b \in B \}$. 
+* `single` 	$\min \{\, d(a,b) : a \in A,\, b \in B \}$. 
+* `average`	 $\frac{1}{|A| |B|} \sum_{a \in A }\sum_{ b \in B} d(a,b)$. 
+* `ward`, i.e. the minimum variance criterion (the preferred method).
+
+Note that different methods lead to very different results. 
+
+```{r}
+rownames(Cars93) <- Cars93$Make
+dat <- scale(Cars93[,c("Length","Weight")])
+
+hc <- agnes(dat, method="complete")
+plot(hc, which.plots=2, cex=0.5, main="")
+
+hc <- agnes(dat, method="single")
+plot(hc, which.plots=2, cex=0.5, main="")
+
+hc <- agnes(dat, method="average")
+plot(hc, which.plots=2, cex=0.5, main="")
+
+hc <- agnes(dat, method="ward")
+plot(hc, which.plots=2, cex=0.5, main="")
+```
+
+Agglomerative Coefficient is an average of distances between two consecutive nodes. The larger the better.
+
+## Cutting the tree
+
+Sometimes one would like to extract clusters from tree. 
+You can use the `cutree` function for that.
+
+How to choose the number of clusters? 
+In most cases it's arbitrary choice. Sometimes this number can be extracted from the plot.
+ 
+```{r}
+hc <- agnes(dat, method="ward")
+Cars93$labels = factor(cutree(hc, k=4))
+ggplot(Cars93, aes(Length, Weight, label=Make, color=labels)) +
+  geom_text(size=3) + 
+  theme_bw()
+
+hc <- agnes(dat, method="average")
+Cars93$labels = factor(cutree(hc, k=4))
+ggplot(Cars93, aes(Length, Weight, label=Make, color=labels)) +
+  geom_text(size=3) + 
+  theme_bw()
+
+hc <- agnes(dat, method="single")
+Cars93$labels = factor(cutree(hc, k=4))
+ggplot(Cars93, aes(Length, Weight, label=Make, color=labels)) +
+  geom_text(size=3) + 
+  theme_bw()
+```
+
+## p-values for clusters
+
+And sometimes you can use bootstrap probabilities (BP) / approximate unbiased probabilities (AU) for that.
+
+```{r, message=FALSE, warning=FALSE, fig.width=10, fig.height=10}
+library(pvclust)
+dat <- scale(Cars93[Cars93$Origin == "non-USA",
+                    c("Length","Weight","Width","Horsepower","Price")])
+pv <- pvclust(t(dat))
+plot(pv)
+pvrect(pv, alpha=0.9)
+
+```
+
+## More plots
+
+The `ggdendro` gives great types of plots.
+
+```{r, fig.width=10, fig.height=10}
+library(ape)
+rownames(Cars93) <- Cars93$Make
+dat <- scale(Cars93[,c("Length","Weight")])
+
+library(RColorBrewer)
+cols <- brewer.pal(3,"Set1")
+
+hc <- as.phylo(as.hclust(agnes(dat, method="complete")))
+
+par(mar=c(1,1,2,1), xpd=NA)
+
+plot(hc, type = "fan", cex = 0.8,
+     tip.color = cols[Cars93$Origin])
+
+plot(as.phylo(hc), type = "unrooted", cex = 0.8,
+     tip.color = cols[Cars93$Origin])
+
+plot(as.phylo(hc), type = "radial", cex = 0.8,
+     tip.color = cols[Cars93$Origin])
+
+plot(as.phylo(hc), type = "phylogram", cex = 0.8,
+     tip.color = cols[Cars93$Origin])
+
+plot(as.phylo(hc), type = "cladogram", cex = 0.8,
+     tip.color = cols[Cars93$Origin])
+```
+
+
+# Computer classes
+
+Use data from votings of deputies from Polish Sejm (previous cadence).
+
+The task: 
+Cluster voting profiles for different deputies and present them graphically.
+
+
+```{r}
+load("all_votes.rda")
+head(all_votes[,1:7])
+```
+
+Details:
+
+- create a matrix with deputies in rows and id_voting in columns (you can use `gather()` function from `tidyr`),
+- create matrix with similarities between deputies,
+- use this similarity matrix to cluster deputies.
+
+Try different distances and different methods for linkage. 
+
+If you cannot create such matrix for all deputies, choose only deputies that were present during majority of votings.
+
+# The Homework
+
+Choose only deputies from two largest parties (PO and PiS).
+
+Choose only important votings (these on which more than 75\% of deputies are present).
+
+Check which deputies from party X have votes more similar to deputies from party B.
+
+Show the dendrogram for selected deputies and use colours to present different parties.
+
+
