@@ -1,0 +1,74 @@
+---
+title: "Homework 5"
+author: "Tomasz K"
+date: "5 listopada 2015"
+output: html_document
+---
+
+### Loading data
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+library(caret)
+wines <- read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv", sep=";", header=TRUE)
+table(wines$quality)
+
+winesb <- wines
+winesb$quality <- factor(ifelse(wines$quality > 5, "good", "bad")) 
+```
+
+### Dividing variables into categories of equal length and size
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+winesb_length <- winesb
+for (i in 1:11) {
+  winesb_length[,i] <- cut(winesb[,i], 3)
+}
+
+winesb_size <- winesb
+for (i in 1:11) {
+  winesb_size[,i] <- cut_number(winesb[,i], 3)
+}
+```
+
+### Calculating performance for both divisions
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+train_control <- trainControl(method="boot", number=10)
+
+model_length <- train(quality~., data=winesb_length, trControl=train_control, method="nb")
+predictions <- predict(model_length, winesb_length)
+confusionMatrix(predictions, winesb_length$quality)
+
+model_size <- train(quality~., data=winesb_size, trControl=train_control, method="nb")
+predictions <- predict(model_size, winesb_size)
+confusionMatrix(predictions, winesb_size$quality)
+```
+
+We can see that with categories of equal size the performance is better (accuracy: 0.7104 vs 0.6554; kappa: 0.4199 vs 0.2816).
+
+### Checking feature importance
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+varImp(model_length, scale=TRUE)
+plot(varImp(model_length))
+
+varImp(model_size, scale=TRUE)
+plot(varImp(model_size))
+```
+
+The three best features in case of categories of equal length are therefore: alcohol, citric.acid, fixed.acidity.
+
+The three best features in case of categories of equal size are therefore: alcohol, sulphates, citric.acid.
+
+### Calculating performance for both divisions using only three best features
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+train_control <- trainControl(method="boot", number=10)
+
+model <- train(quality~alcohol+citric.acid+fixed.acidity, data=winesb_length, trControl=train_control, method="nb")
+predictions <- predict(model, winesb_length)
+confusionMatrix(predictions, winesb_length$quality)
+
+model <- train(quality~alcohol+sulphates+citric.acid, data=winesb_size, trControl=train_control, method="nb")
+predictions <- predict(model, winesb_size)
+confusionMatrix(predictions, winesb_size$quality)
+```
+
+In case of using three best features with categories of equal length the performance is better (accuracy: 0.6948 vs 0.6554; kappa: 0.3969 vs 0.2816).
+
+In case of using three best features with categories of equal size the performance is worse (accuracy: 0.6829 vs 0.7104; kappa: 0.3753 vs 0.4199).
