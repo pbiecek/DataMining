@@ -1,0 +1,383 @@
+---
+title: 'Data Mining Project #1 part II'
+author: 'Karolina Kwasiborska, Tomasz Zaremba, Ziad Al Bkhetan'
+date: "31 Oct 2015"
+output:
+  html_document:
+    toc: yes
+---
+# Introduction
+in this project we will use different classifiers
+  <br>* k-nearest neighbors
+  <br>* SVM
+  <br>* Decision Tree
+  <br>* Random Forests
+  <br>* Naive Bayes
+<br>then we will evaluate all these classifiers using:
+  <br>* ROC Curve
+  <br>* Area Under Curve
+  <br>* Accuracy using confusion Matrix
+  <br>* K-fold cross validation
+  <br>* Bootstrap
+
+
+#Loading data
+Starting with data loading into the variable australianDataSet using R script
+<br>Data Link is http://archive.ics.uci.edu/ml/machine-learning-databases/statlog/australian/australian.dat
+<br>
+in this phase we will divide the dataset into two different sets the first one for classifier training while the second is for the classifier testing.
+<br> * partion percentage is 80:20
+<br> * target attribute to maintain good distribution "A15"
+
+
+```{r}
+library(lattice)
+library(ggplot2)
+library(caret)
+library(e1071)
+library(MASS)
+library(kernlab)
+library(ROCR)
+library(randomForest)
+library(grid)
+library(party)
+library(rpart)
+library(survival)
+library(Hmisc)
+library(klaR)
+
+australianDataSet = read.table("C:\\Users\\Tomek\\Desktop\\Studia\\MSc\\Semestr 2\\Data mining\\Projekty\\1\\australian.dat",
+        sep=" ",header=F,col.names=c("A1", "A2", "A3", "A4", 
+                "A5","A6", "A7", "A8", "A9","A10",
+                "A11", "A12", "A13","A14", "A15"),
+        fill=FALSE,strip.white=T)
+
+originalaustralianDataSet <-australianDataSet
+australianDataSet$A15 <- factor(australianDataSet$A15)
+#partitioning
+indxTrain <- createDataPartition(y = australianDataSet$A15, p = 0.8)
+australianDataSetTrain<- australianDataSet[indxTrain$Resample1,]
+australianDataSetTest <- australianDataSet[-indxTrain$Resample1,]
+australianDataSetTrain$A15 <- factor(australianDataSetTrain$A15)
+```
+
+# Important Attributes Using Random Forests
+to choose the suitable model to build our classifiers, we will use random forests to dermine variables importance
+<br> we will use A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9.
+
+```{r}
+allVariablesForest <- randomForest(A15 ~ ., data = australianDataSet, importance = TRUE, na.action = na.omit)
+varImpPlot(allVariablesForest)
+importance(allVariablesForest)
+```
+
+#SVM
+
+## Training and testing sets
+```{r}
+options(warn=-1)
+svm1 <- svm(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data = australianDataSetTrain, kernel='linear', cost=10, scale=FALSE, probability = TRUE)
+predictions <- predict(svm1, australianDataSetTest)
+confusionMatrix <- confusionMatrix(predictions, australianDataSetTest$A15)
+confusionMatrix
+```
+
+## K-fold cross validation
+
+```{r}
+train_control <- trainControl(method="cv", number=10)
+svm2 <- train(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data=australianDataSet, trControl=train_control, method="svmLinear")
+predictions <- predict(svm2, australianDataSet)
+confusionMatrix <- confusionMatrix(predictions, australianDataSet$A15)
+confusionMatrix
+```
+
+## Bootstrap
+
+```{r}
+train_control <- trainControl(method="boot", number=10)
+svm3 <- train(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data=australianDataSet, trControl=train_control, method="svmLinear")
+predictions <- predict(svm3, australianDataSet)
+confusionMatrix <- confusionMatrix(predictions, australianDataSet$A15)
+confusionMatrix
+```
+
+#Random forest
+
+## Training and testing sets
+```{r}
+forest1 <- randomForest(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data = australianDataSetTrain, importance = TRUE, na.action = na.omit)
+predictions <- predict(forest1, australianDataSetTest)
+confusionMatrix <- confusionMatrix(predictions, australianDataSetTest$A15)
+confusionMatrix
+```
+
+## K-fold cross validation
+
+```{r}
+train_control <- trainControl(method="cv", number=10)
+forest2 <- train(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data=australianDataSet, trControl=train_control, method="rf")
+predictions <- predict(forest2, australianDataSet)
+confusionMatrix <- confusionMatrix(predictions, australianDataSet$A15)
+confusionMatrix
+```
+
+## Bootstrap
+
+```{r}
+train_control <- trainControl(method="boot", number=10)
+forest3 <- train(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data=australianDataSet, trControl=train_control, method="rf")
+predictions <- predict(forest3, australianDataSet)
+confusionMatrix <- confusionMatrix(predictions, australianDataSet$A15)
+confusionMatrix
+```
+
+#Decision tree
+
+## Training and testing sets
+```{r}
+# ctree
+ctree1 <- ctree(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data=australianDataSetTrain)
+predictions <- predict(ctree1, australianDataSetTest)
+confusionMatrix <- confusionMatrix(predictions, australianDataSetTest$A15)
+confusionMatrix
+plot(ctree1)
+
+# rtree
+rtree1 <- rpart(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data=australianDataSetTrain, method="class")
+predictions <- predict(rtree1, australianDataSetTest)
+```
+
+## K-fold cross validation
+
+```{r}
+train_control <- trainControl(method="cv", number=10)
+
+# ctree
+ctree2 <- train(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data=australianDataSet, trControl=train_control, method="ctree")
+predictions <- predict(ctree2, australianDataSet)
+confusionMatrix <- confusionMatrix(predictions, australianDataSet$A15)
+confusionMatrix
+
+# rtree
+rtree2 <- train(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data=australianDataSet, trControl=train_control, method="rpart")
+predictions <- predict(rtree2, australianDataSet)
+confusionMatrix <- confusionMatrix(predictions, australianDataSet$A15)
+confusionMatrix
+```
+
+## Bootstrap
+
+```{r}
+train_control <- trainControl(method="boot", number=10)
+# ctree
+ctree2 <- train(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data=australianDataSet, trControl=train_control, method="ctree")
+predictions <- predict(ctree2, australianDataSet)
+confusionMatrix <- confusionMatrix(predictions, australianDataSet$A15)
+confusionMatrix
+
+# rtree
+rtree2 <- train(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data=australianDataSet, trControl=train_control, method="rpart")
+predictions <- predict(rtree2, australianDataSet)
+confusionMatrix <- confusionMatrix(predictions, australianDataSet$A15)
+confusionMatrix
+```
+
+
+# K Nearest Neighbors 
+
+## Data Normalization
+while kNN depends on distance calculation between the samples which could be affected by the range of the attributes values, so we normalized all the attributes to reduce this effect.
+<br> Normalization was done using scale function.
+
+```{r}
+australianDataSetNormalized <- australianDataSet 
+australianDataSetNormalized$A15 <- factor(australianDataSetNormalized$A15)
+australianDataSetNormalized$A1 <- scale(australianDataSetNormalized$A1)
+australianDataSetNormalized$A2 <- scale(australianDataSetNormalized$A2)
+australianDataSetNormalized$A3 <- scale(australianDataSetNormalized$A3)
+australianDataSetNormalized$A4 <- scale(australianDataSetNormalized$A4)
+australianDataSetNormalized$A5 <- scale(australianDataSetNormalized$A5)
+australianDataSetNormalized$A6 <- scale(australianDataSetNormalized$A6)
+australianDataSetNormalized$A7 <- scale(australianDataSetNormalized$A7)
+australianDataSetNormalized$A8 <- scale(australianDataSetNormalized$A8)
+australianDataSetNormalized$A9 <- scale(australianDataSetNormalized$A9)
+australianDataSetNormalized$A10 <- scale(australianDataSetNormalized$A10)
+australianDataSetNormalized$A11 <- scale(australianDataSetNormalized$A11)
+australianDataSetNormalized$A12 <- scale(australianDataSetNormalized$A12)
+australianDataSetNormalized$A13 <- scale(australianDataSetNormalized$A13)
+australianDataSetNormalized$A14 <- scale(australianDataSetNormalized$A14)
+# Training and Testing Datasets
+indxTrain <- createDataPartition(y = australianDataSetNormalized$A15, p = 0.8)
+australianDataSetNormalizedTrain<- australianDataSetNormalized[indxTrain$Resample1,]
+australianDataSetNormalizedTest <- australianDataSetNormalized[-indxTrain$Resample1,]
+```
+
+## K-fold cross validation
+we will train K nearest neighbors for different 20 values for the parameter k to get the best accuracy, then use this parameter to build the final model.
+
+```{r}
+tlength = 20
+train_control <- trainControl(method="cv", number=10)
+model <- train(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data=australianDataSetNormalizedTrain, trControl=train_control, method="knn", tuneLength = tlength)
+klist <-model$bestTune[[1]]
+predTab <- predict(model, australianDataSetNormalizedTest )
+confusionMatrix(predTab, australianDataSetNormalizedTest$A15)
+confusionMatrix
+cvk = model$bestTune[[1]]
+```
+
+## Bootstraps
+
+```{r}
+train_control <- trainControl(method="boot", number=10)
+model <- train(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data=australianDataSetNormalizedTrain, trControl=train_control, method="knn", tuneLength = 20)
+predTab <- predict(model, australianDataSetNormalizedTest)
+confusionMatrix(predTab, australianDataSetNormalizedTest$A15)
+confusionMatrix
+bk = model$bestTune[[1]]
+```
+
+
+# Naive Bayes
+## Data Preparation
+in this classifier we will split the values of each attribute into three different ranges each of them contain the same number of samples (equal size subranges)
+<br> we will use the function cu2 for splitiing, and factor function when the value is either one or zero.
+```{r}
+aust_equal_size <- originalaustralianDataSet
+for (i in c(2, 3, 4, 5, 6, 7, 10, 12, 13, 14)) {
+  aust_equal_size[,i]<- cut2(australianDataSet[,i], g=3)
+}
+aust_equal_size$A15 <- factor(ifelse(aust_equal_size$A15 == 0, "One", "Zero")) 
+aust_equal_size$A1 <-factor(aust_equal_size$A1)
+aust_equal_size$A8 <-factor(aust_equal_size$A8)
+aust_equal_size$A9 <-factor(aust_equal_size$A9)
+aust_equal_size$A11 <-factor(aust_equal_size$A11)
+summary(aust_equal_size)
+# Partitioning 
+indxTrain <- createDataPartition(y = aust_equal_size$A15, p = 0.8)
+aust_equal_sizeTrain<- aust_equal_size[indxTrain$Resample1,]
+aust_equal_sizeTest <- aust_equal_size[-indxTrain$Resample1,]
+```
+
+## K-fold cross validation
+```{r}
+train_control <- trainControl(method="cv", number=10)
+nb_k_model <- train(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data=aust_equal_sizeTrain, trControl=train_control, method="nb")
+nb_k_predTab <- predict(nb_k_model, aust_equal_sizeTest)
+confusionMatrix(nb_k_predTab, aust_equal_sizeTest$A15)
+confusionMatrix
+```
+
+
+## Bootstraps
+```{r}
+train_control <- trainControl(method="boot", number=10)
+nb_b_model <- train(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data=aust_equal_sizeTrain, trControl=train_control, method="nb")
+nb_b.predTab <- predict(nb_b_model, aust_equal_sizeTest)
+confusionMatrix(nb_b.predTab, aust_equal_sizeTest$A15)
+confusionMatrix
+```
+
+# ROC (Receiver Operating Characteristics)
+
+```{r}
+# SVM
+svm.prob <- attributes(predict(svm1, newdata=australianDataSetTest, probability = TRUE))$probabilities[, 2]
+svm.fit.pred =  prediction(svm.prob, australianDataSetTest$A15)
+svm.fit.perf = performance(svm.fit.pred, 'tpr', 'fpr')
+plot(svm.fit.perf, col="blue3")
+ 
+# Random forst
+rf.prob <- predict(forest1, australianDataSetTest, type="prob")[,2]
+rf.fit.pred = prediction(rf.prob, australianDataSetTest$A15)
+rf.fit.perf = performance(rf.fit.pred,"tpr","fpr")
+plot(rf.fit.perf, col="orange", add=TRUE)
+
+# Decision tree
+ctree.prob <- do.call(rbind, predict(ctree1, newdata=australianDataSetTest, type="prob"))
+ctree.fit.pred <- prediction(ctree.prob[,2], australianDataSetTest$A15)
+ctree.fit.perf = performance(ctree.fit.pred,"tpr","fpr")
+plot(ctree.fit.perf, col="green", add=TRUE)
+
+rtree.prob <- predict(rtree1, newdata=australianDataSetTest, type="prob")
+rtree.fit.pred <- prediction(rtree.prob[,2], australianDataSetTest$A15)
+rtree.fit.perf = performance(rtree.fit.pred,"tpr","fpr")
+plot(rtree.fit.perf, col="red", add=TRUE)
+
+# NB
+predTabPro <- predict(nb_k_model, aust_equal_sizeTest, type="prob")[, 2] 
+nb_k.fit.pred <- prediction(predTabPro, aust_equal_sizeTest$A15)
+nb_k.fit.pref <- performance(nb_k.fit.pred, "tpr", "fpr")
+nb_k.fit_auc = performance(nb_k.fit.pred,"auc")
+plot(nb_k.fit.pref, col="cyan", add=TRUE)
+
+predTab1 <- predict(nb_b_model, aust_equal_sizeTest, type="prob")[, 2] 
+nb_b.fit.pred <- prediction(predTab1, aust_equal_sizeTest$A15)
+nb_b.fit.pref <- performance(nb_b.fit.pred, "tpr", "fpr")
+nb_b.fit_auc = performance(nb_b.fit.pred,"auc")
+plot(nb_b.fit.pref, col="deeppink", add=TRUE)
+
+# KNN 
+for(k in c(cvk, bk))
+{
+  knn <- knn3(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data=australianDataSetNormalizedTrain, k = k )
+  kntab <- predict(knn, newdata = australianDataSetNormalizedTest, type="prob")[, 2]
+  fit.pred <- prediction(kntab, australianDataSetNormalizedTest$A15)
+  fit.pref <- performance(fit.pred, "tpr", "fpr")
+  fit.perf_auc = performance(fit.pred,"auc")
+  if (k == cvk)
+  {
+    kfknn_auc<-fit.perf_auc@y.values[[1]]
+    plot(fit.pref, col="yellow", add=TRUE)
+  }
+  else
+  {
+    bknn_auc<-fit.perf_auc@y.values[[1]]
+    plot(fit.pref, col="gold4", add = TRUE)
+  }
+}
+abline(a=0, b=1)
+
+```
+
+LEGEND:<br />
+SVM - blue<br />
+Random Forest - orange<br />
+Decision tree - green, red<br />
+Naive Bayes - cyan, pink<br />
+KNN - yellow, gold<br />
+
+# AUC (Area Under the Curve)
+the area under the curve for all classifers
+
+## SVM
+```{r}
+svm.fit.perf = performance(svm.fit.pred,"auc")
+svm.fit.perf@y.values[[1]]
+```
+
+## Random forest
+```{r}
+rf.fit.perf = performance(rf.fit.pred,"auc")
+rf.fit.perf@y.values[[1]]
+```
+
+## Decision tree
+```{r}
+ctree.fit.perf = performance(ctree.fit.pred,"auc")
+ctree.fit.perf@y.values[[1]]
+rtree.fit.perf = performance(rtree.fit.pred,"auc")
+rtree.fit.perf@y.values[[1]]
+```
+
+## K Nearest Neighbors
+```{r}
+kfknn_auc
+bknn_auc
+```
+## Naive Bays 
+```{r}
+nb_b.fit_auc@y.values[[1]]
+nb_k.fit_auc@y.values[[1]]
+```

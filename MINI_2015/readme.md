@@ -36,10 +36,10 @@ Meetings
 * 23 X - [Part 1 - Project 1]
 * 30 X - 
 * 6 XI - [Part 2 - Project 1]
-* 13 XI - 
-* 20 XI - [Part 3 - Project 1]
+* 13 XI - cancelled
+* 20 XI - 
+* 27 XI - [Part 3 - Project 1]
 
-* 27 XI - 
 * 4 XII - 
 * 11 XII - [Part 1 - Project 2]
 * 18 XII - 
@@ -61,6 +61,7 @@ https://github.com/pbiecek/DataMining/tree/master/MINI_2015/Project/Project%201
 
 2. Project - Clustering
 
+https://github.com/pbiecek/DataMining/tree/master/MINI_2015/Project/Project%202
 
 Grade:
 ------

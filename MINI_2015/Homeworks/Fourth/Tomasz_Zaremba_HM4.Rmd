@@ -1,0 +1,129 @@
+---
+title: 'Homework #4'
+output: html_document
+---
+
+---
+title: "ROC curves"
+author: "Tomasz Zaremba"
+date: "29.10.2015"
+output: 
+  html_document:
+    toc: TRUE
+---
+
+# The Homework
+
+Download the dataset `adult` (find more about this dataset here: http://archive.ics.uci.edu/ml/machine-learning-databases/adult/). 
+
+Train a k-nn for different k and Random Forest for different `m` and compare these results with the use of ROC curves and AUC values. 
+
+```{r}
+data = read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data",
+        sep=",",header=F,col.names=c("age", "type_employer", "fnlwgt", "education", 
+                "education_num","marital", "occupation", "relationship", "race","sex",
+                "capital_gain", "capital_loss", "hr_per_week","country", "income"),
+        fill=FALSE,strip.white=T)
+head(data,3)
+data$income = factor(data$income)
+library(caret)
+index = createDataPartition(y = data$income, p = 0.75)
+trainingSet = data[index$Resample1,]
+testingSet = data[-index$Resample1,] # Take everything except these indexes
+```
+
+# ROC (Receiver Operating Characteristics) curves
+
+```{r, cache = TRUE}
+library(randomForest)
+
+forest1 <- randomForest(income ~ .,   data=trainingSet, importance = TRUE, mtry = 1)
+prob1 <- predict(forest1, testingSet, type="prob")[,2]
+
+forest3 <- randomForest(income ~ .,   data=trainingSet, importance = TRUE, mtry = 3)
+prob3 <- predict(forest3, testingSet, type="prob")[,2]
+
+forest6 <- randomForest(income ~ .,   data=trainingSet, importance = TRUE, mtry = 6)
+prob6 <- predict(forest6, testingSet, type="prob")[,2]
+
+knn_1 <- knn3(income ~ ., data=trainingSet, k=5)
+prob_1 <- predict(knn_1, testingSet, type="prob")[,2]
+
+knn_20 <- knn3(income ~ ., data=trainingSet, k=20)
+prob_20 <- predict(knn_20, testingSet, type="prob")[,2]
+
+knn_30 <- knn3(income ~ ., data=trainingSet, k=30)
+prob_30 <- predict(knn_30, testingSet, type="prob")[,2]
+
+# ROC curves for random forests
+
+library(ROCR)
+fit.pred = prediction(prob1, testingSet$income)
+fit.perf = performance(fit.pred,"tpr","fpr")
+plot(fit.perf, col="grey")
+
+fit.pred2 = prediction(prob3, testingSet$income)
+fit.perf2 = performance(fit.pred2,"tpr","fpr")
+plot(fit.perf2, col="lightgreen", add=TRUE)
+
+fit.pred3 = prediction(prob6, testingSet$income)
+fit.perf3 = performance(fit.pred3,"tpr","fpr")
+plot(fit.perf3, col="orange", add=TRUE)
+
+abline(a=0,b=1)
+
+# ROC curves for knn
+
+fit.pred = prediction(prob_1, testingSet$income)
+fit.perf = performance(fit.pred,"tpr","fpr")
+plot(fit.perf, col="yellow", add=TRUE)
+
+fit.pred2 = prediction(prob_20, testingSet$income)
+fit.perf2 = performance(fit.pred2,"tpr","fpr")
+plot(fit.perf2, col="red", add=TRUE)
+
+fit.pred3 = prediction(prob_30, testingSet$income)
+fit.perf3 = performance(fit.pred3,"tpr","fpr")
+plot(fit.perf3, col="blue", add=TRUE)
+
+abline(a=0,b=1)
+
+```
+
+# AUC (Area Under the Curve)
+
+```{r, cache = TRUE}
+
+# Forest, mtry = 1
+fit.pred = prediction(prob1, testingSet$income)
+fit.perf = performance(fit.pred,"auc")
+fit.perf@y.values[[1]]
+# Forest, mtry = 3
+fit.pred = prediction(prob3, testingSet$income)
+fit.perf = performance(fit.pred,"auc")
+fit.perf@y.values[[1]]
+# Forest, mtry = 6
+fit.pred = prediction(prob6, testingSet$income)
+fit.perf = performance(fit.pred,"auc")
+fit.perf@y.values[[1]]
+
+# knn, k = 5
+fit.pred = prediction(prob_1, testingSet$income)
+fit.perf = performance(fit.pred,"auc")
+fit.perf@y.values[[1]]
+# knn, k = 20
+fit.pred = prediction(prob_20, testingSet$income)
+fit.perf = performance(fit.pred,"auc")
+fit.perf@y.values[[1]]
+# knn, k = 30
+fit.pred = prediction(prob_30, testingSet$income)
+fit.perf = performance(fit.pred,"auc")
+fit.perf@y.values[[1]]
+
+```
+
+# Conclusions
+By looking at the ROC curve it might seem that the random forest with mtry set to 1 gave slightly better results than the one with mtry = 1 but the AuC was better for mtry = 3. In fact both this classifiers performed similarly and were better than the one with mtry = 6.
+
+Both ROC curve and AuC confirm that the best results were obtained for knn with k = 5. Greater number of neighbours yields worse results.
+According to ROC curve and AuC the best results were obtained for the random forest with mtry set to 3.

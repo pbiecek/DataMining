@@ -1,0 +1,274 @@
+---
+title: "Project #1"
+author: "Margareta Kusan, Neven Piculjan"
+date: "November 27, 2015"
+output: 
+  html_document:
+  toc : TRUE
+---
+
+# Introduction
+  
+In the third phase we should try 10 or more different classifiers and make conclusive report with recommendations.
+
+# Dataset loading
+
+```{r, warning=FALSE}
+australian = read.table("C://Users/Neven/Desktop/australian.txt",
+                        sep=" ",header=F,col.names=c("A1", "A2", "A3", "A4", 
+                                                     "A5","A6", "A7", "A8", "A9","A10",
+                                                     "A11", "A12", "A13","A14", "A15"),
+                        fill=FALSE,strip.white=T)
+```
+
+Casting australian$A15 to factor variable
+```{r, warning=FALSE}
+australian$A15 <- factor(ifelse(australian$A15 > 0, "Yes", "No")) 
+
+```
+
+Summary
+```{r, warning=FALSE}
+summary(australian)
+```
+
+# Dividing dataset into training and testing set
+
+Training set: 75 %
+Testing set: 25 %
+
+```{r, warning=FALSE}
+library(caret)
+
+set.seed(1313)
+indxTrain <- createDataPartition(y = australian$A15, p = 0.75)
+str(indxTrain)
+
+australianTrain <- australian[indxTrain$Resample1,]
+australianTest <- australian[-indxTrain$Resample1,]
+```
+
+# Measuring accuracy for chosen classifiers with all variables
+```{r, warning=FALSE}
+# Details (hyperparameters tuning, etc.) are given in modelFit variable
+classifiers <- c('ctree', 'rf', 'knn', 'nb', 'lda', 'qda', 'LogitBoost', 'xgbTree', 'svmRadial', 'svmPoly')
+accuracy_all_classifiers <- sapply(classifiers, function (met) {
+  modelFit<- train(A15~., method=met, data=australianTrain)
+  confusionMatrix(australianTest$A15, predict(modelFit, australianTest))$overall
+})
+
+accuracy_all_classifiers <- t(round(accuracy_all_classifiers*100,2))
+accuracy_all_classifiers <- sort(accuracy_all_classifiers[1:10, 1:1], decreasing = TRUE)
+```
+
+# Measuring AUC for chosen classifiers with all variables
+```{r, warning=FALSE}
+library(ROCR)
+auc_all_classifiers <- c()
+for (i in classifiers) {
+  ffit <- train(A15~.,  method=i, data=australian, trControl=trainControl(classProbs=TRUE))
+  prob <- predict(ffit, australian, type = "prob")[,2]
+
+  fit.pred = prediction(prob, australian$A15)
+  fit.perf = performance(fit.pred,"auc")
+  auc_all_classifiers <- c(auc_all_classifiers, fit.perf@y.values[[1]])
+}
+
+auc_all_classifiers <- as.numeric(auc_all_classifiers)
+names(auc_all_classifiers) <- classifiers
+auc_all_classifiers <- sort(auc_all_classifiers, decreasing = TRUE)
+```
+
+# Measuring variable importance for chosen classifiers
+```{r, warning=FALSE}
+train_control <- trainControl(method="cv", number=10)
+for (i in classifiers){
+  model <- train(A15~., data=australian, trControl=train_control, method=i)
+  varImp(model, scale = TRUE)
+}
+```
+
+# Measuring accuracy and AUC for chosen classifiers with three most important variables
+```{r, warning=FALSE}
+# Details (hyperparameters tuning, etc.) are given in *_modelFit variables
+
+# Accuracy and AUC for ctree with only three most important variables
+ctree_modelFit<- train(A15~A8+A10+A9, method='ctree', data=australianTrain)
+ctree_acc <- confusionMatrix(australianTest$A15, predict(ctree_modelFit, australianTest))$overall
+ctree_acc <- t(round(ctree_acc*100,2))[1]
+
+ffit <- train(A15~A8+A10+A9,  method='ctree', data=australian, trControl=trainControl(classProbs=TRUE))
+prob <- predict(ffit, australian, type = "prob")[,2]
+fit.pred = prediction(prob, australian$A15)
+fit.perf = performance(fit.pred,"auc")
+ctree_auc <- fit.perf@y.values[[1]]
+
+# Accuracy and AUC for rf with only three most important variables
+rf_modelFit<- train(A15~A8+A10+A7, method='rf', data=australianTrain)
+rf_acc <- confusionMatrix(australianTest$A15, predict(rf_modelFit, australianTest))$overall
+rf_acc <- t(round(rf_acc*100,2))[1]
+
+ffit <- train(A15~A8+A10+A7,  method='rf', data=australian, trControl=trainControl(classProbs=TRUE))
+prob <- predict(ffit, australian, type = "prob")[,2]
+fit.pred = prediction(prob, australian$A15)
+fit.perf = performance(fit.pred,"auc")
+rf_auc <- fit.perf@y.values[[1]]
+
+# Accuracy and AUC for knn with only three most important variables
+knn_modelFit<- train(A15~A8+A10+A9, method='knn', data=australianTrain)
+knn_acc <- confusionMatrix(australianTest$A15, predict(knn_modelFit, australianTest))$overall
+knn_acc <- t(round(knn_acc*100,2))[1]
+
+ffit <- train(A15~A8+A10+A9,  method='knn', data=australian, trControl=trainControl(classProbs=TRUE))
+prob <- predict(ffit, australian, type = "prob")[,2]
+fit.pred = prediction(prob, australian$A15)
+fit.perf = performance(fit.pred,"auc")
+knn_auc <- fit.perf@y.values[[1]]
+
+# Accuracy and AUC for nb with only three most important variables
+nb_modelFit<- train(A15~A8+A10+A9, method='nb', data=australianTrain)
+nb_acc <- confusionMatrix(australianTest$A15, predict(nb_modelFit, australianTest))$overall
+nb_acc <- t(round(nb_acc*100,2))[1]
+
+ffit <- train(A15~A8+A10+A9,  method='nb', data=australian, trControl=trainControl(classProbs=TRUE))
+prob <- predict(ffit, australian, type = "prob")[,2]
+fit.pred = prediction(prob, australian$A15)
+fit.perf = performance(fit.pred,"auc")
+nb_auc <- fit.perf@y.values[[1]]
+
+# Accuracy and AUC for lda with only three most important variables
+lda_modelFit<- train(A15~A8+A10+A9, method='lda', data=australianTrain)
+lda_acc <- confusionMatrix(australianTest$A15, predict(lda_modelFit, australianTest))$overall
+lda_acc <- t(round(lda_acc*100,2))[1]
+
+ffit <- train(A15~A8+A10+A9,  method='lda', data=australian, trControl=trainControl(classProbs=TRUE))
+prob <- predict(ffit, australian, type = "prob")[,2]
+fit.pred = prediction(prob, australian$A15)
+fit.perf = performance(fit.pred,"auc")
+lda_auc <- fit.perf@y.values[[1]]
+
+# Accuracy and AUC for qda with only three most important variables
+qda_modelFit<- train(A15~A8+A10+A9, method='qda', data=australianTrain)
+qda_acc <- confusionMatrix(australianTest$A15, predict(qda_modelFit, australianTest))$overall
+qda_acc <- t(round(qda_acc*100,2))[1]
+
+ffit <- train(A15~A8+A10+A9,  method='qda', data=australian, trControl=trainControl(classProbs=TRUE))
+prob <- predict(ffit, australian, type = "prob")[,2]
+fit.pred = prediction(prob, australian$A15)
+fit.perf = performance(fit.pred,"auc")
+qda_auc <- fit.perf@y.values[[1]]
+
+# Accuracy and AUC for LogitBoost with only three most important variables
+LogitBoost_modelFit<- train(A15~A8+A10+A9, method='LogitBoost', data=australianTrain)
+LogitBoost_acc <- confusionMatrix(australianTest$A15, predict(LogitBoost_modelFit, australianTest))$overall
+LogitBoost_acc <- t(round(LogitBoost_acc*100,2))[1]
+
+ffit <- train(A15~A8+A10+A9,  method='LogitBoost', data=australian, trControl=trainControl(classProbs=TRUE))
+prob <- predict(ffit, australian, type = "prob")[,2]
+fit.pred = prediction(prob, australian$A15)
+fit.perf = performance(fit.pred,"auc")
+LogitBoost_auc <- fit.perf@y.values[[1]]
+
+# Accuracy and AUC for xgbTree with only three most important variables
+xgbTree_modelFit<- train(A15~A8+A13+A14, method='xgbTree', data=australianTrain)
+xgbTree_acc <- confusionMatrix(australianTest$A15, predict(xgbTree_modelFit, australianTest))$overall
+xgbTree_acc <- t(round(xgbTree_acc*100,2))[1]
+
+ffit <- train(A15~A8+A13+A14,  method='xgbTree', data=australian, trControl=trainControl(classProbs=TRUE))
+prob <- predict(ffit, australian, type = "prob")[,2]
+fit.pred = prediction(prob, australian$A15)
+fit.perf = performance(fit.pred,"auc")
+xgbTree_auc <- fit.perf@y.values[[1]]
+
+# Accuracy and AUC for svmRadial with only three most important variables
+svmRadial_modelFit<- train(A15~A8+A10+A9, method='svmRadial', data=australianTrain)
+svmRadial_acc <- confusionMatrix(australianTest$A15, predict(svmRadial_modelFit, australianTest))$overall
+svmRadial_acc <- t(round(svmRadial_acc*100,2))[1]
+
+ffit <- train(A15~A8+A10+A9,  method='svmRadial', data=australian, trControl=trainControl(classProbs=TRUE))
+prob <- predict(ffit, australian, type = "prob")[,2]
+fit.pred = prediction(prob, australian$A15)
+fit.perf = performance(fit.pred,"auc")
+svmRadial_auc <- fit.perf@y.values[[1]]
+
+# Accuracy and AUC for svmPoly with only three most important variables
+svmPoly_modelFit<- train(A15~A8+A10+A9, method='svmPoly', data=australianTrain)
+svmPoly_acc <- confusionMatrix(australianTest$A15, predict(svmPoly_modelFit, australianTest))$overall
+svmPoly_acc <- t(round(svmPoly_acc*100,2))[1]
+
+ffit <- train(A15~A8+A10+A9,  method='svmPoly', data=australian, trControl=trainControl(classProbs=TRUE))
+prob <- predict(ffit, australian, type = "prob")[,2]
+fit.pred = prediction(prob, australian$A15)
+fit.perf = performance(fit.pred,"auc")
+svmPoly_auc <- fit.perf@y.values[[1]]
+
+accuracy_all_classifiers_three_most_important <- c(ctree_acc, rf_acc, knn_acc, nb_acc, lda_acc, qda_acc, LogitBoost_acc, xgbTree_acc, svmRadial_acc, svmPoly_acc)
+accuracy_all_classifiers_three_most_important <- as.numeric(accuracy_all_classifiers_three_most_important)
+names(accuracy_all_classifiers_three_most_important) <- classifiers
+accuracy_all_classifiers_three_most_important <- sort(accuracy_all_classifiers_three_most_important, decreasing = TRUE)
+
+auc_all_classifiers_three_most_important <- c(ctree_auc, rf_auc, knn_auc, nb_auc, lda_auc, qda_auc, LogitBoost_auc, xgbTree_auc, svmRadial_auc, svmPoly_auc)
+auc_all_classifiers_three_most_important <- as.numeric(auc_all_classifiers_three_most_important)
+names(auc_all_classifiers_three_most_important) <- classifiers
+auc_all_classifiers_three_most_important <- sort(auc_all_classifiers_three_most_important, decreasing = TRUE)
+```
+
+# Results
+```{r, warning=FALSE}
+# **************************************************************************************************************
+# All variables:
+
+# Accuracy table for classifiers with all variables:
+print (accuracy_all_classifiers)
+
+# AUC table for classifiers with all variables:
+print (auc_all_classifiers)
+# **************************************************************************************************************
+
+# **************************************************************************************************************
+# Three most important variables:
+# Three most important variables for ctree, knn, nba, lda, qda, LogitBoost, svmRadial and svmPoly are A8, A10 and A9, three most important variables for rf are A8, A10 and A7 and three most important variables for xgbTree are A8, A13 and A14
+
+# Accuracy table for classifiers with three most important variables:")
+print (accuracy_all_classifiers_three_most_important)
+
+# AUC table for classifiers with three most important variables:
+print (auc_all_classifiers_three_most_important)
+# **************************************************************************************************************
+# Best features are: A8, A10, A9, A7, A13, A14
+
+# Worst features are: A12, A11, A1
+
+# The best classifier has rank 1 and the worst classifier has rank 10
+
+# Rank list for accuracy with all variables
+acc_all_class_ranking <- as.numeric(c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
+names(acc_all_class_ranking) <- names(accuracy_all_classifiers)
+print(acc_all_class_ranking)
+
+# Rank list for AUC with all variables
+auc_all_class_ranking <- as.numeric(c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
+names(auc_all_class_ranking) <- names(auc_all_classifiers)
+print(auc_all_class_ranking)
+
+# Rank list for accuracy with three most important variables
+acc_all_class_three_most_imp_ranking <- as.numeric(c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
+names(acc_all_class_three_most_imp_ranking) <- names(accuracy_all_classifiers_three_most_important)
+print(acc_all_class_three_most_imp_ranking)
+
+# Rank list for AUC with three most important variables
+auc_all_class_three_most_imp_ranking <- as.numeric(c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
+names(auc_all_class_three_most_imp_ranking) <- names(auc_all_classifiers_three_most_important)
+print(auc_all_class_three_most_imp_ranking)
+
+# Final rankings
+final_rankings = as.numeric(c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+names(final_rankings) <- classifiers
+for (i in classifiers){
+  final_rankings[i] <- (acc_all_class_ranking[i] + auc_all_class_ranking[i] + acc_all_class_three_most_imp_ranking[i] + auc_all_class_three_most_imp_ranking[i])/4
+}
+final_rankings <- sort(final_rankings)
+print(final_rankings)
+
+# Based on the results we would declare rf and xgbTree classifiers as best ones for this task.
+```

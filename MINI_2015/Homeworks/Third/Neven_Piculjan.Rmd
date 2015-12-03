@@ -1,0 +1,50 @@
+---
+title: "Homework 3"
+author: "Neven Pičuljan"
+date: "October 22, 2015"
+output: html_document
+---
+
+# The Homework
+
+Download the dataset `adult` (find more about this dataset here: http://archive.ics.uci.edu/ml/machine-learning-databases/adult/). 
+Train a decision tree and a random forest. 
+Compare performance of both methods. 
+
+Take some time to find variables that are not used by anyone else (sumbissions with same set of variables will not be scored).
+
+```{r}
+data = read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data",
+        sep=",",header=F,col.names=c("age", "type_employer", "fnlwgt", "education", 
+                "education_num","marital", "occupation", "relationship", "race","sex",
+                "capital_gain", "capital_loss", "hr_per_week","country", "income"),
+        fill=FALSE,strip.white=T)
+head(data,3)
+
+```
+
+#Solution
+
+```{r, warning=FALSE, message=FALSE}
+# Decision tree
+library(party)
+
+# Fitting a tree
+tr <- ctree(income~age+type_employer+education+marital+capital_gain+hr_per_week+country, data=data)
+
+# Plotting a tree
+plot(tr)
+
+# Performance of decision tree
+table(real = data$income,
+      predicted = predict(tr))
+
+# Random Forest
+library(randomForest)
+
+# Fitting Random Forest
+ffit <- randomForest(income~age+type_employer+education+marital+capital_gain+hr_per_week+country,   data=data, importance = TRUE)
+
+# Performance of Random Forest
+print(ffit) 
+```

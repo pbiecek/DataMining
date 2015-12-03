@@ -1,0 +1,264 @@
+---
+title: "Project #1"
+author: "Ziad Al Bkhetan, Karolina Kwasiborska, Tomasz Zaremba"
+date: "October 22, 2015"
+output: 
+  html_document:
+    toc : TRUE
+---
+# Introduction
+in this project we will use two different classifiers
+  * k nearest neighbours
+  * random forest 
+
+# DataSet preprocessing   
+Starting with data loading into the variable australianDataSet using R script
+Data Link is http://archive.ics.uci.edu/ml/machine-learning-databases/statlog/australian/australian.dat
+
+```{r}
+australianDataSet = read.table("C:\\Users\\Tomek\\Desktop\\Studia\\MSc\\Semestr 2\\Data mining\\Projekty\\1\\australian.dat",
+        sep=" ",header=F,col.names=c("A1", "A2", "A3", "A4", 
+                "A5","A6", "A7", "A8", "A9","A10",
+                "A11", "A12", "A13","A14", "A15"),
+        fill=FALSE,strip.white=T)
+head(australianDataSet)
+```
+
+Create factor Variable for the target attribute A15
+```{r}
+australianDataSet$A15 = factor(australianDataSet$A15)
+```
+
+Data Normalization
+```{r}
+australianDataSet$A14 <- (australianDataSet$A14 - min(australianDataSet$A14))/(max(australianDataSet$A14) + min(australianDataSet$A14))  
+
+australianDataSet$A10 <- (australianDataSet$A10 - min(australianDataSet$A10))/(max(australianDataSet$A10) + min(australianDataSet$A10))  
+
+australianDataSet$A5 <- (australianDataSet$A5 - min(australianDataSet$A5))/(max(australianDataSet$A5) + min(australianDataSet$A5))  
+
+australianDataSet$A7 <- (australianDataSet$A7 - min(australianDataSet$A7))/(max(australianDataSet$A7) + min(australianDataSet$A7))  
+
+australianDataSet$A13 <- (australianDataSet$A13 - min(australianDataSet$A13))/(max(australianDataSet$A13) + min(australianDataSet$A13))  
+```
+Summary
+```{r}
+summary(australianDataSet)
+```
+
+# Data Partitioning
+in this phase we will divide the dataset into two different sets the first one for classifier training while the second is for the classifier testing.
+<br> * partion percentage is 75:25
+<br> * target attribute to maintain good distribution "A15"
+ 
+```{r}
+library(lattice)
+library(ggplot2)
+library(caret)
+indxTrainSet <- createDataPartition(y = australianDataSet$A15, p=0.75)
+str(indxTrainSet)
+
+australianDataSetTrain <- australianDataSet[indxTrainSet$Resample1,]
+#australianDataSetTrain
+australianDataSetTest <- australianDataSet[-indxTrainSet$Resample1,]
+#australianDataSetTest
+
+
+```
+# Data Distribution Visualization
+This visualization is based on A2 and A3 dimensions 
+
+```{r}
+
+levels(australianDataSet$A15) <- c("0", "1")
+
+ggplot(australianDataSet, aes(A2, A3, color=A15)) +
+  geom_point() +
+  theme_bw() + coord_fixed()
+
+```
+
+# Finding Best K for Classification
+
+used model is A8 + A14 + A10 + A5 +A7 + A13 + A9
+```{r}
+library(caret)
+K_itertor <- 2:100
+performance <- sapply(K_itertor, function(k) {
+  KnnClassifier_k <- knn3(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data = australianDataSetTrain, k=k)
+  tab <- table(true = australianDataSetTest$A15,
+          predict = predict(KnnClassifier_k, australianDataSetTest, type="class"))
+  sum(diag(tab)) / sum(tab)
+  
+}) 
+
+  
+
+df <- data.frame(K_itertor, performance)
+
+ggplot(df, aes(K_itertor, performance)) +
+  geom_point() + 
+  geom_smooth(se=FALSE, span=0.1, size=2) +
+  theme_bw()
+
+best_k = which.max(performance)
+best_k
+# Accuracy for best k:
+performance[best_k]
+
+```
+
+# K Nearest Neighbours Classifier - Training Phase
+we will train this classifier using A15 as a target or class attribute, and the current variables :
+A8 + A14 + A10 + A5 +A7 + A13 + A9
+for best K
+```{r}
+
+knnClassifier <- knn3(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data = australianDataSetTrain, k=best_k)
+knnClassifier
+
+```
+# K Nearest Neighbours Classifier - Testing Phase
+in this step we will apply our classifier on the test data test to check its efficiency:
+```{r}
+predAust <- predict(knnClassifier, australianDataSetTest, type="class")
+
+tab <- table(true = australianDataSetTest$A15, predicted = predAust)
+tab
+
+
+```
+# K Nearest Neighbours results:
+
+```{r}
+mesTab <- matrix(c("TP", "FN", "FP", "TN"), ncol=2, nrow = 2, byrow = TRUE)
+colnames(mesTab) <- c("0", "1")
+rownames(mesTab) <- c("0", "1")
+mesTab
+```
+
+Accuracy : the percentage of the correct prediction . (TP + TN) / (TP + TN + FP + FN) 
+
+```{r}
+sum(diag(tab)) / sum(tab)
+```
+
+Precision : The percentage of positive predictions that are correct (Positive = 0, negative = 1). TP / (TP + FP)
+```{r}
+tab[[1]] / (tab[[1]] + tab[[2]])
+
+```
+Sensitivity : The percentage of positive labeled instances that were predicted as positive. TP / (TP + FN)
+```{r}
+tab[[1]] / (tab[[1]] + tab[[3]])
+
+```
+Specificity : The percentage of negative labeled instances that were predicted as negative. TN / (TN + FP)
+```{r}
+tab[[4]] / (tab[[4]] + tab[[2]])
+
+```
+
+# Random forests
+
+# Random forest for all variables
+
+```{r}
+library(randomForest)
+allVariablesForest <- randomForest(A15 ~ ., data = australianDataSetTrain, importance = TRUE, na.action = na.omit)
+```
+
+Importance of variables:
+```{r}
+varImpPlot(allVariablesForest)
+importance(allVariablesForest)
+```
+
+Prediction using the forest:
+```{r}
+allVariablesPrediction = predict(allVariablesForest, australianDataSetTest, type="class")
+allVariablesTab <- table(true = australianDataSetTest$A15, predicted = allVariablesPrediction)
+```
+
+Prediction accuracy:
+```{r}
+sum(diag(allVariablesTab)) / sum(allVariablesTab)
+```
+
+# Random forest for the same variables as in k nearest neighbours
+
+```{r}
+kNearestNeighboursForest <- randomForest(A15 ~ A8 + A14 + A10 + A5 +A7 + A13 + A9, data = australianDataSetTrain, importance = TRUE, na.action = na.omit)
+```
+
+Importance of variables:
+```{r}
+varImpPlot(kNearestNeighboursForest)
+importance(kNearestNeighboursForest)
+```
+
+Prediction using the forest:
+```{r}
+kNearestNeighboursForestPrediction = predict(kNearestNeighboursForest, australianDataSetTest, type="class")
+kNearestNeighboursPredictionTab <- table(true = australianDataSetTest$A15, predicted = kNearestNeighboursForestPrediction)
+```
+
+Prediction accuracy:
+```{r}
+sum(diag(kNearestNeighboursPredictionTab)) / sum(kNearestNeighboursPredictionTab)
+```
+
+Precision:
+```{r}
+kNearestNeighboursPredictionTab[[1]] / (kNearestNeighboursPredictionTab[[1]] + kNearestNeighboursPredictionTab[[2]])
+
+```
+Sensitivity:
+```{r}
+kNearestNeighboursPredictionTab[[1]] / (kNearestNeighboursPredictionTab[[1]] + kNearestNeighboursPredictionTab[[3]])
+
+```
+Specificity:
+```{r}
+kNearestNeighboursPredictionTab[[4]] / (kNearestNeighboursPredictionTab[[4]] + kNearestNeighboursPredictionTab[[2]])
+
+```
+
+# Random forest for top 2 variables
+
+```{r}
+chosenVariablesForest <- randomForest(A15 ~ A8 + A10, data = australianDataSetTrain, importance = TRUE, na.action = na.omit)
+```
+
+Importance of variables:
+```{r}
+varImpPlot(chosenVariablesForest)
+importance(chosenVariablesForest)
+```
+
+Prediction using the forest:
+```{r}
+chosenVariablesPrediction = predict(chosenVariablesForest, australianDataSetTest, type="class")
+chosenVariablesPredictionTab <- table(true = australianDataSetTest$A15, predicted = chosenVariablesPrediction)
+```
+
+Prediction accuracy:
+```{r}
+sum(diag(chosenVariablesPredictionTab)) / sum(chosenVariablesPredictionTab)
+```
+
+Precision:
+```{r}
+chosenVariablesPredictionTab[[1]] / (chosenVariablesPredictionTab[[1]] + chosenVariablesPredictionTab[[2]])
+
+```
+Sensitivity:
+```{r}
+chosenVariablesPredictionTab[[1]] / (chosenVariablesPredictionTab[[1]] + chosenVariablesPredictionTab[[3]])
+
+```
+Specificity:
+```{r}
+chosenVariablesPredictionTab[[4]] / (chosenVariablesPredictionTab[[4]] + chosenVariablesPredictionTab[[2]])
+
+```
