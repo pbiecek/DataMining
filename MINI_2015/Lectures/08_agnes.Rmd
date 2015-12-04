@@ -196,7 +196,7 @@ head(all_votes[,1:7])
 
 Details:
 
-- create a matrix with deputies in rows and id_voting in columns (you can use `gather()` function from `tidyr`),
+- create a matrix with deputies in rows and id_voting in columns (you can use `spread()` function from `tidyr`),
 - create matrix with similarities between deputies,
 - use this similarity matrix to cluster deputies.
 
