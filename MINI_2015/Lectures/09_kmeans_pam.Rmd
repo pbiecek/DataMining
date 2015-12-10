@@ -1,0 +1,117 @@
+---
+title: "Combinatorial Clustering"
+author: "Przemyslaw Biecek"
+date: "Data Mining - Advances"
+output: 
+  html_document:
+    toc: TRUE
+---
+
+# Clustering
+
+Last time we have discussed hierarchical clustering. Today we will introduce two combinatorial methods.
+
+* k-means
+* Partitioning Around Medoids (PAM)
+
+In both cases, one specifies the initial configuration and the number of clusters. Then in iterative fashion the optimal clustering is obtained. In both cases the clusters are defined by medoids. Observations are assigned to clusters defined by the closest medoid.
+
+The difference between both methods come from the fact that in the PAM method the medoids are observations from dataset while for k-means any point may be a medoid.
+
+## k-means
+
+Let's use the dataset `Cars93` as an example. The dataset contains information about length and weight of different cars. 
+
+```{r, fig.width=10, fig.height=10}
+library(ggplot2)
+library(MASS)
+library(cluster)
+
+ggplot(Cars93, aes(Length, Weight, label=Make)) +
+  geom_text(size=3) + 
+  theme_bw()
+```
+
+The algorithm is following:
+
+1. Initialize with random medoids
+2. Assign observations to closest medoids
+3. Calculate canters for each cluster, these are new medoids, 
+4. Go to 1.
+
+
+```{r}
+Cars93$Length <- scale(Cars93$Length)
+Cars93$Weight <- scale(Cars93$Weight)
+
+model1 <- kmeans(Cars93[,c("Length","Weight")], 5)
+Cars93$cluster <- factor(model1$cluster)
+
+nd <- data.frame(model1$centers)
+
+ggplot(Cars93, aes(Length, Weight)) +
+  geom_text(size=3, aes(label=Make, color=cluster)) + 
+  geom_point(data=nd, size=5)+
+  theme_bw()
+```
+
+
+! Note that this algorithm is unstable. Run the clustering few times to see different results.
+
+## PAM
+
+
+The algorithm is following:
+
+1. Initialize with random medoids
+2. Assign observations to closest medoids
+3. Swap medoid with other observation if this this will improve the fit 
+4. Go to 1.
+
+```{r}
+model2 <- pam(Cars93[,c("Length","Weight")], 5)
+Cars93$cluster <- factor(model2$clustering)
+
+nd <- data.frame(model2$medoids)
+
+ggplot(Cars93, aes(Length, Weight)) +
+  geom_text(size=3, aes(label=Make, color=cluster)) + 
+  geom_point(data=nd, size=5)+
+  theme_bw()
+
+```
+
+## Silhouettes
+
+How to choose the number of clusters?
+
+The popular measure are `silhouette`'s. They are defined as
+
+$$
+s(i) = (b(i) - a(i))/max(a(i), b(i))
+$$
+
+where $a(i)$ is the average distance to all observations from same cluster while $b(i)$ is the average distance to all observations from the second closest cluster.
+
+Note that sometimes it can be negative!
+
+
+```{r}
+dissE <- daisy(as.matrix(Cars93[,c("Length","Weight")])) 
+si1 <- silhouette(model1$cl, dissE)
+plot(si1, main="k-means")
+
+si2 <- silhouette(model2)
+plot(si2,main="PAM")
+
+str(si2)
+```
+
+# The home work
+
+For both PAM and k-means find clustering for different number of clusters (from 2 to 20). 
+
+For each observation calculate the `silhouette` and then calculate the average silhouette score. 
+
+Then plot the average silhouette as a function of number of clusters.
+
