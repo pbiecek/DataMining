@@ -37,8 +37,7 @@ After each phase you should create a single report (e.g. with the use of knitr).
 In the first phase you should characterize types of interactions with different machines (exploratory analysis). Try to answer following questions:
 
 * what is the average (or distribution) time of interaction with a given machine
-* is there a difference in the time of interaction and weekday or hour
-* what is the average (or distribution) length of playing in the space with stations
+* is there a relation between the duraion of an interaction and variables like weekday or hour
 
 In the second phase you should try to segment visitors into separate categories / segments. Try to answer following questions:
 
