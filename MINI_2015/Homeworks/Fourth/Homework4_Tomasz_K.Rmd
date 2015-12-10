@@ -1,0 +1,150 @@
+---
+title: "Homework 4"
+author: "Tomasz K"
+date: "29 paüdziernika 2015"
+output: html_document
+---
+
+# Homework Description
+
+Download the dataset adult (find more about this dataset here: http://archive.ics.uci.edu/ml/machine-learning-databases/adult/).
+
+Train a k-nn for different k and Random Forest for different m and compare these results with the use of ROC curves and AUC values.
+
+# Loading Data
+
+```{r}
+library(caret)
+library(randomForest)
+library(ROCR)
+
+adult = read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data",
+        sep=",",header=F,col.names=c("age", "type_employer", "fnlwgt", "education", 
+                "education","marital", "occupation", "relationship", "race","sex",
+                "capital_gain", "capital_loss", "hr_per_week","country", "income"),
+        fill=FALSE,strip.white=T)
+
+
+adult$income <- factor(adult$income)
+index = createDataPartition(y = adult$income, p = 0.75)
+adult_train = adult[index$Resample1,]
+adult_test = adult[-index$Resample1,]
+```
+
+# AUC and ROC
+## Random Forest and K-Nearest Neighbor parameter tuning
+
+```{r}
+# K-NN with k = 1
+ffit <- knn3(income ~ age + education + race + sex, data=adult_train, k=1)
+prob <- predict(ffit, newdata = adult_test, type="prob")[,2]
+  
+# AUC
+fit.pred = prediction(prob, adult_test$income)
+fit.perf = performance(fit.pred,"auc")
+fit.perf@y.values[[1]]
+
+# ROC
+fit.perf = performance(fit.pred,"tpr","fpr")
+plot(fit.perf, col="orange")
+abline(a=0,b=1)
+
+# K-NN with k = 5
+ffit <- knn3(income ~ age + education + race + sex, data=adult_train, k=5)
+prob <- predict(ffit, newdata = adult_test, type="prob")[,2]
+  
+# AUC
+fit.pred = prediction(prob, adult_test$income)
+fit.perf = performance(fit.pred,"auc")
+fit.perf@y.values[[1]]
+
+# ROC
+fit.perf = performance(fit.pred,"tpr","fpr")
+plot(fit.perf, col="red", add=TRUE)
+
+# K-NN with k = 20
+ffit <- knn3(income ~ age + education + race + sex, data=adult_train, k=20)
+prob <- predict(ffit, newdata = adult_test, type="prob")[,2]
+  
+# AUC
+fit.pred = prediction(prob, adult_test$income)
+fit.perf = performance(fit.pred,"auc")
+fit.perf@y.values[[1]]
+
+# ROC
+fit.perf = performance(fit.pred,"tpr","fpr")
+plot(fit.perf, col="green", add=TRUE)
+
+# K-NN with k = 60
+ffit <- knn3(income ~ age + education + race + sex, data=adult_train, k=60)
+prob <- predict(ffit, newdata = adult_test, type="prob")[,2]
+  
+# AUC
+fit.pred = prediction(prob, adult_test$income)
+fit.perf = performance(fit.pred,"auc")
+fit.perf@y.values[[1]]
+
+# ROC
+fit.perf = performance(fit.pred,"tpr","fpr")
+plot(fit.perf, col="brown", add=TRUE)
+
+# K-NN with Random Forest with m = 1
+ffit <- randomForest(income ~ age + education + race + sex, data=adult_train, importance = TRUE, mtry=1)
+prob <- predict(ffit, newdata = adult_test, type="prob")[,2]
+  
+# AUC
+fit.pred = prediction(prob, adult_test$income)
+fit.perf = performance(fit.pred,"auc")
+fit.perf@y.values[[1]]
+
+# ROC
+fit.perf = performance(fit.pred,"tpr","fpr")
+plot(fit.perf, col="purple", add=TRUE)
+
+# K-NN with Random Forest with m = 2
+ffit <- randomForest(income ~ age + education + race + sex, data=adult_train, importance = TRUE, mtry=2)
+prob <- predict(ffit, newdata = adult_test, type="prob")[,2]
+  
+# AUC
+fit.pred = prediction(prob, adult_test$income)
+fit.perf = performance(fit.pred,"auc")
+fit.perf@y.values[[1]]
+
+# ROC
+fit.perf = performance(fit.pred,"tpr","fpr")
+plot(fit.perf, col="pink", add=TRUE)
+
+# K-NN with Random Forest with m = 3
+ffit <- randomForest(income ~ age + education + race + sex, data=adult_train, importance = TRUE, mtry=3)
+prob <- predict(ffit, newdata = adult_test, type="prob")[,2]
+  
+# AUC
+fit.pred = prediction(prob, adult_test$income)
+fit.perf = performance(fit.pred,"auc")
+fit.perf@y.values[[1]]
+
+# ROC
+fit.perf = performance(fit.pred,"tpr","fpr")
+plot(fit.perf, col="violet", add=TRUE)
+
+# K-NN with Random Forest with m = 4
+ffit <- randomForest(income ~ age + education + race + sex, data=adult_train, importance = TRUE, mtry=4)
+prob <- predict(ffit, newdata = adult_test, type="prob")[,2]
+  
+# AUC
+fit.pred = prediction(prob, adult_test$income)
+fit.perf = performance(fit.pred,"auc")
+fit.perf@y.values[[1]]
+
+# ROC
+fit.perf = performance(fit.pred,"tpr","fpr")
+plot(fit.perf, col="blue", add=TRUE)
+```
+
+# Conclusions
+We can see that generally in terms of AUC the K-nn classifier performs better scoring ~0.8 AUC and generally better ROC curve.
+The best AUC and ROC curve was achieved for k=5 - red curve is the "peak" performance. With k=1 and k above 5 the score is slightly worse. The higher number of k the more the score drops.
+In case of random forest the m=3 was slightly better than other values of m, but there is no big difference between AUC values. Also the corresponding violet curve indicates better performance for this value of m=3.
+
+
+
