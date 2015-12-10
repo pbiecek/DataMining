@@ -1,0 +1,137 @@
+---
+title: "Project 2 - Phase 1"
+author: "Marcel Sz, Karolina K"
+date: "2015-12-09"
+output: 
+  html_document:
+    toc: TRUE
+---
+#Phase description
+
+Characterize types of interactions with different machines (exploratory analysis). Try to answer following questions:
+<ul><li>What is the average (or distribution) time of interaction with a given machine</li>
+<li>Is there a difference in the time of interaction and weekday or hour?</li>
+<li>What is the average (or distribution) length of playing in the space with stations"</li><ul>
+
+
+#Loading data and necessary libraries
+```{r, cache=TRUE}
+library(tidyr)
+library(caret)
+library(dplyr)
+library(lubridate)
+load("C:\\Users\\Karola\\Documents\\BISD\\Semestr 2\\Data Mining\\Projekt 2\\verySmallLogs.rda")
+```
+
+#Preprocessing data
+In order to easily analyze data we divided a data set into 'Entering' and 'Leaving' data sets. We found a start date of a visitor activity in a station (in "Entering") and a finish date (in "Leaving"). Finally we merge those sets and obtained a set for further analyzes.
+```{r, cache=TRUE}
+data <- verySmallLogs %>% 
+  mutate(station,
+         visitor,
+         type,
+         date,
+         weekday = wday(date, label=TRUE, abbr=FALSE),
+         hour = substr(date, 12, 13))
+
+dataEntering <- data[data$type=="Entering" & data$visitor != -1,]
+dataLeaving <- data[data$type=="Leaving" & data$visitor != -1,]
+
+newdataEntering = dataEntering %>%
+group_by(visitor, station) %>%
+summarise(min=min(date),
+          weekday=head(weekday,1),
+          hour=head(hour,1))
+
+newdataLeaving = dataLeaving %>%
+group_by(visitor, station) %>%
+summarise(max=max(date),
+          weekday=head(weekday,1),
+          hour=head(hour,1))
+
+mergedData <- merge(newdataEntering, newdataLeaving, by=c("visitor", "station", "weekday", "hour"))
+```
+
+#What is the average time of interaction with a given machine
+First we found average duration of visitors' activities in every station.
+```{r, cache=TRUE}
+avgData = mergedData %>%
+group_by(visitor, station) %>%
+summarise(time = max-min)
+
+avgData = avgData %>%
+group_by(station) %>%
+summarise(avg = mean(time))
+avgData
+
+par(mar=c(2,1.8,2,0))
+barplot(c(avgData$avg), main="Average distribution times in each station", xlab="Stations", names.arg=as.character(avgData$station))
+```
+
+The station in which visitors spent definitely the most time is cnk19a.Cnk18 was also very popular.
+Cnk20, cnk38 and cnk66 stations attracted visitors the least.
+
+#Is there a relation between the duraion of an interaction and variables like weekday or hour? 
+Then we check if there is a dependence between the duration of an interaction and weekday and hour.
+
+## Weekday
+```{r, cache=TRUE, fig.width = 10, fig.height=3}
+weekdayData = mergedData %>%
+group_by(visitor, station, weekday) %>%
+summarise(time = max-min)
+
+weekdayStationData = weekdayData %>%
+group_by(station, weekday) %>%
+summarise(avg = mean(time))
+data.frame(weekdayStationData)
+
+
+weekdayGeneralData = weekdayData %>%
+group_by(weekday) %>%
+summarise(avg = mean(time))
+weekdayGeneralData
+par(mar=c(2,1.8,2,0))
+barplot(c(weekdayGeneralData$avg), main="Average distribution times in every weekday", xlab="Weekdays", names.arg=as.character(weekdayGeneralData$weekday))
+```
+
+The average time spent in the station during different days of the week was quite similar. Only during Mondays visitors spent less time on their interaction.
+
+## Hour
+```{r, cache=TRUE, fig.width=10,  fig.height=6}
+hourData = mergedData %>%
+group_by(visitor, station, hour) %>%
+summarise(time = max-min)
+
+hourStationData = hourData %>%
+group_by(station, hour) %>%
+summarise(avg = mean(time))
+data.frame(hourStationData)
+
+hourGeneralData = hourData %>%
+group_by(hour) %>%
+summarise(avg = mean(time))
+hourGeneralData
+barplot(c(hourGeneralData$avg), main="Average distribution times in every hour", xlab="Hours", names.arg=hourGeneralData$hour)
+```
+
+Greater differences in time spent in stations can be observed at different hours (comparing to differences in weekdays). Between 7P.M. and 8 P.M. visitors spent the greatest amount of time in stations. At 7 A.M.the activity of visitors was the smallest. Between 9P.M. and 7A.M. there was no interaction with stations at all. 
+
+## Weekday and hour
+```{r, cache=TRUE}
+weekdayData = mergedData %>%
+group_by(visitor, station, weekday, hour) %>%
+summarise(time = max-min)
+
+# stationData = weekdayData %>%
+# group_by(station, weekday, hour) %>%
+# summarise(avg = mean(time))
+# stationData
+
+generalData = weekdayData %>%
+group_by(weekday, hour) %>%
+summarise(avg = mean(time))
+data.frame(generalData)
+```
+
+# Summary
+Taking into consideration all results, we conclude, that average time spent by each visitor on each station was different. Furthermore computation shows, that during various days the average times were similar. Moreover at different hours times where different.
