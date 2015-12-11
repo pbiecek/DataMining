@@ -1,0 +1,94 @@
+---
+title: "Phase 1 - Project 2"
+author: "Tomasz K, Tomasz Z, Margareta K"
+date: "2015-12-09"
+output: 
+  html_document:
+    self_contained: no
+    toc: TRUE
+---
+
+# Project phase description
+In the first phase you should characterize types of interactions with different machines (exploratory analysis). Try to answer following questions:
+
+- what is the average (or distribution) time of interaction with a given machine
+- is there a difference in the time of interaction and weekday or hour
+- what is the average (or distribution) length of playing in the space with stations
+
+# Loading data
+```{r, warning=FALSE, message=FALSE, cache=TRUE}
+load("verySmallLogs.rda")
+library(lubridate)
+verySmallLogs$dayOfWeek = strftime(verySmallLogs$date,'%A')
+verySmallLogs$dayOfWeekNumber = as.numeric(strftime(verySmallLogs$date,'%u'))
+verySmallLogs$hour = substr(as.character(verySmallLogs$date), 12, 13);
+verySmallLogs = verySmallLogs[order(verySmallLogs$dayOfWeekNumber), ]
+```
+
+# Time of interaction with machine
+```{r, warning=FALSE, message=FALSE, cache=TRUE}
+library(sqldf)
+time_per_visitor <- sqldf('SELECT station, visitor, MAX(date) - MIN(date) as time FROM verySmallLogs WHERE visitor!=-1 GROUP BY station, visitor')
+
+summary(time_per_visitor$time)
+
+avg_time_machine <- sqldf('SELECT station, AVG(time) as average_time FROM time_per_visitor GROUP BY station')
+avg_time_machine
+
+barplot(avg_time_machine$average_time, main="Average time on each machine", 
+  	xlab="Machine", names.arg = avg_time_machine$station)
+
+time_per_day_visitor = sqldf('SELECT station, visitor, MAX(date) - MIN(date) as time, dayOfWeek, dayOfWeekNumber FROM verySmallLogs WHERE visitor!=-1 GROUP BY station, visitor, dayOfWeekNumber')
+
+time_per_day_machine <- sqldf('SELECT station, dayOfWeek, dayOfWeekNumber, AVG(time) as average_time FROM time_per_day_visitor GROUP BY station, dayOfWeekNumber')
+
+time_per_day_general = sqldf('SELECT dayOfWeek, dayOfWeekNumber, AVG(average_time) as average_time_per_day FROM time_per_day_machine GROUP BY dayOfWeekNumber')
+
+time_per_day_and_hour_visitor = sqldf('SELECT station, visitor, MAX(date) - MIN(date) as time, dayOfWeek, dayOfWeekNumber, hour FROM verySmallLogs WHERE visitor!=-1 GROUP BY station, visitor, dayOfWeekNumber, hour')
+
+time_per_day_and_hour_machine <- sqldf('SELECT station, dayOfWeek, dayOfWeekNumber, hour, AVG(time) as average_time FROM time_per_day_and_hour_visitor GROUP BY station, dayOfWeekNumber, hour')
+
+time_per_day_and_hour_general = sqldf('SELECT dayOfWeek, dayOfWeekNumber, hour, AVG(average_time) as average_time_per_day FROM time_per_day_and_hour_machine GROUP BY dayOfWeekNumber, hour')
+
+time_per_hour_general = sqldf('SELECT hour, AVG(average_time) as average_time_per_hour FROM time_per_day_and_hour_machine GROUP BY hour')
+
+time_per_day_general = sqldf('SELECT dayOfWeek, dayOfWeekNumber, AVG(average_time) as average_time_per_day FROM time_per_day_and_hour_machine GROUP BY dayOfWeek order by dayOfWeekNumber')
+
+# Time per day and machine
+time_per_day_machine = time_per_day_machine[, !(colnames(time_per_day_machine) %in% c("dayOfWeekNumber"))]
+head(time_per_day_machine)
+
+# Time per day
+timer_per_day_general = time_per_day_general[, !(colnames(time_per_day_general) %in% c("dayOfWeekNumber"))]
+time_per_day_general
+
+
+time_per_day_and_hour_visitor = time_per_day_and_hour_visitor[order(time_per_day_and_hour_visitor$dayOfWeekNumber), ]
+
+
+# Time per day, hour and machine
+time_per_day_and_hour_machine = time_per_day_and_hour_machine[, !(colnames(time_per_day_and_hour_machine) %in% c("dayOfWeekNumber"))]
+head(time_per_day_and_hour_machine)
+
+# Time per day, hour
+time_per_day_and_hour_general = time_per_day_and_hour_general[, !(colnames(time_per_day_and_hour_general) %in% c("dayOfWeekNumber"))]
+head(time_per_day_and_hour_general)
+
+# Time per hour in general
+time_per_hour_general
+
+# Time per hour 
+time_per_hour_general <-time_per_hour_general[time_per_hour_general$average_time_per_hour < 200, ]
+
+barplot(time_per_hour_general$average_time_per_hour, main="Time per hour distribution", 
+   xlab="Hours in a day", names.arg = time_per_hour_general$hour)
+
+
+time_per_day_general = time_per_day_general[, !(colnames(time_per_day_general) %in% c("dayOfWeekNumber"))]
+
+barplot(time_per_day_general$average_time_per_day, main="Time per weekday distribution", xlab="Days per week", names.arg = time_per_day_general$dayOfWeek)
+```
+
+#Conclusion
+
+ The most average time spent was on 'cnk38' and 'cnk61'. However, the number of interactions is the smallest on 'cnk38' and biggest on 'cnk19'. The average time of interaction with machines is the biggest during the weekends and on Wednesdays. It is the smallest on Mondays. The machine labeled as 'cnk19a' is the most popular one regardless of the day of week, whereas the machine 'cnk38' is the least popular. There are no interactions between 10 PM and 7 AM (night) and between 8 and 10.
