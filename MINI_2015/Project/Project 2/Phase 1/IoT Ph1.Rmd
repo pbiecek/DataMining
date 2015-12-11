@@ -1,0 +1,137 @@
+---
+title: "Internet of Things"
+author: "Gowrishankar Anand Sudhan"
+date: "11 December 2015"
+output: html_document
+---
+
+
+
+ 
+```{r, echo=FALSE}
+#load("SmallLogs.rda")  
+#loading the data:  as dataset is huge ,sampling  is done and it is loaded in csv.
+SmallLogs <-load("C:\\Users\\shankar\\Downloads\\SmallLogs.rda")
+smallLogs=as.data.frame(smallLogs)
+sample=head(smallLogs,3900000)
+write.csv(sample, "smallLogs_1200000.csv")
+#library(dplyr)
+#set.seed(125)
+#c=sample(unique(smallLogs$visitor),nrow(smallLogs)/15*0.5)
+#m=subset(smallLogs,visitor%in%c) 
+#write.csv(m, "smallLogs_data5.csv")
+SmallLogs <- read.table("smallLogs_1200000.csv",header=T,sep=',')
+
+```
+
+#Phase I : Exploratory Data Analysis(EDA)
+
+##Putting the data in the correct form
+
+```{r, message=FALSE,warning=FALSE}
+#Eliminate the first var(indexing Var is not useful for us and memory consuming)
+SmallLogs <- SmallLogs[,-1]
+
+# Setting date as POSIXct object that we can do compuations over it 
+SmallLogs$time <- as.POSIXct(SmallLogs$date,format="%Y-%m-%d %H:%M:%S")
+
+#Extract scene names from the variable "scene" and convert them as factors 
+test=sub(".*=", "", SmallLogs$scene)
+SmallLogs$scene_name<- substr(test,1, nchar(test)-1)
+SmallLogs$scene_name<-as.factor(SmallLogs$scene_name)
+```
+
+##Calculating time interaction by station
+
+```{r, message=FALSE,warning=FALSE}
+library(dplyr)
+test=SmallLogs %>% group_by(station,visitor) %>% summarise(first=first(time)) #first login into the station
+test2=SmallLogs %>% group_by(station,visitor) %>% summarise(last=last(time)) #last logout from the station 
+dataset=merge(test,test2,by=c("station","visitor"))
+#Time of interaction
+dataset$time_inter=as.numeric(dataset$last-dataset$first)
+```
+
+
+###Distribtion of time of interaction in seconds
+
+```{r, message=FALSE,warning=FALSE}
+library(ggplot2)
+ggplot(data=dataset,aes(x=time_inter))+geom_bar(binwidth=1)+xlim(0,1000)
+```
+
+The time of interaction have the great concentration before 500s(8 min) and most of interactions lasts two min if outliers are eliminated.
+Only 515 visitors have a time of interaction greater than 500s and the data miglt also have some errors like having only login data and no logout data.  
+
+
+```{r}
+#Agreggate stations for better visualisations 
+index_0=grep("cnk0",as.character(dataset$station))
+index_1=grep("cnk1",as.character(dataset$station))
+index_2=grep("cnk2",as.character(dataset$station))
+index_3=grep("cnk3",as.character(dataset$station))
+index_4=grep("cnk4",as.character(dataset$station))
+index_5=grep("cnk5",as.character(dataset$station))
+index_6=grep("cnk6",as.character(dataset$station))
+index_7=grep("cnk7",as.character(dataset$station))
+
+C=c(rep("cnk0",length(index_0)),rep("cnk1",length(index_1)),rep("cnk2",length(index_2)),rep("cnk3",length(index_3)),rep("cnk4",length(index_4)),rep("cnk5",length(index_5)),rep("cnk6",length(index_6)),rep("cnk7",length(index_7)))
+
+dataset$stationAgg=C
+```
+
+###Distribution of time interaction by station
+
+```{r, message=FALSE,warning=FALSE,fig.height=7,fig.width=14}
+ggplot(data=dataset,aes(time_inter))+geom_bar()+facet_grid(~stationAgg)+xlim(0,500)+xlab("Time of interaction(s)")
+```
+
+All the distributions of time interaction of stations tend to have the same shape
+So there is a similarity between visitor in the time they spend over machines.
+Although, we have a great count in the aggegated stations chnk0 and chnk1 for a time of interaction about 60s(1min).
+
+##Relation between time of interaction, weekday and hour of the day
+
+```{r, message=FALSE,warning=FALSE}
+dataset$Dayofweek=as.factor(weekdays(dataset$first))
+ggplot(dataset,aes(x=Dayofweek,y=time_inter/60))+geom_boxplot(alpha=1/3)+ylim(0,50)+ylab("Time of interaction(min)")
+```
+
+In the over all shape of distributions according to the time of interaction, we remark that days don't have a real influence on the time of interaction, unless the special case of Monday.
+We remark also a great concentration of interaction whose time is less than *5min*.
+Monday figure on the plot with a small amount of interaction because machines aren't used heavily that day of the week.   
+we can look at the table of count of days that visitors use the machines
+
+```{r}
+table(dataset$Dayofweek)
+```
+
+```{r, message=FALSE,warning=FALSE}
+#hours of the day 
+dataset$hour<- format(dataset$first,"%H")
+ggplot(data = dataset,aes(x=time_inter,fill=hour))+geom_bar(position = "dodge")+xlim(0,400)+xlab("Time of interaction")
+```
+
+
+Hour of logging does have influence on time interaction with stations, The hours 12, 13, 14 and 15 are the part of the day that visitors interact with stations the most. 
+
+
+
+**What features are used the most?**  
+The next table will show the most used actions by visitors 
+```{r, message=FALSE,warning=FALSE}
+head(sort(table(SmallLogs$scene_name),decreasing = TRUE),50)
+tb=(table(SmallLogs$scene_name))
+
+
+tb=data.frame(tb)
+sb=subset(tb,Freq>9000) 
+```
+
+```{r, message=FALSE,warning=FALSE,fig.height=7,fig.width=14}
+#This vizualisation is about the most 129 featured used
+ggplot(data = sb,aes(x=Var1,y=Freq))+geom_bar(stat="identity")+theme(axis.text.x=element_text(angle=90,size=9))+xlab("Scene")+ylab("Count")
+```
+The actions (scenes or features): Splash, Main, Example and dance are the most used by user when they interact with machines.
+
+We can conclude from this analysis that by constructing time of interaction, visitors are quite similar and belong to one big cluster. To compute a very different distance we shall use k-means algorithm over moralities of variables like hour, Week of the day, Station..
