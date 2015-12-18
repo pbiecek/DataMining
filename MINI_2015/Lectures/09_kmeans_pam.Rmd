@@ -258,9 +258,18 @@ If you cannot create such matrix for all deputies, choose only deputies that wer
 
 # The home work
 
-With the use of `deputies` data:
+With the use of `all_votes` data:
 
 * for both PAM and k-means find clustering for different number of clusters (from 2 to 20). * for each observation calculate the `silhouette` and then calculate the average silhouette score. 
 * plot the average silhouette as a function of number of clusters.
+
+# The additional home work
+
+Create a 'one-page' cheat-sheet for clustering. Select most important function and summaries how to use it and why to use it at all.
+
+As an inspiration you may use:
+https://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf
+https://www.rstudio.com/wp-content/uploads/2015/03/ggplot2-cheatsheet.pdf
+
 
 
