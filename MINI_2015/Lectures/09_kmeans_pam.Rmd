@@ -136,6 +136,18 @@ plot(si1, main="k-means")
 
 si2 <- silhouette(model4)
 plot(si2,main="PAM")
+
+mylist <- list(
+  pam(Cars93[,c("Length","Weight")], 5),
+  pam(Cars93[,c("Length","Weight")], 6),
+  pam(Cars93[,c("Length","Weight")], 7),
+  pam(Cars93[,c("Length","Weight")], 8),
+  pam(Cars93[,c("Length","Weight")], 9),
+  pam(Cars93[,c("Length","Weight")], 10)
+)
+
+sapply(mylist, function(x) mean(silhouette(x)[,3]))
+
 ```
 
 The average silhouette could be used as a good index of clustering
@@ -148,9 +160,9 @@ str(si2)
 
 ## Your turn
 
-For the `Cars93` dataset 
+For the `Cars93` dataset find the *optimal* number of clusters based on average silhouette.
 
-```{r}
+```{r, eval=FALSE}
 model4$silinfo
 ```
 
@@ -173,10 +185,10 @@ The algorithm is following
 In general the BIC criteria is defined as
 
 $$
-BIC(M) = -2 * log-likelihood(M) + npar(M) * log(n)
+BIC(M) = -2 * loglikelihood(M) + npar(M) * log(n)
 $$
 
-where $n$ is the number of observations, $npar(M)$ is the number of parameters in the model $M$ while $log-likelihood(M)$ it the model log likelihood. 
+where $n$ is the number of observations, $npar(M)$ is the number of parameters in the model $M$ while $loglikelihood(M)$ it the model log likelihood. 
 
 ## The R code
 
