@@ -15,20 +15,28 @@ With the use of `all_votes` data:
 #Solution
 ```{r, warning=FALSE, message=FALSE}
 setwd("C:/Users/Neven/Desktop")
+# loading data
 load("all_votes.rda")
+# printing head of data
 head(all_votes[,1:7])
+# loading libraries
 library(dplyr)
 library(tidyr)
 library(cluster)
+
+# creating needed dataset from all_votes
 new_column <- all_votes[,c(1, 3, 4)]
 new_column[,2] <- ifelse(new_column[,2] == "For", 1, ifelse(new_column[,2] == "Against", -1, 0))
 data <- spread(new_column, key=id_voting, vote, fill = 0)
-dim(data)
 row_names <- data[,1]
 data <- data[,-1]
+
+# kmeans 
 set.seed(4)
+# defining maximum number of clusters
 n_max = 20
 silhouettes_ <- numeric(length = n_max)
+# calculating silhouettes and mean silhouettes
 for (i in 2:n_max){
   model <- kmeans(data, i, nstart = 3)
   nd <- data.frame(model$centers)
@@ -36,9 +44,13 @@ for (i in 2:n_max){
   si <- silhouette(model$cl, dissE)
   silhouettes_[i] = mean(si[,3])
 }
+# plotting the average silhouette as a function of number of clusters for kmeans
 plot(2:n_max, silhouettes_[-1], main = "kmeans", xlab = "n of clusters", ylab = "mean silhouette", type = "o", xaxt="n", las = 1)
 axis(1, 2:n_max)
+
+# PAM
 silhouettes_ <- numeric(length = n_max)
+# calculating silhouettes and mean silhouettes
 for (i in 2:n_max){
   model <- pam(data, i)
   nd <- data.frame(model$centers)
@@ -46,6 +58,10 @@ for (i in 2:n_max){
   
   silhouettes_[i] = mean(si[,3])
 }
+
+# plotting the average silhouette as a function of number of clusters for PAM
 plot(2:n_max, silhouettes_[-1], main = "PAM", xlab = "n of clusters", ylab = "mean silhouette", type = "o", xaxt="n", las = 1)
 axis(1, 2:n_max)
 ```
+
+It can be seen that maximum average silhouette is for 5 clusters for both kmeans and PAM so I would choose 5 clusters.
