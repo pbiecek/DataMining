@@ -1,4 +1,4 @@
-Overall the report is good. It is readable and figures helps to understand the content.
+Overall the report is good. It is readable and figures help to understand the content.
 But there is lack of feature engineering or deeper tuning for different classifiers. 
 
 1. Number of classifiers. Try 10 or more different classifiers. Do not limit yourself to classifiers that we have discussed during classes. With the ‘train’ function you can try many different classifiers.
