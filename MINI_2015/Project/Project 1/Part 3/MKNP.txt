@@ -1,0 +1,34 @@
+The approach and obtained results are good.
+But the weakest side is the presentation that is very careless.
+The criteria were known in advance so you know that the quality of the report will be graded. Here the report does not look good.
+
+
+1. Number of classifiers. Try 10 or more different classifiers. Do not limit yourself to classifiers that we have discussed during classes. With the ‘train’ function you can try many different classifiers.
+
+10 classifiers were considered (it was a minimum, you could try more).
+Variable selection for each classifier separately was considered (good thing).
+
+
+2. Quality of recommendations. Conclusive report should have recommendations like: best classifiers are: worst are: Best features are: Worst are:
+
+All necessary information is in the report but the way in which it is presented is very messy.
+Instead of comments after # you should use descriptions in markdown.
+It is really important since the quality of presentation affects the answers that we see.
+
+
+3. Quality of the report (should be short with conclusions). Important points: what performance you can reach with different classifiers. Is there summary (graphical or tabular).
+
+The report is very messy. 
+There are a lot of warnings and messages that make the whole report harder to read.
+
+There are no conclusions.
+There are some comments but they are spread between lines of R code. 
+
+
+
+Points
+7/8 + 7/8 + 4/8 + 1 = 19
+
+
+
+

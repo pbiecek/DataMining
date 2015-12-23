@@ -1,0 +1,35 @@
+Overall the report is good. It is readable and figures help to understand the content.
+The weakest side is the problem with ROC (the pink curve, you shall check it deeper) and lack of consistency between the table presented in section ‘Results’ and ‘Conclusions’.
+
+
+1. Number of classifiers. Try 10 or more different classifiers. Do not limit yourself to classifiers that we have discussed during classes. With the ‘train’ function you can try many different classifiers.
+
+12 classifiers were considered (good thing).
+Different normalisation for different classifiers (good thing).
+Lack of tuning of variables that is specific to each classifier (bad thing).
+
+
+2. Quality of recommendations. Conclusive report should have recommendations like: best classifiers are: worst are: Best features are: Worst are:
+
+The ROC for rrlda is wrong (probably labels are reversed). 
+Moreover it is hard to read labels. There are three red curves on the plot, which of them is deeppink and which is coral1.
+
+There is ranking for both variables and classifiers.
+However you shall try to create a ranking for variables for the best classifier (here GBM and KNN). 
+Now you use variables selected as best for random forest, but in recommendations you point other methods as best choices.
+
+Note that you have pointed Naive Bayes and Random Forest as good methods but they are not best in any presented criteria (nor AUC nor accuracy).
+
+
+3. Quality of the report (should be short with conclusions). Important points: what performance you can reach with different classifiers. Is there summary (graphical or tabular).
+
+Report is readable and the structure is well prepared.
+
+
+
+Points
+7/8 + 5/8 + 8/8 + 1 = 21
+
+
+
+
