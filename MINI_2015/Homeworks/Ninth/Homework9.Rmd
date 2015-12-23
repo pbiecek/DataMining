@@ -1,0 +1,70 @@
+---
+title: "Homework9"
+author: "Margareta Kusan"
+date: "December 7, 2015"
+output: html_document
+---
+
+Loading the dataset
+
+```{r}
+load("all_votes.rda")
+data <- all_votes
+head(data)
+```
+
+Choosing only deputies from two largest parties
+
+```{r}
+library(dplyr)
+data_PO_and_PIS = filter(data, data$club == 'PO' | data$club == 'PiS')
+data_PO_and_PIS <- data_PO_and_PIS[,c(1,2,3,4)]
+head(data_PO_and_PIS)
+unique(data_PO_and_PIS$club) # just to check if there are only deputies from PO and PiS
+```
+
+Choose only important votings (these on which more than 75\% of deputies are present).
+
+```{r}
+count = length(unique(data_PO_and_PIS$surname_name))  # total number of delegates
+
+last = data_PO_and_PIS$id_voting[1]
+suma = 0
+vektor = c()
+for (i in 1:length(data_PO_and_PIS$id_voting)){
+    if (data_PO_and_PIS$id_voting[i] == last & data_PO_and_PIS$vote[i] != 'Not present') {
+        suma = suma+1
+    } else {
+        if (suma >= count*0.75){
+          vektor <- c(vektor, data_PO_and_PIS$id_voting[i-1])
+        }
+        suma = 1
+        last = data_PO_and_PIS$id_voting[i]
+    }
+}
+
+data_more_than_75 <- filter(data_PO_and_PIS, data_PO_and_PIS$id_voting %in% vektor)
+unique(data_more_than_75$id_voting) #check if there are only important votings
+```
+Check which deputies from party X have votes more similar to deputies from party B.
+
+```{r, results='hide'}
+library(tidyr)
+data_more_than_75$vote <- ifelse(data_more_than_75$vote == 'For', 1, ifelse(data_more_than_75$vote == 'Against', -1, 0))
+middle <- spread(data_more_than_75, key = id_voting, vote, fill=0)
+
+mat1 <- dist(middle[,-1])
+as.matrix(mat1)
+```
+```{r}
+library(cluster)
+
+hc <- agnes(mat1, method="average")
+plot(hc, which.plots=2, cex=0.5, main="")
+
+library(ggplot2)
+hc <- agnes(mat1, method="average")
+data_more_than_75$vote = factor(cutree(hc, k=4))
+ggplot(data_more_than_75, aes(club, vote, label=surname_name, color=club)) + geom_text(size=3) + theme_bw()
+
+```
