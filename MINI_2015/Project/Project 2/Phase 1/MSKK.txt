@@ -1,0 +1,32 @@
+Your report is very similar to report prepared by TKTZM.
+Some plots are exactly the same.
+Note that such similarities in further phases will result in negative points.
+
+
+
+1. What is the average (or distribution) time of interaction with a given machine
+
+As you have noticed, the distribution of time is very skewed. 
+Thus median is better than average. Yet you have a lot of averages in the first part.
+
+Moreover, boxplots are good to compare distributions (between groups like hour/day).
+Boxplot for only one distribution is not informative.
+
+I like the first histogram. I think that it is the best plot in your report. Would be nice to see this distribution for different groups.
+
+2. Is there a relation between the duration of an interaction and variables like weekday or hour
+
+I like your second part with medians and plots.
+You shall add tables as well to support plots.
+
+Conclusions are fine as well.
+
+
+
+Points
+5/7 + 5/7 + 1 = 11
+
+
+
+
+

@@ -1,0 +1,27 @@
+1. What is the average (or distribution) time of interaction with a given machine
+
+Something is wrong with times that you have presented.
+Note that in other groups times are very different.
+Here you have all times in interval 0-1.
+
+Analyses for number of visitors are correct, but all results for times are not.
+
+
+2. Is there a relation between the duration of an interaction and variables like weekday or hour
+
+There is a lot of results and conclusions. I like these proportions.
+
+As in the point 1, there is something wrong with time intervals.
+But results for number of visitors are correct.
+
+You have a lot of plots, some of them may be presented as tables. This will make it easier to precisely read data from plots.
+
+
+
+Points
+4/7 + 6/7 + 1 = 11
+
+
+
+
+
