@@ -1,0 +1,357 @@
+---
+title: "Project 2 - Phase 1"
+author: "Marcel Sz, Karolina K"
+date: "2015-12-09"
+output: 
+  html_document:
+    toc: TRUE
+---
+#Phase description
+
+Characterize types of interactions with different machines (exploratory analysis). Try to answer following questions:
+<ul><li>What is the average (or distribution) time of interaction with a given machine</li>
+<li>Is there a difference in the time of interaction and weekday or hour?</li>
+
+#Loading data and necessary libraries
+```{r, cache=TRUE}
+library(tidyr)
+library(caret)
+library(dplyr)
+library(lubridate)
+library(reshape)
+load("C:\\Users\\Karola\\Documents\\BISD\\Semestr 2\\Data Mining\\Projekt 2\\verySmallLogs.rda")
+```
+
+#Preprocessing data
+In order to easily analyze data we divided a data set into 'Entering' and 'Leaving' data sets. We found a start date of a visitor activity in a station (in "Entering") and a finish date (in "Leaving"). Finally we merge those sets and obtained a set for further analyzes.
+```{r, cache=TRUE}
+data <- verySmallLogs %>% 
+  mutate(station,
+         visitor,
+         type,
+         date,
+         weekday = wday(date, label=TRUE, abbr=FALSE),
+         hour = substr(date, 12, 13))
+
+data$date <- as.POSIXct(data$date,format="%Y-%m-%d %H:%M:%S")
+data = data[data$visitor != -1,]
+
+dataEntering <- data[data$type=="Entering" & data$visitor != -1,]
+dataLeaving <- data[data$type=="Leaving" & data$visitor != -1,]
+
+newdataEntering = dataEntering %>%
+group_by(visitor, station) %>%
+summarise(min=min(date),
+          weekday=head(weekday,1),
+          hour=head(hour,1),
+          count = n())
+
+newdataLeaving = dataLeaving %>%
+group_by(visitor, station) %>%
+summarise(max=max(date),
+          weekday=head(weekday,1),
+          hour=head(hour,1),
+          count = n())
+
+mergedData <- merge(newdataEntering, newdataLeaving, by=c("visitor", "station"))
+mergedData$time = as.numeric(mergedData$max-mergedData$min)
+mergedData$weekday = mergedData$weekday.x
+mergedData$hour = mergedData$hour.x
+mergedData$count = mergedData$count.x
+
+
+library(ggplot2)
+ggplot(data=mergedData,aes(x=time))+geom_bar(binwidth=1)+xlim(0,800)
+
+mergedData = mergedData[mergedData$time < 400,]
+```
+From the graph we can see that the most of interactions with machines took less then 200ms. There are a lot of outliers which can be eliminated using threshold "time < 400". Moreover we will use median instead of mean to decrease impact of boundary values on results.
+
+#What is the average time of interaction with a given machine
+First we found average duration of visitors' activities and the number of visitors in every station.
+```{r, cache=TRUE, fig.width=20,  fig.height=10}
+avgData = mergedData %>%
+group_by(station) %>%
+summarise(avgTime = median(time),
+          visitorCount = n())
+avgData
+
+par(mar=c(2,1.8,2,0))
+barplot(c(avgData$visitorCount), main="The Number of visitors in each station", xlab="Stations", ylab = "Number of visitors", names.arg=as.character(avgData$station))
+
+# Distribution of the number of visitors per station
+summary(avgData$visitorCount)
+# Boxplot of count
+boxplot(avgData$visitorCount, horizontal = TRUE)
+
+par(mar=c(2,1.8,2,0))
+barplot(c(avgData$avgTime), main="Average distribution times in each station", xlab="Stations", ylab = "Time[s]",names.arg=as.character(avgData$station))
+
+# Distribution of time per station
+summary(avgData$avgTime)
+# Boxplot of time
+boxplot(avgData$avgTime, horizontal = TRUE)
+
+```
+
+The station in which visitors spent definitely the most time is cnk38, therefore the least number of visitors played with it. With cnk19a visitors spent the least time per visit so the biggest amount of visitors had chance to play with it.
+
+#Is there a relation between the duration of an interaction and variables like weekday or hour? 
+Then we check if there is a dependence between the duration of an interaction and weekday and hour.
+
+## Weekday
+```{r, cache=TRUE, fig.width=15,  fig.height=10}
+weekdayStationData = mergedData %>%
+group_by(station, weekday) %>%
+summarise(avgTime = median(time),
+          visitorCount = n())
+weekdayStationData = as.data.frame(weekdayStationData)
+
+# Average time spent per station per day
+
+stationDayTimeTab = cast(weekdayStationData, station ~ weekday, value="avgTime")
+stationDayTimeTab
+
+par(mar = c(5, 4, 1.5, 0.5), ps = 12, cex  = 1, cex.main = 2, las = 1)
+barplot(
+  t(as.matrix(stationDayTimeTab)), 
+  beside      = TRUE, 
+  ylim        = c(0,200),
+  xlab        = "Stations",
+  ylab        = "Time[s]",
+  axes        = TRUE,
+  axis.lty    = 1, 
+  col         = c("darkblue", "dodgerblue3", "deepskyblue1", "blue", "green", "red", "yellow"),
+  panel.first =  abline(
+    h    =  seq.int(25, 100, 25), 
+    col  =  "grey", 
+    lty  =  2
+  )
+)
+
+legend("topright", 
+       legend = c("Sunday",  "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"), 
+       fill = c("darkblue", "dodgerblue3", "deepskyblue1", "blue", "green", "red", "yellow"))
+
+# The number of visitors per station per day
+
+stationDayVisitorCountTab = cast(weekdayStationData, station ~ weekday, value="visitorCount")
+stationDayVisitorCountTab
+
+par(mar = c(5, 4, 1.5, 0.5), ps = 12, cex  = 1, cex.main = 2, las = 1)
+barplot(
+  t(as.matrix(stationDayVisitorCountTab)), 
+  beside      = TRUE, 
+  xlab        = "Stations", 
+  ylab        = "Number of visitor",
+  axes        = TRUE,
+  axis.lty    = 1, 
+  col         = c("darkblue", "dodgerblue3", "deepskyblue1", "blue", "green", "red", "yellow"),
+  panel.first =  abline(
+    h    =  seq.int(25, 100, 25), 
+    col  =  "grey", 
+    lty  =  2
+  )
+)
+
+legend("topright", 
+       legend = c("Sunday",  "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"), 
+       fill = c("darkblue", "dodgerblue3", "deepskyblue1", "blue", "green", "red", "yellow"))
+
+
+
+weekdayGeneralData = mergedData %>%
+group_by(weekday) %>%
+summarise(avgTime = median(time),
+          visitorCount = n())
+weekdayGeneralData
+par(mar=c(2,1.8,2,0))
+
+# Barplot of the number of visitors per weekday
+barplot(c(weekdayGeneralData$visitorCount), main="The number of visitors in every weekday", xlab="Weekdays", ylab = "Number of visitors",names.arg=as.character(weekdayGeneralData$weekday))
+
+# Distribution of the number of visitors per weekday
+summary(weekdayGeneralData$visitorCount)
+# Boxplot of the number of visitors per weekday
+boxplot(weekdayGeneralData$visitorCount, horizontal = TRUE)
+
+# Widaæ, ¿e w poniedzia³ki super ma³o wizyt - tylko konserwacyjne prace
+
+# Barplot of time per weekday
+barplot(c(weekdayGeneralData$avgTime), main="Average distribution times in every weekday", xlab="Weekdays",ylab = "Time[s]", names.arg=as.character(weekdayGeneralData$weekday))
+
+# Distribution of time per weekday
+summary(weekdayGeneralData$avgTime)
+# Boxplot of time per weekday
+boxplot(weekdayGeneralData$avgTime, horizontal = TRUE)
+
+```
+
+The average time spent in the stations and the number of visitors during different days of the week were quite similar. The only exception is Monday. Probably during Mondays stations are closed and the only activity with them is maintenance which takes more time than average visitor's activity.
+
+## Hour
+```{r, cache=TRUE, fig.width=15,  fig.height=10}
+hourStationData = mergedData %>%
+group_by(station, hour) %>%
+summarise(avgTime = median(time),
+          visitorCount = n())
+hourStationData = as.data.frame(hourStationData)
+
+# Average time spent per station per hour
+
+stationHourTimeTab = cast(hourStationData, station ~ hour, value="avgTime")
+stationHourTimeTab
+
+par(mar = c(5, 4, 1.5, 0.5), ps = 12, cex  = 1, cex.main = 2, las = 1)
+barplot(
+  t(as.matrix(stationHourTimeTab)), 
+  beside      = TRUE, 
+  ylim        = c(0,200),
+  xlab        = "Stations",
+  ylab        = "Time[s]",
+  axes        = TRUE,
+  axis.lty    = 1, 
+  col         = c("darkblue", "dodgerblue3", "deepskyblue1", "blue", "green", "red", "yellow"),
+  panel.first =  abline(
+    h    =  seq.int(25, 100, 25), 
+    col  =  "grey", 
+    lty  =  2
+  )
+)
+
+legend("topright", 
+       legend = unique(hourStationData$hour), 
+       fill = c("darkblue", "dodgerblue3", "deepskyblue1", "blue", "green", "red", "yellow"))
+
+# The number of visitors per station per hour
+
+stationHourVisitorCountTab = cast(hourStationData, station ~ hour, value="visitorCount")
+stationHourVisitorCountTab
+
+par(mar = c(5, 4, 1.5, 0.5), ps = 12, cex  = 1, cex.main = 2, las = 1)
+barplot(
+  t(as.matrix(stationHourVisitorCountTab)), 
+  beside      = TRUE, 
+  xlab        = "Stations",
+  ylab        = "Number of visitors",
+  axes        = TRUE,
+  axis.lty    = 1, 
+  col         = c("darkblue", "dodgerblue3", "deepskyblue1", "blue", "green", "red", "yellow"),
+  panel.first =  abline(
+    h    =  seq.int(25, 100, 25), 
+    col  =  "grey", 
+    lty  =  2
+  )
+)
+
+legend("topright", 
+       legend = unique(hourStationData$hour), 
+       fill = c("darkblue", "dodgerblue3", "deepskyblue1", "blue", "green", "red", "yellow"))
+
+hourGeneralData = mergedData %>%
+group_by(hour) %>%
+summarise(avgTime = median(time),
+          visitorCount = n())
+hourGeneralData
+
+# The number of visitors every hour
+barplot(c(hourGeneralData$visitorCount), main="The number of visitors every hour", xlab="Hours",ylab = "Number of visitors",  names.arg=hourGeneralData$hour)
+
+# Distribution of the number of visitors per weekday
+summary(hourGeneralData$visitorCount)
+# Boxplot of the number of visitors per weekday
+boxplot(hourGeneralData$visitorCount, horizontal = TRUE)
+
+# Average times in every hour
+barplot(c(hourGeneralData$avgTime), main="Average times in every hour", xlab="Hours",ylab = "Time[s]", names.arg=hourGeneralData$hour)
+
+# Distribution of time per weekday
+summary(hourGeneralData$avgTime)
+# Boxplot of time per weekday
+boxplot(hourGeneralData$avgTime, horizontal = TRUE)
+```
+
+The greatest number of visitors came in the middle of the day (between 1PM and 4 PM)
+In the evening and in the morning the activity of visitors was the smallest. Between 9P.M. and 7A.M. there was no interaction with stations at all.
+
+In average the time spent in the stations was the highest at 7PM and 9PM. In the morning spent time was the lowest. During the day differences weren't very big.
+
+## Weekday and hour
+```{r, cache=TRUE, fig.width=15,  fig.height=10}
+stationData = mergedData %>%
+group_by(station, weekday, hour) %>%
+summarise(avgTime = median(time),
+          visitorCount = n())
+#stationData
+
+# Distribution of time per station, weekday and hour
+summary(stationData$avgTime)
+# Boxplot of time per station, weekday and hour
+boxplot(stationData$avgTime, horizontal = TRUE)
+
+# Distribution of the number of visitors per station, weekday and hour
+summary(stationData$visitorCount)
+# Boxplot of the number of visitors per station, weekday and hour
+boxplot(stationData$visitorCount, horizontal = TRUE)
+
+
+generalData = mergedData %>%
+group_by(weekday, hour) %>%
+summarise(avgTime = median(time),
+          visitorCount = n())
+generalData = as.data.frame(generalData)
+
+generalVisitorCountTab = cast(generalData, weekday ~ hour, value="visitorCount")
+generalVisitorCountTab
+
+par(mar = c(5, 4, 1.5, 0.5), ps = 12, cex  = 1, cex.main = 2, las = 1)
+barplot(
+  t(as.matrix(generalVisitorCountTab)), 
+  beside      = TRUE, 
+  xlab        = "Weekday",
+  ylab        = "Number of visitors",
+  axes        = TRUE,
+  axis.lty    = 1, 
+  col         = c("darkblue", "dodgerblue3", "deepskyblue1", "blue", "green", "red", "yellow"),
+  panel.first =  abline(
+    h    =  seq.int(25, 100, 25), 
+    col  =  "grey", 
+    lty  =  2
+  )
+)
+
+legend("topright", 
+       legend = unique(hourStationData$hour), 
+       fill = c("darkblue", "dodgerblue3", "deepskyblue1", "blue", "green", "red", "yellow"))
+
+generalTimeTab = cast(generalData, weekday ~ hour, value="avgTime")
+generalTimeTab
+
+par(mar = c(5, 4, 1.5, 0.5), ps = 12, cex  = 1, cex.main = 2, las = 1)
+barplot(
+  t(as.matrix(generalTimeTab)), 
+  beside      = TRUE, 
+  xlab        = "Weekday",
+  ylab        = "Time[s]",
+  axes        = TRUE,
+  axis.lty    = 1, 
+  col         = c("darkblue", "dodgerblue3", "deepskyblue1", "blue", "green", "red", "yellow"),
+  panel.first =  abline(
+    h    =  seq.int(25, 100, 25), 
+    col  =  "grey", 
+    lty  =  2
+  )
+)
+
+legend("topright", 
+       legend = unique(hourStationData$hour), 
+       fill = c("darkblue", "dodgerblue3", "deepskyblue1", "blue", "green", "red", "yellow"))
+
+```
+
+# Summary
+Taking into consideration all results, we conclude, that average time spent by each visitor on each station was different. The least popular was cnk19a and the most popular machine was cnk38: visitors spent the most time with it, therefore small number of visitors had chance to play with it. The conclusion is that the owner of stations should buy new cnk38 machines.
+
+Furthermore computation shows, that during various hours the number of visitors was different. Between 1PM and 4PM the activity of visitors was the greatest. The owner of the stations can provide more machines in the middle of the day so the biggest number of visitors will be able to play with them.
+
+Moreover at different days times spent with machines where quite similar, therefore there is no need to plan any changes. 

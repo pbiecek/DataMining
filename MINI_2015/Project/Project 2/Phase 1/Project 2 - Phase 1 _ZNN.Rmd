@@ -1,0 +1,363 @@
+---
+title: "Project 2 - First Phase"
+author: "Ziad Al Bkhetan, Neven Piculjan, Naveen Mupparapu"
+date: "December 10, 2015"
+output: 
+  html_document:
+    toc : TRUE
+---
+
+# Internet of Things - Introduction
+
+In the first phase we should characterize types of interactions with different machines (exploratory analysis). We tried to answer following questions:
+
+* What is the average (or distribution) time of interaction with a given machine
+* Is there a relation between the duration of an interaction and variables like weekday or hour
+* Other statistics
+
+We Assumed That the visit is the duration between the minimum date and maximum date for the same visitor in the same station, in the same day.
+we used a dataset contains 500000 records, and we analysed it.
+We prepared a dataset full of all needed information, then we used grouping function to group the data as we want.
+
+# Data Loading
+In this step we will prepare the data set to start analysis phase, we assumed that the maybe the dataset is not sorted, so we sort it based on the visitor and date, which makes stations interactions detection easier.
+<br> in this report we worked in a smaller dataset to make the performance faster.
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+
+load('D:/MSc Computer science and informatics/3rd semester/Data Mining - Advances/Lab Projects/Project 2/SmallLogs_n.rda')
+
+
+```
+
+# Prepare The Final DataSet
+in this step we will fetch all needed data for analysis and visualization, and the most important for us are: Visitor ID, Station, Consumed Time, Day, and Hour.
+<br> we grouped all the data based on the visitor and the station and the visit day, because as we discussed the last meeting, each visit should be in one day, and the card is valid for one day.
+<br> after that we calculated the visit duration as the difference between the minimum and maximum time for each visitor in each station in the same day, this difference is calculated in minutes.
+```{r, warning=FALSE, message=FALSE}
+
+orderedDataFinal = orderedData %>% 
+  group_by(Visitor=visitor, dat=format(date, format="%Y:%m:%d") , Station=station) %>%
+  summarise(
+    start_time = min(date),
+    send_time = max(date),
+    Cons_time = (max(date) - min(date)) / 60,
+    WDay = as.POSIXlt(min(date))$wday,
+    THour = as.POSIXlt(min(date))$hour
+    
+  )  
+finalData <- orderedDataFinal
+finalData$Cons_time <- as.numeric(finalData$Cons_time)
+finalData$Station <- factor(finalData$Station)
+
+
+```
+
+# Results Analysis
+We Tried in this step to visualize all possible relations and plots which describe the data as much as possible, and give the user some hidded information.
+
+## General Information
+we will show the general information we got in this analysis:
+
+```{r, warning=FALSE, message=FALSE}
+cat("Visitors Count:", length(unique(finalData$Visitor)))
+cat("Stations Count:", length(unique(finalData$Station)))
+
+summary(finalData$Station)
+print("Days Information:")
+summary(finalData$WDay)
+print("Hours Information:")
+summary(finalData$THour)
+```
+
+Some Charts to make it clear:
+
+
+```{r, warning=FALSE, message=FALSE}
+WeeksDays <- c("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+
+station_count = finalData %>% 
+  group_by(Station) %>%
+  summarise(
+    s_count = n()
+  )     
+x = station_count$s_count
+names(x) <- station_count$Station
+barplot(x, las=2, xlab = "Stations", ylab = 'Visits Count')
+```
+<br> we can see that the station cnk04 has less visits than other stations, but maybe it is related to our data set because we took the first 500000 records.<br> 
+
+```{r, warning=FALSE, message=FALSE}
+visitor_count = finalData %>% 
+  group_by(Visitor) %>%
+  summarise(
+    s_count = n()
+  )
+visitor_count = arrange(visitor_count, s_count)
+x = visitor_count$s_count
+#names(x) <- visitor_count$Visitor
+barplot(x, las=2, xlab = "Visitors", ylab = 'Visits Count', ylim = c(0,8)) 
+```
+<br> we can see in this plot that modt visitors has one visits (more than the half), and few of them have more then four visits. which is normal we think because in most cases the museum visitors try to visit many different museums instead of visiting the same museum many times.<br>   
+
+```{r, warning=FALSE, message=FALSE}
+
+days_count = finalData %>% 
+  group_by(WDay) %>%
+  summarise(
+    s_count = n()
+  )     
+x = days_count$s_count
+names(x) <- WeeksDays[days_count$WDay+1]
+barplot(x, las=2, xlab = "Days", ylab = 'Visits Count', ylim = c(0,5000)) 
+```
+
+<br> we can see that Monday has the lowest visits count comparing with other days
+<br> 
+
+```{r, warning=FALSE, message=FALSE}
+hours_count = finalData %>% 
+  group_by(THour) %>%
+  summarise(
+    s_count = n()
+  )     
+x = hours_count$s_count
+names(x) <- hours_count$THour
+x <- x[order(as.numeric(names(x)), x)]
+barplot(x, las=2, xlab = "Hours", ylab = 'Visits Count', ylim = c(0,3500)) 
+
+```
+
+<br> here we can see that the visits count start in the first day hour from the minimum then it increases to the half of the day then it start to decrease , we think it is related to the fact that we considered the visit hour is the hour of the first entrance, and usually the people prefer to go to museums when they have some time to spend there, i mean it doesn't make any sense to visit a museum in the last hour to take a fast look and go home.
+<br> 
+
+## Consumed Time During Stations Interactions 
+
+in this plot we will see the consumed time for each visitor in specific visit and station.
+
+```{r, warning=FALSE, message=FALSE}
+ggplot(finalData, aes(Visitor, Cons_time, color=Station)) +
+  geom_point() +
+  theme_bw()
+
+station_count = finalData %>% 
+  group_by(Station) %>%
+  summarise(
+    s_count = n(),
+    s_sum = sum(Cons_time),
+    s_avg = mean(Cons_time)
+  )     
+station_count
+```
+
+<br> even that this plot is very messy, but we can figure out that most visits were less than 0.3 minuts.<br> 
+
+## Consumed Time In Each Day
+
+this plot shows the average consumed time in each day in this dataset  
+```{r, warning=FALSE, message=FALSE}
+ggplot(finalData, aes(WDay, Cons_time, color=Station)) +
+  geom_point() +
+  theme_bw() + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+days_count = finalData %>% 
+  group_by(WDay) %>%
+  summarise(
+    s_count = n(),
+    s_sum = sum(Cons_time),
+    s_avg = mean(Cons_time)
+  )     
+x = days_count$s_avg
+names(x) <- WeeksDays[days_count$WDay +1]
+barplot(x, las=2, xlab = "Days", ylab = 'Average Consumed Time', ylim = c(0,0.4)) 
+
+```
+
+<br> we can see that most days have the same average consumed time (approximatly) 
+<br> 
+
+## Average Consumed time In Each Hour
+
+this plot shows the average consumed time in each Hour in this dataset  
+
+```{r, warning=FALSE, message=FALSE}
+ggplot(finalData, aes(THour, Cons_time, color=Station)) +
+  geom_point() +
+  theme_bw() + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+hours_count = finalData %>% 
+  group_by(THour) %>%
+  summarise(
+    s_count = n(),
+    s_sum = sum(Cons_time),
+    s_avg = mean(Cons_time)
+  )     
+x = hours_count$s_avg
+names(x) <- hours_count$THour
+x <- x[order(as.numeric(names(x)), x)]
+barplot(x, las=2, xlab = "Hours", ylab = 'Average Consumed Time', ylim = c(0,0.4)) 
+
+```
+
+<br> we can see that the average consumed time is low at the begining and the end of the day.
+<br> 
+
+## Consumed time For Each Visitor
+this plot shows the average consumed time for each visitor in this dataset, and the x axis shows the visitor counts, so we can extraxt information like: about 6000 visitors has average time less tham 0.4 minute.  
+```{r, warning=FALSE, message=FALSE}
+vis_tim = finalData %>% 
+  group_by(Visitor) %>%
+  summarise(
+    s_count = n(),
+    s_sum = sum(Cons_time),
+    s_avg = mean(Cons_time)
+  )     
+vis_tim = arrange(vis_tim, s_avg)
+x = vis_tim$s_avg
+names(x) <- vis_tim$Visitor
+
+plot(x, las=2, xlab = "Visitor", ylab = 'Average Consumed Time', ylim = c(0,1.2)) 
+
+```
+
+<br> this plot shows the average consumed time for the visitors, the x axis shows the visitors count, so the user can extract some usefull information about a range of visitors, like about 2000 visitors spend very short time in their visits.
+<br> 
+
+## Distinct Visitors In Each Day
+this plot shows the count of distinct visitors in each day in this dataset  
+
+```{r, warning=FALSE, message=FALSE}
+
+visitor_count = finalData %>% 
+  group_by(WDay) %>%
+  summarise(
+    s_count = length(unique(Visitor))
+  )     
+x = visitor_count$s_count
+names(x) <- WeeksDays[days_count$WDay +1]
+barplot(x, las=2, xlab = "Day", ylab = 'Visitors Count', ylim = c(0,2500)) 
+
+```
+
+<br> it is clear that monday has the lowest number of visitors<br> 
+
+## Distinct Visitors In Each Hour
+
+The same as the previous plot but in each hour 
+```{r, warning=FALSE, message=FALSE}
+
+visitor_count = finalData %>% 
+  group_by(THour) %>%
+  summarise(
+    s_count = length(unique(Visitor))
+  )     
+x = visitor_count$s_count
+names(x) <- visitor_count$THour
+x <- x[order(as.numeric(names(x)), x)]
+barplot(x, las=2, xlab = "Hours", ylab = 'Visitors Count', ylim = c(0,2500)) 
+
+```
+
+<br> as we found in one of the previous plots, the relation between the visits and the hours , which is the same as the relation between the visitors and the hours but we know here the visitors count in each hour.
+<br> 
+
+## Average Consumed Time in Each Hour in Each Day
+Here we try to go more deep in these statistics , so we tried to find the consumed time for each hour in each day
+```{r, warning=FALSE, message=FALSE}
+
+time_d_h = finalData %>% 
+  group_by(WDay, THour) %>%
+  summarise(
+    s_count = n(),
+    s_sum = sum(Cons_time),
+    s_avg = mean(Cons_time)
+  )
+lst <- unique(time_d_h$WDay)
+for (d in 1:length(lst) )
+{
+  temp <- time_d_h[time_d_h$WDay == lst[d],]
+  x = temp$s_avg
+
+  temp$THour <- as.character(temp$THour)
+  for (i in 1:length(temp$THour)){
+    if (as.numeric(temp$THour[i]) < 10){
+      temp$THour[i] <- paste0("0", temp$THour[i])
+    }
+  }
+  
+  names(x) <- paste(WeeksDays[temp$WDay + 1], '_', temp$THour)
+  x <- x[order(names(x), x)]
+  barplot(x, las=2, xlab = "Day and Hour", ylab = 'Average Consumed Time', ylim = c(0,0.4)) 
+  
+}
+
+```
+
+## Distinct Visitors in Each Hour in Each Day
+The same as the previous plot, but for Distinct visitors
+```{r, warning=FALSE, message=FALSE}
+
+visitor_d_h = finalData %>% 
+  group_by(WDay, THour) %>%
+  summarise(
+    s_count = length(unique(Visitor))
+  ) 
+lst <- unique(visitor_d_h$WDay)
+for (d in 1:length(lst) )
+{
+  temp <- visitor_d_h[visitor_d_h$WDay == lst[d],]
+  x = temp$s_count
+  
+  temp$THour <- as.character(temp$THour)
+  for (i in 1:length(temp$THour)){
+    if (as.numeric(temp$THour[i]) < 10){
+      temp$THour[i] <- paste0("0", temp$THour[i])
+    }
+  }
+  
+  names(x) <- paste(WeeksDays[temp$WDay + 1], '_', temp$THour) 
+  x <- x[order(names(x), x)]
+  barplot(x, las=2, xlab = "Day And Hour", ylab = 'Visitors Count', ylim = c(0,600)) 
+}
+
+
+```
+
+
+# Remarks and Conclusion
+In this task we applied this strategy, findg all needed data in one dataset, using dplyr library to group the data and get retrieve all needed information to visualize, that makes our task easier.
+<br> for the results, we believe these plots show the most important information we got from this dataset, and we tried to summarize these results under each plot to make it more clear.
+
+We concluded the following: 
+
+museum working hours:
+while the visit hour is the hour of the first activity in the system, so we can find some interesting information also like:
+
+
+* museum works on Sundays from 9:00 till 20:00
+
+* the museum doesn't work on Mondays, and we believe that these few records on monday are wrong entries.
+
+* museum works or accepts visitors on Tuesdays from 7:00 till 19:00
+
+* museum works or accepts visitors on Wednesdays from 8:00 till 18:00
+
+* museum works or accepts visitors on Thursdays from 9:00 till 20:00
+
+* museum works or accepts visitors  on Fridays from 8:00 till 19:00
+
+* museum works or accepts visitors on Saturdays from 9:00 till 20:00
+
+
+Between 12:00 and 13:00 o'clock and between 14:00 and 15:00 o'clock, while the museum is opened, number of distinct visitors is the largest. 
+
+Between 7:00 and 8:00 o'clock and between 19:00 to 20:00 o'clock, while the museum is opened, number of distinct visitors is the smallest.
+
+We can see that the average consumed time is low at the begining and the end of the day.
+
+We can see that most days have the same average consumed time (approximatly)
+
+

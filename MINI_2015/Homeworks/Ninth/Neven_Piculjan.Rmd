@@ -1,0 +1,95 @@
+---
+title: "Homework 9"
+author: "Neven Piculjan"
+date: "2015-12-7"
+output: 
+  html_document:
+  toc: TRUE
+---
+# The Homework
+  
+Choose only deputies from two largest parties (PO and PiS).
+
+Choose only important votings (these on which more than 75\% of deputies are present).
+
+Check which deputies from party X have votes more similar to deputies from party B.
+
+Show the dendrogram for selected deputies and use colours to present different parties.
+
+#Solution
+```{r, warning=FALSE, message=FALSE}
+setwd("C://Users/Neven/Desktop")
+
+# dataset loading
+load("all_votes.rda")
+
+library(tidyr)
+
+# choose only deputies from two largest parties
+all_votes <- all_votes[all_votes$club == "PO" | all_votes$club == "PiS", ]
+
+new_column <- all_votes[,c(1, 3, 4)]
+new_column[,2] <- ifelse(new_column[,2] == "For", 1, ifelse(new_column[,2] == "Against", -1, 0))
+
+# choose only important votings (these on which more than 75% of deputies are present.)
+current <- new_column[1,]$id_voting
+ctr <- 0
+NA_ctr <- 0
+buff <- c()
+colors <- c()
+for (i in 1:length(new_column[,1])){
+  if (new_column[i,]$id_voting != current){
+    current <- new_column[i,]$id_voting
+    if (NA_ctr/ctr <= 0.15){
+      buff <- c(buff, current)
+    }
+    ctr <- 0
+    NA_ctr <- 0
+  }
+  if (new_column[i,]$vote == 0){
+    NA_ctr <- NA_ctr + 1
+  }
+  ctr <- ctr + 1
+}
+
+new_column <- new_column[new_column$id_voting %in% buff,]
+
+data <- spread(new_column, key=id_voting, vote, fill = 0)
+
+# the distance matrix
+mat_euclidian <- dist(data[,-1])
+as.matrix(mat_euclidian)[1:5,1:5]
+
+# the minimum variance criterion
+library(cluster)
+hc <- agnes(mat_euclidian, diss=T, method="ward")
+plot(hc, which.plots=2, cex=0.5, main="")
+
+data$labels = factor(cutree(hc, k=5))
+
+# checking which deputies from party X have votes more similar to deputies from party B
+library(dplyr)
+
+table_ <- as.data.frame(all_votes %>% group_by(surname_name) %>% summarise(head(club, 1)))
+print (table(table_[,2], data$labels))
+
+# Showing the dendrogram for selected deputies and use colours to present different parties.
+library(ape)
+library(RColorBrewer)
+
+colors <- c()
+
+for (i in 1:length(data$surname_name)){
+  colors <- c(colors, all_votes[all_votes$surname_name == data$surname_name[i],]$club[1])
+}
+
+colors <- as.factor(colors)
+
+cols <- brewer.pal(3,"Set1")
+
+hc <- as.phylo(as.hclust(agnes(mat_euclidian, method="ward")))
+
+par(mar=c(1,1,2,1), xpd=NA)
+
+plot(hc, type = "unrooted", cex = 0.8, tip.color = cols[colors])
+```

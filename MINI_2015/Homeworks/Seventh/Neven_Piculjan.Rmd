@@ -1,0 +1,101 @@
+---
+title: "Homework 7"
+author: "Neven Piculjan"
+date: "2015-11-27"
+output: 
+  html_document:
+  toc: TRUE
+---
+  
+# The Homework
+  
+See the Kaggle leaderboard for this problem
+
+https://www.kaggle.com/c/walmart-recruiting-trip-type-classification/leaderboard
+
+And the definition for the error function
+
+https://www.kaggle.com/c/walmart-recruiting-trip-type-classification/details/evaluation
+
+Train a model/classifier that will have score that will give you a position in top 150.
+
+#Solution
+```{r, warning=FALSE, message=FALSE}
+library(caret)
+trips <- read.table("C://Users/Neven/Desktop/train.csv", sep=",", h = TRUE)
+head(trips, 50)
+
+library(dplyr)
+
+# extracting features
+newDepartmentsInVis = trips %>%
+  group_by(VisitNumber) %>%
+  summarise(
+    ProductsCountInVis = sum(ScanCount >=0)
+  )
+
+head(newDepartmentsInVis)
+
+newDepartments = trips %>%
+  group_by(VisitNumber, DepartmentDescription) %>%
+  summarise(
+    ProductsCountInDept = sum(ScanCount >=0)
+  )
+head(newDepartments)
+
+tempData <- merge(newDepartmentsInVis,newDepartments,by="VisitNumber")
+head(tempData)
+
+tempData$ProductsCountInDept = tempData$ProductsCountInDept / tempData$ProductsCountInVis  
+
+
+library(tidyr)
+
+TransformedDepartment = tempData %>%
+  spread(DepartmentDescription, ProductsCountInDept, fill=0)
+
+head(TransformedDepartment)
+
+newTrips = trips %>%
+  group_by(VisitNumber) %>%
+  summarise(
+    TripType = head(TripType, 1),
+    day = unique(Weekday)[1], 
+    ProductsCount = sum(ScanCount >= 0),
+    unique_FinelineNumber = length(unique(FinelineNumber)),
+    no_of_returned_products = sum(ScanCount < 0),
+    unique_departments = length(unique(DepartmentDescription)),
+    sum_of_products = sum(ScanCount)
+  )
+
+head(newTrips)
+
+finalData <- merge(newTrips,TransformedDepartment,by="VisitNumber")
+head(finalData)
+
+colnames(finalData) = make.names(colnames(finalData))
+
+finalData$TripType <-factor(finalData$TripType)
+summary(finalData)
+
+# dividing dataset into train and test part
+set.seed(1313)
+indxTrain <- createDataPartition(y = finalData$TripType, p = 0.75)
+str(indxTrain)
+
+tripsTrain <- finalData[indxTrain$Resample1,]
+tripsTest <- finalData[-indxTrain$Resample1,]
+
+library(randomForest)
+
+# using Random Forest classifier
+rf <- randomForest(TripType~., data=tripsTrain)
+scores <- predict(rf, tripsTest, type = "prob")
+
+# calculating final score
+myScores <- sapply(1:nrow(tripsTest), function(i){
+  scores[i, tripsTest$TripType[i]]
+})
+
+mean(-log(pmax(myScores,0.05)))
+```

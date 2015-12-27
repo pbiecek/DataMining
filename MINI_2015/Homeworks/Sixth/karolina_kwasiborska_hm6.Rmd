@@ -1,0 +1,49 @@
+---
+title: "Homework #6 - LDA & QDA"
+author: "Karolina Kwasiborska"
+date: "2015-11-19"
+output: 
+  html_document:
+    toc: TRUE
+---
+
+# The Homework
+
+Use the k-fold cross validation to assess the performance of lda/qda on the wines dataset.
+
+## Loading data
+```{r}
+library(caret)
+
+wines <- read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv", sep=";", header=TRUE)
+wines$quality <- factor(ifelse(wines$quality > 5, "good", "bad")) 
+
+train_control <- trainControl(method="cv", number=10)
+```
+
+## Linear discriminant analysis (LDA)
+```{r}
+lda.model<- train(quality~., method='lda',preProcess=c('scale', 'center'), data=wines, trControl=train_control)
+lda.pred <- predict(lda.model, wines)
+
+confusionMatrix <- confusionMatrix(wines$quality, lda.pred)$overall
+round(confusionMatrix*100,2)
+```
+
+## Quadratic discriminant analysis (QDA)
+```{r}
+qda.model<- train(quality~.,   method='qda', preProcess=c('scale', 'center'), data=wines, trControl=train_control)
+qda.pred <- predict(qda.model, wines)
+
+confusionMatrix <- confusionMatrix(wines$quality, qda.pred)$overall
+round(confusionMatrix*100,2)
+```
+
+## Summary
+The performace of LDA and QDA on the wines dataset is not high.
+
+LDA: Average accuracy - 74.55, Kappa - 48.98
+
+QDA: Average accuracy - 74.42, Kappa - 48.21
+
+LDA gives a little better result but difference is not significant.
