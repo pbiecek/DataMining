@@ -1,0 +1,117 @@
+---
+title: "Homework 10"
+author: "Ziad Al Bkhetan"
+date: "January 6, 2016"
+output: 
+  html_document:
+    toc : TRUE
+---
+
+#Introduction
+In this Homework I will cluster the deputies depending on the voting, K-MEANS and PAM into from 2 to 20 clusters and calculate silhouette for each of them, then calculate the average silhouette then plot these values. 
+
+# Data Loading
+```{r , cache=FALSE, warning=FALSE, message=FALSE}
+library(dplyr)
+library(tidyr)
+library(cluster)
+
+load("D:/MSc Computer science and informatics/3rd semester/Data Mining - Advances/Homeworks/all_votes.rda")
+
+```
+
+# Data Preparation
+we will use the records in the dataset, but we will change the features, so for each deputy we will check the vote type for each id_voting, and we will cluster them based on the id_voting values which are : 
+  <br>* 1 : For
+  <br>* 0 : Not present
+  <br>* -1: Abstain
+  <br>* -2: Against
+<br>then we will get these clusters and calculate silhouette for them.
+
+```{r , cache=FALSE, warning=FALSE, message=FALSE}
+# Decode the votes 
+all_votes_new = all_votes %>%
+  mutate(
+    voting_type = (ifelse(vote=='Against', -2, ifelse(vote=='For', 1, ifelse(vote=='Abstain', -1, 0 ) )))
+  )
+
+# prepare the final dataset
+all_votes_new = all_votes_new[,c("surname_name","club", "id_voting","voting_type")]
+final_data = all_votes_new %>%
+  spread(id_voting, voting_type, fill=0)
+
+# change the columns names, and prepare list of columns which will be used in clustering
+names(final_data) <-make.names(names(final_data), unique = FALSE)
+cols_names <- names(final_data)
+cols_names <- cols_names[cols_names != "surname_name"]
+cols_names <- cols_names[cols_names != "club"]
+
+```
+
+# K-Means Clustering
+I will use K-means method woth cluster number from 2 to 20 and calculate the average silhouette for them, then I will plot them. 
+
+```{r , cache=FALSE, warning=FALSE, message=FALSE}
+k_meanslst <- list()
+for (i in 2:21)
+{
+  k_meanslst[[i - 1]] <- kmeans(final_data[,cols_names], i)
+}
+
+des <- daisy(as.matrix(final_data[,cols_names]))
+kmeans_res <- sapply(k_meanslst, function(x) mean(silhouette(x$cl, des)[, 3]))
+plot(kmeans_res)
+
+```
+
+# K-means Results
+Here we can see the silhouette results sorted for each clusters number:
+
+```{r , cache=FALSE, warning=FALSE, message=FALSE}
+
+cls_num <- list (2:21)
+k_means_data <- as.data.frame(kmeans_res)
+k_means_data <- cbind(k_means_data, cls_num)
+k_means_data = arrange(k_means_data, desc(kmeans_res))
+for (i in 2:21)
+{
+  print (paste("Clusters number: ", k_means_data[i - 1, 2], ", Average silhouette:", k_means_data[i - 1, 1]))  
+}
+```
+
+# PAM Clustering
+I will do the same as in the prevoius part but using PAM instead of k-means, then I will plot the results
+```{r , cache=FALSE, warning=FALSE, message=FALSE}
+
+pam_lst <- list()
+for (i in 2:21)
+{
+  pam_lst[[i - 1]] <- pam(final_data[,cols_names], i)
+}
+
+pam_res <- sapply(pam_lst, function(x) mean(silhouette(x)[, 3]))
+plot(pam_res)
+
+```
+
+# Pam Results
+Here we can see the silhouette results sorted for each clusters number:
+
+```{r , cache=FALSE, warning=FALSE, message=FALSE}
+Pam_data <- as.data.frame(pam_res)
+Pam_data <- cbind(Pam_data, cls_num)
+Pam_data = arrange(Pam_data, desc(pam_res))
+for (i in 2:21)
+{
+  print (paste("Clusters number: ", Pam_data[i - 1, 2], ", Average silhouette:", Pam_data[i - 1, 1]))  
+}
+
+```
+
+
+# Remarks
+in tis homework we tried to compare the clustering with different clusters number, and using two different methods: k-means and pam.
+<br> this comparision based on silhouette values, and we can find that the best value for k-means was :
+<br>Clusters number:  3 , silhouette: 0.411187745669155
+<br> and for Pam is:
+<br>Clusters number:  2 , silhouette: 0.437521905746973
