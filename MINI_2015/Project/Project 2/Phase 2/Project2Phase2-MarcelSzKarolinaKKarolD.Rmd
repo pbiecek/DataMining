@@ -1,0 +1,598 @@
+---
+title: "Project 2 - Phase 2"
+author: "Karolina K., Karol D., Marcel Sz."
+date: "7 stycznia 2016"
+output: html_document
+---
+#Project Phase Description
+
+In the second phase try to segment visitors into separate categories / segments. Try to answer following questions:
+<ul>
+<li>
+How to define the similarity measure between visitors?
+<li>
+Is the population homogenous or heterogonous. If heterogeneous then how many groups you can derive/define?
+<li>
+How to characterize different groups of visitors?
+Is there a pattern in stations that visitor tends to visit?
+
+#Loading libraries
+```{r, warning=FALSE, results="hide"}
+library(tidyr)
+library(caret)
+library(dplyr)
+library(lubridate)
+library(reshape)
+library(ggplot2)
+library(MASS)
+library(cluster)
+library(pvclust)
+library(dendextend)
+library(ape)
+library(RColorBrewer)
+library(scales)
+library(colorspace) # get nice colors
+library(plotly)
+library(stringdist)
+```
+
+# Loading data
+```{r, cache=TRUE, results="hide", warning=FALSE}
+load("C:\\Users\\Karola\\Documents\\BISD\\Semestr 2\\Data Mining\\Projekt 2\\verySmallLogs.rda")
+```
+```{r, cache=TRUE}
+#Transforming data in the same way as in phase 1
+
+data <- verySmallLogs %>% 
+  mutate(station,
+         visitor,
+         type,
+         date,
+         weekday = wday(date, label=TRUE, abbr=FALSE),
+         hour = substr(date, 12, 13))
+
+data$date <- as.POSIXct(data$date,format="%Y-%m-%d %H:%M:%S")
+data = data[data$visitor != -1,]
+
+
+dataEntering <- data[data$type=="Entering" & data$visitor != -1,]
+dataLeaving <- data[data$type=="Leaving" & data$visitor != -1,]
+
+newdataEntering = dataEntering %>%
+  group_by(visitor, station) %>%
+  summarise(min_date=min(date),
+            weekday=head(weekday,1),
+            hour=head(hour,1),
+            count = n())
+
+newdataLeaving = dataLeaving %>%
+  group_by(visitor, station) %>%
+  summarise(max_date=max(date),
+            weekday=head(weekday,1),
+            hour=head(hour,1),
+            count = n())
+
+mergedData <- merge(newdataEntering, newdataLeaving, by=c("visitor", "station"))
+mergedData$time = as.numeric(mergedData$max_date-mergedData$min_date)
+mergedData$hour = mergedData$hour.x
+mergedData$weekday = mergedData$weekday.x
+mergedData$count = mergedData$count.x
+mergedData = mergedData[mergedData$time < 800,]
+```
+
+#Data plot
+
+```{r, cache=TRUE}
+
+ggplot(data=mergedData,aes(count, time, station))+geom_point(aes(colour = station))
+ggplot(data=mergedData,aes(weekday, count, station))+geom_point(aes(colour = station))
+
+```
+
+#Basic hierarchical clustering
+
+##Choose dinstance metric (scale and use manhattan)
+
+```{r, cache=TRUE, results="hide", warning=FALSE}
+mat1 <- dist(mergedData[1:100,c("count","time")])
+as.matrix(mat1)[1:5,1:5]
+
+mat2 <- dist(scale(mergedData[1:100,c("count","time")]))
+as.matrix(mat2)[1:5,1:5]
+
+mat3 <- dist(scale(mergedData[1:100,c("count","time")]), method="manhattan")
+as.matrix(mat3)[1:5,1:5]
+
+dat <- scale(mergedData[,c("count","time")])
+```
+
+##Prepare data for hierarchical clustering
+
+```{r, cache=TRUE, results="hide", warning=FALSE}
+sampleData <- mergedData[sample(nrow(mergedData), 3000),]
+head(sampleData)
+sampleData <- transform(sampleData, 
+                        visitor = as.numeric(visitor), 
+                        station = as.numeric(station),
+                        min_date = as.numeric(min_date),
+                        max_date = as.numeric(max_date),
+                        label = paste(station, visitor, sep="_"))
+
+rownames(sampleData) <- sampleData$label
+dat <- scale(sampleData[,c("count", "time", "station")])
+```
+
+##Plot sampledData to see how it looks like
+
+```{r, cache=TRUE}
+ggplot(data=sampleData,aes(count, time, weekday))+geom_point(aes(colour = weekday))
+
+```
+
+```{r, cache=TRUE}
+ggplot(data=sampleData,aes(count, time, station))+geom_point(aes(colour = station))
+```
+
+##Cluster using Agnes package
+```{r, cache=TRUE, warning=FALSE}
+hc <- agnes(dat, method="ward", metric = "manhattan")
+dend <- as.dendrogram(hc)
+dend <- color_branches(dend, k=3)
+# plot(dend, horiz =  TRUE,  nodePar = list(cex = .007))
+plot(cut(dend, h = 15)$upper, horiz =  FALSE, cex=0.01)
+# plot(hc, which.plots=2, cex=0.1, main="", xlab="")
+```
+
+```{r, cache=TRUE,  fig.width=15,  fig.height=15, warning=FALSE}
+sampleData$labels = factor(cutree(dend, k=3))
+ggplot(sampleData, aes(count, time, label=station, color=labels))+geom_text(size=4)+theme_bw()
+```
+
+```{r}
+plot_ly(sampleData, x = count, y = time, z = station, type = "scatter3d", mode = "markers", color = labels)
+```
+GRUPA 3 - 
+
+##Cluster using hclust package
+```{r,  fig.width=15,  fig.height=15, warning=FALSE}
+dat <- scale(sampleData[,c("count", "time", "station")])
+hc <- hclust(dist(dat, method = "manhattan"), "ward.D")
+sampleData$labels = factor(cutree(hc, k=3))
+
+ggplot(sampleData, aes(count, time, label=station, color=labels))+geom_text(size=4)+theme_bw()
+```
+```{r}
+plot_ly(sampleData, x = count, y = time, z = station, type = "scatter3d", mode = "markers", color = labels)
+```
+
+Add station to features
+```{r, cache=TRUE,  fig.width=20,  fig.height=20, warning=FALSE}
+
+sampleData <- mergedData[sample(nrow(mergedData), 3000),]
+sampleData <- transform(sampleData, 
+                        visitor = as.numeric(visitor), 
+                        station = as.numeric(station),
+                        min_date = as.numeric(min_date),
+                        max_date = as.numeric(max_date),
+                        label = paste(station, visitor, sep="_"))
+dat <- scale(sampleData[,c("count","time", "visitor", "min_date", "max_date", "station")])
+hc <- hclust(dist(dat, method = "manhattan"), "ward.D")
+#plot(hc, labels = FALSE)
+```
+
+```{r, cache=TRUE}
+sampleData$labels = factor(cutree(hc, k=3))
+ggplot(sampleData, aes(count, time, label=station, color=labels))+geom_text(size=3)+theme_bw()
+```
+```{r}
+plot_ly(sampleData, x = count, y = time, z = station, type = "scatter3d", mode = "markers", color = labels)
+```
+
+This is how we have clustered our data for now (using 3 groups)
+
+#Introduce new features
+Try to get data by visitor (not by visitor, station) and introduce new features
+
+
+<ol><li>Time dependent features
+   <ul><li> total_time </li>
+   <li> max_time </li>
+   <li> min_time </li>
+   <li> weekday </li>
+   <li> hour </li>
+   <li> min_date </li>
+   <li> max_date </li> </ul>
+   </li>
+ <li>station dependent features </li>
+ <ul>
+   <li> most_freq_station </li>
+   <li> least_freq_station </li>
+   <li> min_count </li>
+   <li> max_count </li>
+   <li> total_count </li>
+</ul>
+</li>
+</ol>
+
+Calculate new features
+```{r, cache=TRUE, results="hide"}
+phase1Data <- mergedData[,c("visitor", "station", "max_date", "min_date", "time", "weekday", "hour", "count")]
+
+phase1Data = phase1Data %>%
+  group_by(visitor) %>%
+  summarise(max_date=max(max_date),
+            min_date=min(min_date),
+            total_time=sum(time),
+            min_time=min(time),
+            max_time=max(time),
+            weekday=head(weekday,1),
+            hour=head(hour,1),
+            total_count = sum(count),
+            max_count = max(count),
+            min_count = min(count),
+            most_freq_station = head(station[which(count == max(count))],1),
+            least_freq_station = head(station[which(count == min(count))],1))
+
+sampleData <- phase1Data[sample(nrow(phase1Data), 2000),]
+sampleData <- sampleData[order(sampleData$visitor),]
+rownames(sampleData) <- sampleData$visitor
+```
+
+## Scaling data and transforming to numeric
+
+```{r, cache=TRUE, results="hide"}
+
+kmeansData <- transform(sampleData, 
+                        visitor = as.numeric(visitor),
+                        max_date = as.POSIXlt(max_date)$hour + as.POSIXlt(max_date)$min/60,
+                        min_date = as.POSIXlt(min_date)$hour + as.POSIXlt(min_date)$min/60,
+                        total_time = as.numeric(total_time),
+                        min_time = as.numeric(min_time),
+                        max_time = as.numeric(max_time),
+                        #weekday = as.numeric(weekday),
+                        hour = as.numeric(hour),
+                        #most_freq_station = as.numeric(most_freq_station),
+                        #least_freq_station = as.numeric(least_freq_station),
+                       label = visitor)
+```
+
+```{r, cache=TRUE, results="hide"}
+ kmeansData$max_date <- scale(kmeansData$max_date)
+ kmeansData$min_date <- scale(kmeansData$min_date)
+ kmeansData$total_time <- scale(kmeansData$total_time)
+ kmeansData$min_time <- scale(kmeansData$min_time)
+ kmeansData$max_time <- scale(kmeansData$max_time)
+ kmeansData$least_freq_station <- scale(kmeansData$total_count)
+```
+
+##Trying to visualize data once more
+
+Plot a SPLOM: (how features depend of each other)
+
+```{r, cache=TRUE, fig.width=15,  fig.height=15,}
+SPLOM_DATA <- kmeansData[,c("total_time", "max_time", "min_time","min_date", "max_date", "min_count", "max_count", "total_count")]
+station_col <- rev(rainbow_hcl(65))[as.numeric(sampleData$most_freq_station)]
+pairs(SPLOM_DATA, col = station_col,
+      lower.panel = NULL,
+      cex.labels=1, pch=15, cex = 0.75)
+```
+
+##Use K-means on all numeric features:
+
+```{r}
+set.seed(4)
+model1 <- kmeans(kmeansData[,c("total_time", "max_time", "min_time","min_date", "max_date", "min_count", "max_count", "total_count")], 4)
+kmeansData$cluster <- factor(model1$cluster)
+nd <- data.frame(model1$centers)
+
+ggplot(kmeansData, aes(total_time, total_count)) +
+  geom_text(size=3, aes(label=most_freq_station, color=cluster)) + 
+  geom_point(data=nd, size=3)+
+  theme_bw()
+
+plot_ly(kmeansData, x = max_time, y = total_count, z = total_time, type = "scatter3d", mode = "markers", color = cluster)
+plot_ly(kmeansData, x = total_count, y = min_time, z = total_time, type = "scatter3d", mode = "markers", color = cluster)
+plot_ly(kmeansData, x = total_count, y = min_date, z = total_time, type = "scatter3d", mode = "markers", color = cluster)
+```
+
+# Use k-means on features: total_time, total_count
+
+```{r, warning=FALSE, fig.width=15,  fig.height=15}
+set.seed(4)
+model1 <- kmeans(kmeansData[,c("total_time", "total_count")], 4)
+kmeansData$cluster <- factor(model1$cluster)
+nd <- data.frame(model1$centers)
+ggplot(kmeansData, aes(total_time, total_count)) +
+  geom_text(size=3, aes(label=most_freq_station, color=cluster)) +
+  geom_point(data=nd, size=3)+
+  theme_bw()
+```
+
+## First group
+```{r, warning=FALSE}
+kmFirstGroup = kmeansData[kmeansData$cluster == 1,] 
+```
+
+Long time of use and frequent interactions with machines
+
+```{r, warning=FALSE, fig.width=15,  fig.height=15}
+
+qplot(kmFirstGroup$most_freq_station)+geom_bar() 
+
+```
+
+Machines which are used most frequent: 10, 05, 56, 66
+Least which are used least frequent: 18, 20
+
+## Second group
+
+```{r, warning=FALSE}
+
+kmSecondGroup = kmeansData[kmeansData$cluster == 2,]
+
+```
+Rather medium and short times of interactions, the number of interactions is small
+
+```{r, warning=FALSE, fig.width=15,  fig.height=15}
+
+qplot(kmSecondGroup$most_freq_station)+geom_bar()
+
+```
+
+Similar to first group, however 'cnk18' is used more frequent, 'cnk19' is used less frequent.
+'cnk20' is the most frequently used machine.
+Members, who use machine for short time, chooses 'cnk20' machine more frequently than people who use machine for long time.
+
+## Third group
+
+```{r, warning=FALSE}
+
+kmThirdGroup = kmeansData[kmeansData$cluster == 3,] 
+
+```
+Result is similar to the result from second group.
+
+```{r, warning=FALSE, fig.width=15,  fig.height=15}
+
+qplot(kmThirdGroup$most_freq_station)+geom_bar()
+
+```
+
+## Fourth group
+
+```{r, warning=FALSE}
+
+kmFourthGroup = kmeansData[kmeansData$cluster == 4,] 
+
+```
+
+Members who use machine only for short time and they do have small number of iterations
+
+```{r, warning=FALSE, fig.width=15,  fig.height=15}
+
+qplot(kmFourthGroup$most_freq_station)+geom_bar() 
+
+```
+
+In most cases, members choose '19a' machine, completely different than people who spend long times while using machines.
+
+## Using pam on all features:
+<ul>
+<li>max_time,</li>
+<li>total_time</li>
+<li>total_count</li>
+<li>most_freq_station</li>
+<li>min_date</li>
+<li>weekday</li>
+<li>least_freq_station</li
+</ul>
+ 
+```{r, warning=FALSE, fig.width=15,  fig.height=15, cache=TRUE}
+pamData <- transform(sampleData, 
+                        max_date = as.POSIXlt(max_date)$hour + as.POSIXlt(max_date)$min/60,
+                        min_date = as.POSIXlt(min_date)$hour + as.POSIXlt(min_date)$min/60,
+                        total_time = as.numeric(total_time),
+                        min_time = as.numeric(min_time),
+                        max_time = as.numeric(max_time),                        label = visitor)
+
+model4 <- pam(pamData[,c("total_time", "total_count")], 4)
+pamData$cluster <- factor(model4$clustering)
+nd <- data.frame(model4$medoids)
+
+ggplot(pamData, aes(total_time, total_count)) +
+  geom_text(size=3, aes(label=most_freq_station, color=cluster)) +
+  # geom_point(data=nd, size=3)+
+  theme_bw()
+```
+ 
+```{r, warning=FALSE}
+# plot_ly(pamData, x = total_time, y = total_count, z = most_freq_station, type = "scatter3d", mode = "markers", color = cluster)
+# plot_ly(pamData, x = total_time, y = hour, z = most_freq_station, type = "scatter3d", mode = "markers", color = cluster)
+# plot_ly(pamData, x = total_count, y = min_date, z = weekday, type = "scatter3d", mode = "markers", color = cluster)
+```
+
+## Pca component analysis
+ 
+```{r, warning=FALSE, cache=TRUE, fig.width=15,  fig.height=15}
+pc <- prcomp(SPLOM_DATA)
+comp <- data.frame(pc$x[,1:4])
+plot(comp, pch=16, col=rgb(0,0,0,0.5))
+k <- kmeans(comp, 4, nstart=25, iter.max=1000)
+plot(comp, col=k$clust, pch=16)
+summary(pc)
+biplot(pc)
+ 
+```
+ 
+#Finding a pattern of stations visited by user
+We introduce new features and distance metric:
+<ul>
+<li>first_station - station that user begins with</li>
+<li>
+last_station - station that user ends with
+</li>
+<li>
+station_path - a concatenated string of stations in order user visited them
+</li>
+</ul>
+ 
+```{r, warning=FALSE, cache=TRUE}
+patternData <- mergedData[,c("visitor", "station", "time", "count", "min_date")]
+head(patternData)
+patternData = patternData %>%
+  arrange(min_date) %>%
+  group_by(visitor) %>%
+  summarise(total_time=sum(time),
+            total_count = sum(count),
+            first_station = head(station,1),
+            last_station = tail(station,1),
+            station_path = paste(station, collapse="_"),
+            most_freq_station = head(station[which(count == max(count))],1),
+            least_freq_station = head(station[which(count == min(count))],1))
+           
+sampleData <- patternData[sample(nrow(patternData), 2000),]
+sampleData <- sampleData[order(sampleData$visitor),]
+rownames(sampleData) <- sampleData$visitor
+```
+ 
+# Clustering on station_path using hierarchicla clustering with restricted Damerau-Levenshtein distance
+
+## Cluster into 3 groups
+```{r, warning=FALSE, fig.width=15,  fig.height=15}
+d <- stringdistmatrix(sampleData$station_path, sampleData$station_path)
+cl <- hclust(as.dist(d))
+#plot(cl)
+sampleData$labels = factor(cutree(cl, k=3))
+ggplot(sampleData, aes(total_count, total_time, label=most_freq_station, color=labels))+geom_text(size=3)+theme_bw()
+ggplot(sampleData, aes(total_count, total_time, color=labels))+geom_point(size=2)+theme_bw()
+```
+
+##First group station paths:
+```{r, warning=FALSE}
+firstGroup = (sampleData %>% filter(labels == 1))
+qplot(firstGroup$most_freq_station)+geom_bar() 
+```
+Use of machine is equally distributed
+
+```{r, warning=FALSE, fig.width=15,  fig.height=15}
+qplot(firstGroup$total_time)+geom_histogram() 
+```
+
+Domination of short times (below 500)
+
+```{r, warning=FALSE}
+head(firstGroup[,c("station_path")])
+```
+
+Mainly short processes, mostly 1 or 2 machines used
+
+##Second group station paths:
+
+```{r, warning=FALSE, fig.width=15,  fig.height=15}
+secondGroup = (sampleData %>% filter(labels == 2))
+qplot(secondGroup$most_freq_station)+geom_bar() 
+```
+
+Some machines, for example cnk19a are not used by users from the same group. On the other hand 'cnk66', 'cnk05' are used very frequently.
+
+```{r, warning=FALSE, fig.width=15,  fig.height=15}
+qplot(secondGroup$total_time)+geom_histogram() 
+```
+Total times are medium ones and are distrbitued with normal distribution (around 500)
+
+```{r, warning=FALSE}
+head(secondGroup[,c("station_path")]) 
+```
+
+Users of this group are machines in random way. They start mostly on machines: '20', '05', '10' and ends on '56' or '38'. Also they use machines '66', '61', '18', '20' in random order.
+
+##Third group station paths:
+
+```{r, warning=FALSE, fig.width=15,  fig.height=15}
+thirdGroup = (sampleData %>% filter(labels == 3))
+qplot(thirdGroup$most_freq_station)+geom_bar() 
+```
+
+Users of this group uses machine more randomly, 'cnk18' is almost not used by group members. On the other hand cnk38 is used very often. Those people uses also cnk66 and cnk05. 
+
+```{r, warning=FALSE, fig.width=15,  fig.height=15}
+qplot(thirdGroup$total_time)+geom_histogram() 
+```
+
+Total usage times are large (above 500)
+
+```{r, warning=FALSE}
+head(thirdGroup[,c("station_path")]) 
+```
+
+Group members starts mostly on 'cnk10' or 'cnk05' machine and then they play on 'cnk66', 'cnk20', 'cnk18' and 'cnk61' machines.
+At the end they finish on 'cnk56 and 'cnk38'.
+
+## Cluster into 100 groups
+```{r}
+sampleData$labels = factor(cutree(cl, k=100))
+```
+
+Information for 3 groups
+```{r}
+firstGroup = (sampleData %>% filter(labels == 1))
+length(unique(firstGroup$station_path))
+length(firstGroup$station_path)
+unique(firstGroup$station_path)
+
+secondGroup = (sampleData %>% filter(labels == 3))
+length(unique(secondGroup$station_path))
+length(secondGroup$station_path)
+unique(secondGroup$station_path)
+
+thirdGroup = (sampleData %>% filter(labels == 7))
+length(unique(thirdGroup$station_path))
+length(thirdGroup$station_path)
+unique(thirdGroup$station_path)
+```
+#Summary
+We distinguished following similarity measures:
+<ol><li>Time dependent features
+   <ul><li> total_time </li>
+   <li> max_time </li>
+   <li> min_time </li>
+   <li> weekday </li>
+   <li> hour </li>
+   <li> min_date </li>
+   <li> max_date </li> </ul>
+   </li>
+ <li>station dependent features </li>
+ <ul>
+   <li> most_freq_station </li>
+   <li> least_freq_station </li>
+   <li> min_count </li>
+   <li> max_count </li>
+   <li> total_count </li>
+</ul>
+</li>
+</ol>
+
+The population is heterogeneous.
+
+Research carried out on the supplied data set showed that it is possible to distinguish four groups that show signs of similarities.
+
+As an example, one of the group has following features. Team members uses machines for short time and total numer of used machines is relatively low. The other group members plays much longer then previous one. Moreover, one can determine a specific path of their usage (starting on specific machine, ending in some machine).
+
+Histogram from the document shows that machines, which were used by people, who plays only few times are not used by team members which uses machine very frequently.
+To be more specific - number of usage of machine '19a' is small, furthermore it is used by such players, not by addicted people. 
+
+Second conclusion is that there exists group, which uses machine only few times and then they give up (resign) due to fact, that they lose some amount of money or they just wanted to try.
+
+Another fact is that another group can be indetified. Its members develop some schemas and strategies (using specific machines, specific 'paths through machines'). Such members can be considered as 'Addicts'.
+Machines which are used most frequent: 10, 05, 56, 66
+Least which are used least frequent: 18, 20
+
+From researcher point of view, it is possible to point out, that there exists group which uses machines occasionally - 'Occasional players'. Frequency of playing is smaller than frequency of the aforementioned group.
+Usage of machines is similar to 'Addicts' group, however 'cnk18' is used more frequently, 'cnk19' is used less frequently.
+'cnk20' is the most frequently used machine.
+Members, who use machine for short time, chooses 'cnk20' machine more frequently than people who use machine for long time.
+
+Machine patterns:
+If we increase the number of classes, we will obtain 100 groups of people with very similar preferences, eg. single person whose behaviour is similar every time. In this way people are clustered together when: they have the same length of their path, visit similar machines and start from the same station.
+
+
