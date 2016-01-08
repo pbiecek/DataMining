@@ -60,7 +60,7 @@ for (i in 2:21)
 
 des <- daisy(as.matrix(final_data[,cols_names]))
 kmeans_res <- sapply(k_meanslst, function(x) mean(silhouette(x$cl, des)[, 3]))
-plot(kmeans_res)
+plot(kmeans_res, main = "K-means", xlab = "clusters", ylab = "average silhouette", type = "o", xaxt="n", las = 1)
 
 ```
 
@@ -90,7 +90,8 @@ for (i in 2:21)
 }
 
 pam_res <- sapply(pam_lst, function(x) mean(silhouette(x)[, 3]))
-plot(pam_res)
+plot(pam_res, main = "Pam", xlab = "clusters", ylab = "average silhouette", type = "o", xaxt="n", las = 1)
+
 
 ```
 
@@ -107,6 +108,7 @@ for (i in 2:21)
 }
 
 ```
+
 
 
 # Remarks
