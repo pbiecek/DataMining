@@ -237,7 +237,7 @@ ggplot(data=subset(SmallLogs,scene_name%in%index),aes(x=scene_name,fill=cluster)
 ggplot(data=SmallLogs,aes(x=station,fill=cluster))+geom_bar(position = "fill")+theme(axis.text.x=element_text(angle=90,size=9))
 ```
 
-# Conclusion 
+# Inference - KMeans Results 
 
 The characterization of clusters is made by plotting variables used in the clustering and the resulting clusters. So the above plot help us to define the characteristic of each cluster:  
 
@@ -248,3 +248,65 @@ The characterization of clusters is made by plotting variables used in the clust
 3.Station **cnk03** belong to the 4th cluster, and the most pattern used in this station are Multi level Main (LevelOneMain, LevelTwoMain,etc.)
 
 The most used patterns are  more related to the stations **cnk02a** and **cnk02b**. As said before those patterns are Screen and Splash. 
+
+
+##Partitioning Around Medoids
+
+Partitioning around Medoids is robust version of k means. The similarity between the two  is due to mostly because to the fact that the two algorithms break the dataset into groups, and both work by trying to minimize the error, but PAM works with medoids, that are an entity of the dataset that represent the group in which it is inserted, and Kmeans works with centroids, that are artificially created entity that represent its cluster.
+
+```{r}
+library(cluster)
+Logstocluster$time_inter=NULL
+Logstocluster$visitor=NULL
+max=nrow(Logstocluster)
+set.seed(1223)
+train_Logs=Logstocluster[sample(nrow(Logstocluster),nrow(Logstocluster)*0.01), ]
+pam=pam(train_Logs[,-38],k=4)
+pam$medoids
+
+#to compare the k means and pam 
+clusters_pam=unname(as.numeric(pam$clustering))
+clusters_km=as.numeric(as.character(train_Logs[,38]))
+
+#Percentage of similarity between the two clustering methods
+diss=function(v,c){
+  sum=0
+  for(i in 1:length(c)){
+    if (c[i]==v[i]) sum=sum+1
+  }
+
+return(sum)
+  }
+diss(clusters_km,clusters_pam)/nrow(train_Logs)
+#0.35
+```
+
+The similarity between pam and K-means clustering is about 35%.
+
+### Using PCA to confirm k-means clustering
+
+We took the clustering from the k means Implementation and try to confirm it by principal component analysis. We plot the clusters in the two principal component of this reduction, and as we see, we've got almost 4 clusters. Clusters 1 and 4 are quite the same cluster.
+
+```{r}
+library(FactoMineR)
+res=PCA(Logstocluster,quali.sup = 38,graph = FALSE)
+plot(res,habillage=38)
+plot(res,invisible="ind")
+```
+
+#Hierarchical clustering
+```{r}
+
+d=dist(train_Logs[,-max],method = "manhattan")
+hc=hclust(d,method = "complete")
+plot(hc,labels = train_Logs$cluster,cex=0.8)
+
+```
+
+# Conclusion 
+
+It shows again three clusters 1,2 and 3. The  2nd and 3rd cluster are quite similar while the 1st cluster is a bit different.  
+Comparing this method to k means confirmed the choice of k=4 and showed that the choice of three cluster is a good hint.
+According to pam, there is a similarity in the way the two algorithms works with 35% of similarity. 
+With no rule of thumb to choose the best clustering method, the k means and its interpretation are still valid to cluster the population of Logs into machines.
+
