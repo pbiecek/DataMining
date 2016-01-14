@@ -129,7 +129,7 @@ three = t(three)
 barplot(three, main="Stations visited by visitors from cluster 3", xlab="Stations", ylab="Number of visitors")
 ```
 <p>
-From clustering of visitors based on stations they visited we can derive three clusters. Visitors from the first cluster tend to visit 'cnk19a' by far the most, while they absolutely avoid 'cnk10'. Visitors from the second cluster tend to visit 'cnk10' the most and 'cnk38' the least. Third group of visitors tends to visit 'cnk05', 'cnk18', 'cnk20' and 'cnk66' the most, while 'cnk38' and 'cnk56' the least.
+From clustering of visitors based on stations they visited we can derive three clusters. Visitors from the first cluster tend to visit 'cnk18' by far the most, while they absolutely avoid 'cnk19a'. Visitors from the second cluster tend to visit 'cnk19a' the most and 'cnk66' the least. Third group of visitors tends to visit 'cnk05', 'cnk18', 'cnk20' and 'cnk66' the most, while 'cnk38' and 'cnk56' the least.
 </p>
 ## Clustering based on the number of scenes used in each station per visit
 ```{r, warnings = FALSE, cache=TRUE, message = FALSE}
