@@ -1,0 +1,801 @@
+---
+title: "Project2 Phase 2"
+author: "Ziad Al Bkhetan, Neven Piculjan, Naveen Mupparapu"
+date: "January 7, 2016"
+output: 
+  html_document:
+    toc : TRUE
+---
+
+
+# Internet of Things - Introduction
+
+In the second phase we should cluster the records in the dataset, then try to charactrize these clusters and find some intersting patterns for these visits.
+
+We Assumed That the visit is the duration between the minimum date and maximum date for the same visitor in the same station, in the same day.
+
+we used a dataset contains 6700000 records, and we analysed it, just to make the performance faster.
+
+for Hierarchical Clustering we used smaller dataset for reasons related to the execution time and memory limitation. 
+
+
+# Data Loading And Cleaning
+In this step we will prepare the data set to start analysis phase, we assumed that the maybe the dataset is not sorted, so we sort it based on the visitor and date.
+
+We removed the records when the visitor is -1, because they are incorrect data.
+we used two datasets, one of them for the stations : 'cnk02a', 'cnk02b', 'cnk03', 'cnk05'
+the second dataset for 'cnk02a', 'cnk02b', 'cnk03', 'cnk05', 'cnk06',  'cnk07', 'cnk09', 'cnk10'
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(cluster)
+library(caret)
+load('D:/MSc Computer science and informatics/3rd semester/Data Mining - Advances/Lab Projects/Project 2/SmallLogs_z.rda')
+
+# Cleaning
+# all stations : c('cnk02a', 'cnk02b', 'cnk03', 'cnk05', 'cnk06',  'cnk07', 'cnk09', 'cnk10')
+smallLogs = filter(smallLogs, visitor != -1)
+orderedData <- filter(smallLogs, station %in% c('cnk02a', 'cnk02b', 'cnk03', 'cnk05'))
+orderedData = arrange(orderedData, visitor, station, date)
+
+```
+
+# Prepare The Final DataSet
+in this step we will fetch all needed data for analysis and visualization, and the most important for us are: Visitor ID, Station, Consumed Time, Day, and Hour.
+
+we grouped all the data based on the visitor and the station and the visit day, because each visit should be in one day, and the card is valid for one day.
+
+After that we calculated the visit duration as the difference between the minimum and maximum time for each visitor in each station in the same day, this difference is calculated in minutes.
+
+For Clustering, We decided to cluster these visits based on two different datasets
+
+The First one is a normalized dataset, and we will use these variables to calculate the distances
+
+- the consumed time in each visit
+- Start Time
+
+
+We Normalized the Data, to reduce the effect of variables values range when calculate the distnces.
+
+The second Dataset, using the interactions in each visit, so we put one if the page was visited, and zero if not, then we calcualte the ditances based on the similar visited pages.
+
+
+```{r, warning=FALSE, message=FALSE}
+
+orderedDataFinal = orderedData %>% 
+  group_by(Visitor=visitor, dat=format(date, format="%Y:%m:%d") , Station=station) %>%
+  summarise(
+    start_time = min(date),
+    send_time = max(date),
+    Cons_time = difftime(max(date), min(date),units='mins'),
+    WDay = as.POSIXlt(min(date))$wday,
+    THour = as.POSIXlt(min(date))$hour
+    ) 
+
+orderedDataFinal$start_time_hms <- as.POSIXlt(orderedDataFinal$start_time)$hour * 3600 + as.POSIXlt(orderedDataFinal$start_time)$min * 60 + as.POSIXlt(orderedDataFinal$start_time)$sec
+    
+finalData <- orderedDataFinal
+finalData$Cons_time <- as.numeric(finalData$Cons_time)
+finalData$Station <- factor(finalData$Station)
+finalData <- filter(finalData, Cons_time > 1)
+
+# Create Normalized Variables based on the original Variables
+
+finalData$start_date_n = as.numeric(finalData$start_time)
+finalData$Cons_time_n = as.numeric(finalData$Cons_time)
+finalData$WDay_n = as.numeric(finalData$WDay)
+finalData$THour_n = as.numeric(finalData$THour)
+
+# Data normalization
+normalize <- function(x) {
+  scale(x)
+}
+
+
+normalized_data <- as.data.frame(lapply(finalData[, 9:13], normalize))
+finalData$start_date_n <- normalized_data$start_date_n
+finalData$Cons_time_n <- normalized_data$Cons_time_n
+finalData$WDay_n <- normalized_data$WDay_n
+finalData$THour_n <- normalized_data$THour_n
+finalData$start_time_hms_n <- normalized_data$start_time_hms
+
+# Using the interactions for clustering
+
+finalData_2 =  smallLogs
+rm(smallLogs)
+finalData_2$scene <- substring(finalData_2$scene, regexpr("sceneId=", finalData_2$scene) + 8, regexpr(">", finalData_2$scene) - 1)
+finalData_2$dat=format(finalData_2$date, format="%Y:%m:%d")
+
+finalData_for_interactions = finalData_2 %>% 
+  group_by(Visitor=visitor, scene) %>% 
+  summarise(count = n()) %>%
+  spread(scene, count, fill=0)
+
+rm(normalized_data, finalData_2, orderedData)
+
+```
+
+# Clustering Using the normalized Dataset
+in this part we will apply K-means and Pam methods on th e normalized dataset, and we will choose the model with high average silhouette value as the final model.
+
+## K-Means 
+Starting with K-means clustering, we will try to cluster the observations into different numbers of clusters, and compare the averave silhouette values
+
+Clusters Number range from 3 to 15, this range will be used for both methods k-means and pam.
+
+```{r, warning=FALSE, message=FALSE}
+clus_range <- seq(3, 10, 1)
+k_meanslst <- list()
+for (i in clus_range)
+{
+  k_meanslst[[i - 2]] <- kmeans(finalData[,c("start_time_hms_n","Cons_time_n")], i)
+}
+#k_meanslst <- k_meanslst [!sapply(k_meanslst, is.null)]
+
+#des <- daisy(as.matrix(finalData[,c("start_time_hms","Cons_time_n")]))
+#kmeans_res <- sapply(k_meanslst, function(x) mean(silhouette(x$cl, des)[, 3]))
+#plot(clus_range, kmeans_res)
+
+
+```
+
+
+## Choosen K-Means Model
+Here we selected the model which cluster the data into four clusters, then we visualized the data based on the start time and the consumed time.
+
+```{r, warning=FALSE, message=FALSE}
+#k_meanslst [[match(max(kmeans_res),kmeans_res)]] 
+k_means_mod <- k_meanslst [[2]] 
+finalData$k_m_clus = factor(k_means_mod$cluster) 
+
+ggplot(finalData, aes(start_time_hms, Cons_time)) +
+  geom_point(aes(color=k_m_clus), size=2)+
+  theme_bw()
+
+
+
+```
+
+We can see from this plot that the data is clustered into four different clusters which are well separated.
+
+One of them mainly depends on the consumed time, and we think even that the data was normalized but there is a slight effect related to the values range, this cluster contains the visits which have consumed time bigger than 70 minutes, this cluster has the id 3.
+while the other clusters contain the records which have consumed time less than 70 minutes (approximatly), but the visits started before 12 o'clock in the cluster with id 4, and between 12 and 15 o'clock for the cluster with id 1, and the fourth one with id 2 contains the vists which started after 15.
+
+so we can summarize that we have four clusters:
+
+- one of them contain the long period visits
+- second one for the morning time befor 12
+- third one for Afternoon  time from 12 to 15
+- fouth one for after evening  after 15
+
+
+
+## Statistics
+here we will show some statistical information extracted from the these clusters
+
+### Visits in each Cluster
+
+```{r, warning=FALSE, message=FALSE}
+WeeksDays <- c("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+finalData$THour <- factor(finalData$THour)
+
+vis_data = finalData %>% 
+  group_by(k_m_clus) %>%
+  summarise(
+    s_count = n()
+  )     
+x = vis_data$s_count
+names(x) <- vis_data$k_m_clus
+x <- sort(x, decreasing = TRUE)
+barplot(x, main="Visits in the Clusters", xlab="Clusters Visits", ylab = "Count", horiz = FALSE, las = 1, space = c(0.1, .2))
+
+```
+
+we can see most of the visits in our dataset exist in the clusters 1, 2, and 4, which means we have few visits with short period between 12 and 15 o'clock in our dataset.
+
+### Visitors distribution in the Clusters
+
+```{r, warning=FALSE, message=FALSE}
+
+vis_data = finalData %>% 
+  group_by(Visitor) %>%
+  summarise(
+    s_count = length(unique(k_m_clus))
+  )
+
+vis_data = vis_data %>% 
+  group_by(s_count) %>%
+  summarise(
+    s_count_n = n()
+  )
+
+x = vis_data$s_count_n
+names(x) <- vis_data$s_count
+x <- sort(x, decreasing = TRUE)
+barplot(x, main="Visitors in the Clusters", xlab="Clusters Visitors", ylab = "Count", horiz = FALSE, las = 1, space = c(0.1, .2))
+
+```
+
+the first bar ilustrate how many different visitors belong to one cluster.
+the second how many visitors belong to two clusters, the third for three and the fourth for four clusters.
+
+this plot shows that most visitors (not visits) belongs to one or different clusters, and few of them belongs to three or all clusters.
+this means that most visitors have at maximum two prefered patterns to use these stations
+
+### Stations in each Cluster
+
+```{r, warning=FALSE, message=FALSE}
+
+vis_data = finalData %>% 
+  group_by(k_m_clus, Station) %>%
+  summarise(
+    s_count = n()
+  )     
+x = vis_data$s_count
+names(x) <- paste(vis_data$k_m_clus, "_", vis_data$Station)
+x <- sort(x, decreasing = TRUE)
+barplot(x, main="Stations in the Clusters", xlab="Clusters Stations", ylab = "Count", horiz = FALSE, las =2, space = c(0.1, .2))
+ggplot(data=finalData,aes(x=Station,fill=k_m_clus))+
+  geom_bar(position = "fill")+theme(axis.text.x=element_text(angle=90,size=9))
+
+ggplot(data=finalData,aes(x=k_m_clus,fill=Station))+
+  geom_bar(position = "fill")+theme(axis.text.x=element_text(angle=90,size=9))
+
+```
+
+We can see in this plot that the maximum visits are from the stations cnk02a, cnk02b, cnk05
+
+and we can find that all stations exist in all clusters, so all the vistors in these stations have different pattern to use the station.
+
+
+### Start Hours in each Cluster
+
+```{r, warning=FALSE, message=FALSE}
+ggplot(data=finalData,aes(x=THour,fill=k_m_clus))+
+  geom_bar(position = "fill")+theme(axis.text.x=element_text(angle=90,size=9))
+
+ggplot(data=finalData,aes(x=k_m_clus,fill=THour))+
+  geom_bar(position = "fill")+theme(axis.text.x=element_text(angle=90,size=9))
+
+```
+
+we can see the distribution of the data in each cluster based on the hour.
+
+the only cluster that has visits started in all hours is the third cluster.
+
+The main idea we can find in this plot is: the maximum visits count in each clusters are in the hours 12, 13, 14, which is the half of the day, whiel the minimum also for all of them at the begining and the end of the day.
+
+### Days in each Cluster
+
+```{r, warning=FALSE, message=FALSE}
+vis_data = finalData %>% 
+  group_by(k_m_clus, WDay) %>%
+  summarise(
+    s_count = n()
+  )     
+
+x = vis_data$s_count
+names(x) <- paste(vis_data$k_m_clus, "_", WeeksDays[(vis_data$WDay) + 1])
+x <- sort(x, decreasing = TRUE)
+barplot(x, main="Clusters Days", xlab="Cluster", ylab = "Cout", horiz = FALSE, las = 2, space = c(0.1, .2))
+finalData$WDay <- factor(finalData$WDay)
+
+ggplot(data=finalData,aes(x=WDay,fill=k_m_clus))+
+  geom_bar(position = "fill")+theme(axis.text.x=element_text(angle=90,size=9))
+
+ggplot(data=finalData,aes(x=k_m_clus,fill=WDay))+
+  geom_bar(position = "fill")+theme(axis.text.x=element_text(angle=90,size=9))
+
+```
+
+
+here is the distribution of the visits count in each cluster for each day, the minimum in the fourth cluster
+
+
+# Clustering Using Interactions Dataset
+Here we have different approach to use for clustering, We will try to find the similar visits based on the visited pages in each visit. then we will cluster these visits.
+we beleive that in real life this approach is practical especially for marketing purposes when you can recommend the rest of the visted pages for similar visitors.
+
+we will apply K-means only after finding the best model
+
+## K-means Clustering
+
+```{r, warning=FALSE, message=FALSE}
+clus_range <- seq(3, 20, 1)
+col_names_intr <- colnames(finalData_for_interactions)
+col_names_intr <- col_names_intr[2:46] 
+k_meanslst_intr <- list()
+for (i in clus_range)
+{
+  k_meanslst_intr[[i - 2]] <- kmeans(finalData_for_interactions[,col_names_intr], i)
+}
+
+#k_meanslst_intr <- k_meanslst_intr [!sapply(k_meanslst_intr, is.null)]
+#des <- daisy(as.matrix(finalData_for_interactions[,col_names_intr]))
+#kmeans_res_intr <- sapply(k_meanslst_intr, function(x) mean(silhouette(x$cl, des)[, 3]))
+#plot(clus_range, kmeans_res_intr)
+
+
+
+```
+
+## Choosen Model based on Interactions Dataset and K-means method
+
+```{r, warning=FALSE, message=FALSE}
+
+k_means_mod_Int <- k_meanslst_intr [[6]]
+finalData_for_interactions$k_m_i_clus = factor(k_means_mod_Int$cluster) 
+ll <-list()
+counter = 1
+for (cls in  unique(finalData_for_interactions$k_m_i_clus))
+{
+  temp <- filter(finalData_for_interactions, k_m_i_clus == cls)
+  str <- paste("Cluster : ", cls, " Pages : ")
+  for (col in col_names_intr)
+  {
+    su <- sum(temp[, col])
+    ll[[counter]] = col
+    ll[[counter + 1]] = su
+    ll[[counter + 2]] = cls
+    counter = counter + 3
+    if (su > 15)
+    {
+      str <- paste(str, " ", col)  
+    }
+    
+  }
+}
+mat = matrix(data = unlist(ll), ncol = 3, byrow = TRUE)
+colnames(mat) <- c("scene", "coun", "cls")
+mat <- mat[order(as.numeric(mat[,3]),as.numeric(mat[,2]),decreasing=TRUE),]
+```
+
+## Statistcs
+
+### Most Visited Pages For Each Cluster
+
+```{r, warning=FALSE, message=FALSE}
+
+tot = 1
+prev = mat[1,3]
+str <- paste("Cluster : ", mat[1, 3], " Pages : ")
+for (i in seq(1, nrow(mat),1))
+{
+  if (mat[i, 3] == prev)
+  {
+    if (tot < 6)
+    {
+      str <- paste(str, " ", mat[i, 1])
+    }
+  }
+  else
+  {
+    print (str)
+    str <- paste("Cluster : ", mat[i, 3], " Pages : ")
+    prev <- mat[i, 3]
+    str <- paste(str, " ", mat[i, 1])
+    tot = 1
+  }
+  tot = tot + 1
+    
+}
+
+```
+
+### Least Visited Pages For Each Cluster
+
+```{r, warning=FALSE, message=FALSE}
+mat <- mat[order(as.numeric(mat[,3]),as.numeric(mat[,2])),]
+
+tot = 1
+prev = mat[1,3]
+str <- paste("Cluster : ", mat[1, 3], " Pages : ")
+for (i in seq(1, nrow(mat),1))
+{
+  if (mat[i, 3] == prev)
+  {
+    if (tot < 6)
+    {
+      str <- paste(str, " ", mat[i, 1])
+    }
+  }
+  else
+  {
+    print (str)
+    str <- paste("Cluster : ", mat[i, 3], " Pages : ")
+    prev <- mat[i, 3]
+    str <- paste(str, " ", mat[i, 1])
+    tot = 1
+  }
+  tot = tot + 1
+    
+}
+
+```
+
+
+### Visitors in each Cluster
+
+```{r, warning=FALSE, message=FALSE}
+vis_data = finalData_for_interactions %>% 
+  group_by(k_m_i_clus) %>%
+  summarise(
+    s_count = n()
+  )     
+x = vis_data$s_count
+names(x) <- vis_data$k_m_i_clus
+x <- sort(x, decreasing = TRUE)
+barplot(x, main="Visitors in the Clusters", xlab="Cluster", horiz = FALSE, las = 1, space = c(0.1, .2))
+```
+
+
+# Hierarchical clustering - Top Down
+
+Here, we will use hierarchical clustering - top down (divisive) - from large clusters to small ones. 
+Features we use are:
+  
+  * start hour
+  * end hour
+  * weekday
+  * time of consumption
+  * station
+    
+We decomposed clustering and first considered pairs of features for visitor clustering. In the end we used all features
+for final clustering. Results are based on the sample of 1000 records because of computational speed.
+
+```{r, warning=FALSE, message=FALSE}
+rm(list = ls())
+load('D:/MSc Computer science and informatics/3rd semester/Data Mining - Advances/Lab Projects/Project 2/SmallLogs_n.rda')
+orderedData = arrange(orderedData, visitor, station, date)
+orderedData = filter(orderedData, visitor != -1)
+
+orderedDataFinal = orderedData %>% 
+  group_by(Visitor=visitor, dat=format(date, format="%Y:%m:%d") , Station=station) %>%
+  summarise(
+    start_time = min(date),
+    send_time = max(date),
+    Cons_time = difftime(max(date), min(date),units='mins'),
+    WDay = as.POSIXlt(min(date))$wday,
+    THour = as.POSIXlt(min(date))$hour
+    
+  )  
+finalData <- orderedDataFinal
+finalData$Cons_time <- as.numeric(finalData$Cons_time)
+finalData$Station <- factor(finalData$Station)
+
+finalData$start_date_n = as.numeric(finalData$start_time)
+finalData$Cons_time_n = as.numeric(finalData$Cons_time)
+finalData$WDay_n = as.numeric(finalData$WDay)
+finalData$THour_n = as.numeric(finalData$THour)
+finalData$Station = as.numeric(finalData$Station)
+
+# Data normalization
+normalize <- function(x) {
+  scale(x)
+}
+normalized_data <- as.data.frame(lapply(finalData[, 9:12], normalize))
+finalData$start_date_n <- normalized_data$start_date_n
+finalData$Cons_time_n <- normalized_data$Cons_time_n
+finalData$WDay_n <- normalized_data$WDay_n
+finalData$THour_n <- normalized_data$THour_n
+
+finalData <- finalData[1:1000,]
+finalData <- na.omit(finalData)
+
+finalData$start_hour <- as.POSIXlt(finalData$start_time)$hour
+finalData$end_hour <- as.POSIXlt(finalData$send_time)$hour
+finalData$month <- as.POSIXlt(finalData$start_time)$mon
+```
+
+## Euclidian Distances For Scaled Dataset
+
+```{r, warning=FALSE, message=FALSE}
+start_hour__end_hour <- scale(dist(finalData[,c("start_hour", "end_hour")]))
+
+start_hour__wday <- scale(dist(finalData[,c("start_hour", "WDay")]))
+
+start_hour__cons_time <- scale(dist(finalData[,c("start_hour", "Cons_time")]))
+
+start_hour__station <- scale(dist(finalData[,c("start_hour", "Station")]))
+
+wday__cons_time <- scale(dist(finalData[,c("WDay", "Cons_time")]))
+
+wday__station <- scale(dist(finalData[,c("WDay", "Station")]))
+
+cons_time__station <- scale(dist(finalData[,c("Cons_time", "Station")]))
+
+all <- scale(dist(finalData[,c("start_hour", "end_hour", "Cons_time", "Station", "WDay")]))
+
+
+```
+
+## Models And Visualization
+
+### Start Hour - End Hour
+```{r, warning=FALSE, message=FALSE}
+library(ape)
+library(RColorBrewer)
+cols <- brewer.pal(3,"Set1")
+
+# start hour - end hour
+hc <- agnes(start_hour__end_hour, method="ward")
+finalData$labels = factor(cutree(hc, k=4))
+ggplot(finalData, aes(start_hour, end_hour)) +
+  geom_point(aes(color=labels), size=3) + 
+  theme_bw()
+
+hc <- as.phylo(as.hclust(agnes(start_hour__end_hour, method="ward")))
+par(mar=c(1,1,2,1), xpd=NA)
+plot(as.phylo(hc), type = "unrooted", cex = 0.8,
+     tip.color = cols[finalData$labels])
+
+rm(start_hour__end_hour)
+```
+
+Visitors can be grouped by the hour they started using stations and the hour they ended using stations. It can be seen
+that we can segment visitors in four different clusters according to those two features. It can be concluded that 
+visitors tend to start and end using stations in the same hour. 
+
+Sizes:
+First cluster - 14.3 %
+Second cluster - 35.5 %
+Third cluster - 22.4 %
+Fourth cluster - 27.8 %
+
+First cluster is concentrated around 9:00 and is the smallest one. Second is concentrated around 11:00, third is concentrated around 13:00 and fourth around 16:00. 90.21 % of people from first cluster will start and end using machine in the same hour, 97.18 % of people from the second cluster will do the same thing, 98.66 % is for the third and 95.32 % is for the fourth cluster.
+
+### Start Hour - Weekday
+
+```{r, warning=FALSE, message=FALSE}
+hc <- agnes(start_hour__wday, method="ward")
+finalData$labels = factor(cutree(hc, k=4))
+ggplot(finalData, aes(start_hour, WDay)) +
+  geom_point(aes(color=labels), size=3) + 
+  theme_bw()
+
+hc <- as.phylo(as.hclust(agnes(start_hour__wday, method="ward")))
+par(mar=c(1,1,2,1), xpd=NA)
+plot(as.phylo(hc), type = "unrooted", cex = 0.8,
+     tip.color = cols[finalData$labels])
+
+ggplot(data=finalData,aes(x=WDay, fill=labels))+
+  geom_bar(position = "fill")+theme(axis.text.x=element_text(angle=90,size=9))
+
+rm(start_hour__wday)
+```
+
+Visitors are grouped by the hour they started using stations and the weekday they started using stations. It can be seen that we can again segment visitors in four different clusters according to those two features. Clusters are more-less of the same size, so it can be concluded that visitors have almost the same habits during whole week.
+
+Sizes:
+First cluster - 34.3 %
+Second cluster - 24.5 %
+Third cluster - 25.4 %
+Fourth cluster - 15.8 %
+
+First cluster is concentrated around 10:00. Second is concentrated around 12:00, third is concentrated around 14:00 and fourth around 16:00. 48.69% of people from the first cluster will use station on weekday 2, 75.51% from the second cluster will do the same, 97.24% is for the third and 99.37 is for the fourth.
+
+### Start Hour - Time of Consuming
+
+```{r, warning=FALSE, message=FALSE}
+# start hour - the time of consuming
+hc <- agnes(start_hour__cons_time, method="ward")
+finalData$labels = factor(cutree(hc, k=2))
+ggplot(finalData, aes(start_hour, Cons_time)) +
+  geom_point(aes(color=labels), size=3) + 
+  theme_bw()
+
+hc <- as.phylo(as.hclust(agnes(start_hour__cons_time, method="ward")))
+par(mar=c(1,1,2,1), xpd=NA)
+plot(as.phylo(hc), type = "unrooted", cex = 0.8,
+     tip.color = cols[finalData$labels])
+rm(start_hour__cons_time)
+```
+Visitors are grouped by the hour they started using stations and the time of consuming they started using stations. It can be seen that we can segment visitors in two different clusters according to those two features. First cluster is much more bigger than the second one. There are less visitors who tend to consume stations very long at given hour.
+
+Sizes:
+First cluster - 99.3 %
+Second cluster - 0.7 %
+
+First cluster is concentrated around 0 seconds. Second is concentrated around 60 seconds of consumed time. For less then 1% people from the first cluster the time of consuming will be equal to 0, for 99.3 % people the time of consuming will be greater then 0, for 48.24 % people the time of consuming will be greater then 1, for 19.34 % people the time of consuming will be greater then 2, for 12.69 % people the time of consuming will be greater then 3 and for 8.26 % people the time of consuming will be greater then 4. The second cluster represents outliers and they have very large time of consuming and there are only few of them.
+
+
+### Start Hour - Station
+
+```{r, warning=FALSE, message=FALSE}
+hc <- agnes(start_hour__station, method="ward")
+finalData$labels = factor(cutree(hc, k=4))
+ggplot(finalData, aes(start_hour, Station)) +
+  geom_point(aes(color=labels), size=3) + 
+  theme_bw()
+
+hc <- as.phylo(as.hclust(agnes(start_hour__station, method="ward")))
+par(mar=c(1,1,2,1), xpd=NA)
+plot(as.phylo(hc), type = "unrooted", cex = 0.8,
+     tip.color = cols[finalData$labels])
+
+ggplot(data=finalData,aes(x=Station, fill=labels))+
+  geom_bar(position = "fill")+theme(axis.text.x=element_text(angle=90,size=9))
+
+rm(start_hour__station)
+```
+
+Visitors are grouped by the hour they started using stations and the stations they use. It can be seen that we can 
+segment visitors in four different clusters according to those two features. Visitors tend to use different machines
+in four different time periods.
+
+Sizes:
+First cluster - 27.3 %
+Second cluster - 31.9 %
+Third cluster - 18.6 %
+Fourth cluster - 22.2 %
+
+First cluster is concentrated around 9:00. Second is concentrated around 11:00, third is concentrated around 14:00 and fourth around 16:00. 
+
+50.92 % people from the first cluster will use station 1, 24.91 % will use station 2, 21.61 % will use station 3, 1.83 % will use station 4, 0.73 % will use station 5. 
+16.93 % people from the second cluster will use station 1, 25.39 % will use station 2, 23.2 % will use station 3, 25.08 % will use station 4, 9.40 % will use station 5.
+62.37 % will use station 4, 37.63 % will use station 5.
+31.53 % people from the fourth cluster will use station 1, 30.63 % will use station 2, 12.16 % will use station 3, 16.22 % will use station 4, 9.46 % will use station 5.
+
+### Weekday - Time of Consuming
+
+```{r, warning=FALSE, message=FALSE}
+hc <- agnes(wday__cons_time, method="ward")
+finalData$labels = factor(cutree(hc, k=2))
+ggplot(finalData, aes(WDay, Cons_time)) +
+  geom_point(aes(color=labels), size=3) + 
+  theme_bw()
+
+hc <- as.phylo(as.hclust(agnes(wday__cons_time, method="ward")))
+par(mar=c(1,1,2,1), xpd=NA)
+plot(as.phylo(hc), type = "unrooted", cex = 0.8,
+     tip.color = cols[finalData$labels])
+
+rm(wday__cons_time)
+
+```
+
+Visitors are grouped by the weekday they started using stations and the time of consuming. It can be seen that we can 
+segment visitors in two different clusters according to those two features. Consuming time is very similar for each
+weekday and those visitors are in the first, larger cluster and in second, smaller cluster are outliers.
+
+Sizes:
+First cluster - 99.3 %
+Second cluster - 0.7 %
+
+First cluster is concentrated around 0 seconds. Second is concentrated around 60 seconds of consumed time. For less then 1% people from the first cluster the time of consuming will be equal to 0, for 99.3 % people the time of consuming will be greater then 0, for 48.24 % people the time of consuming will be greater then 1, for 19.34 % people the time of consuming will be greater then 2, for 12.69 % people the time of consuming will be greater then 3 and for 8.26 % people the time of consuming will be greater then 4. The second cluster represents outliers and they have very large time of consuming and there are only few of them.
+
+### Weekday - Station
+
+```{r, warning=FALSE, message=FALSE}
+# weekday - station
+hc <- agnes(wday__station, method="ward")
+finalData$labels = factor(cutree(hc, k=3))
+ggplot(finalData, aes(WDay, Station)) +
+  geom_point(aes(color=labels), size=3) + 
+  theme_bw()
+
+hc <- as.phylo(as.hclust(agnes(wday__station, method="ward")))
+par(mar=c(1,1,2,1), xpd=NA)
+plot(as.phylo(hc), type = "unrooted", cex = 0.8,
+     tip.color = cols[finalData$labels])
+
+ggplot(data=finalData,aes(x=Station, fill=labels))+
+  geom_bar(position = "fill")+theme(axis.text.x=element_text(angle=90,size=9))
+
+rm(wday__station)
+```
+Visitors are grouped by the weekday they started using stations and the station. It can be seen that we can 
+segment visitors in three different clusters according to those two features. Each of the stations have almost equal
+number of visitors each weekday.
+
+Sizes:
+First cluster - 26.4 %
+Second cluster - 37.6 %
+Third cluster - 36 %
+
+First cluster is concentrated around weekday 0. Second is concentrated around weekday 2 and third around weekday 3. 
+
+99.62 % people from the first cluster will use station 1, 0.38 % will use station 2
+57.45 % people from the second cluster will use station 1, 25.39 % will use station 2, 23.2 % will use station 3, 25.08 % will use station 4, 9.40 % will use station 5.
+65.83 % will use station 4, 34.17 % will use station 5.
+
+### Time of Consuming - Station
+
+```{r, warning=FALSE, message=FALSE}
+# time of consuming - station
+hc <- agnes(cons_time__station, method="ward")
+finalData$labels = factor(cutree(hc, k=3))
+ggplot(finalData, aes(Cons_time, Station)) +
+  geom_point(aes(color=labels), size=3) + 
+  theme_bw()
+
+hc <- as.phylo(as.hclust(agnes(cons_time__station, method="ward")))
+par(mar=c(1,1,2,1), xpd=NA)
+plot(as.phylo(hc), type = "unrooted", cex = 0.8,
+     tip.color = cols[finalData$labels])
+
+rm(cons_time__station)
+```
+
+Visitors are grouped by the time of consuming and the station. It can be seen that we can segment visitors in three 
+different clusters according to those two features. The largest cluster is cluster with visitors that use stations 
+less than cca. 20 seconds and two smaller clusters are clusters with visitors that use stations between 20 and 90 
+seconds and more than 90 seconds.
+
+Sizes:
+First cluster - 99.3 %
+Second cluster - 0.4 %
+Third cluster - 0.3 %
+
+First cluster is concentrated around 0 seconds. Second is concentrated around 45 seconds and third around 105 seconds. First cluster is concentrated around 0 seconds. Second is concentrated around 60 seconds of consumed time. For less then 1% people from the first cluster the time of consuming will be equal to 0, for 99.3 % people the time of consuming will be greater then 0, for 48.24 % people the time of consuming will be greater then 1, for 19.34 % people the time of consuming will be greater then 2, for 12.69 % people the time of consuming will be greater then 3 and for 8.26 % people the time of consuming will be greater then 4. The second and third cluster represent outliers and they have very large time of consuming and there are only few of them.
+
+### All Features
+
+```{r, warning=FALSE, message=FALSE}
+# all features
+hc <- agnes(all, method="ward")
+finalData$labels = factor(cutree(hc, k=4))
+
+hc <- as.phylo(as.hclust(agnes(all, method="ward")))
+par(mar=c(1,1,2,1), xpd=NA)
+plot(as.phylo(hc), type = "unrooted", cex = 0.8,
+     tip.color = cols[finalData$labels])
+
+ggplot(data=finalData,aes(x=WDay, fill=labels))+
+  geom_bar(position = "fill")+theme(axis.text.x=element_text(angle=90,size=9))
+
+ggplot(data=finalData,aes(x=Cons_time, fill=labels))+
+  geom_bar(position = "fill")+theme(axis.text.x=element_text(angle=90,size=9))
+
+rm(all)
+```
+
+Visitors are grouped using all features. It can be seen that if we consider all features, we can group visitors in 
+four different groups, there are four main types of visitors, but also it is possible to divide them even into 
+smaller clusters, as it can be seen from the graph.
+
+Sizes:
+First cluster - 51.2 %
+Second cluster - 48.1 %
+Third cluster - 0.4 %
+Fourth cluster - 0.3 %
+
+For the first cluster, mean of start hour is 11.17, minimum start hour is 8, maximum start hour is 13, mean of end hour is 11.2, the most used station is station 4 and less used is station 5 and mean of the time of consuming is 1.14. 
+For the second cluster, mean of start hour is 14.71, minimum start hour is 10, maximum start hour is 17, mean of end hour is 14.75, the most used station is station 1 and less used is station 5 and mean of the time of consuming is 1.86. 
+So people from first cluster like to go to museum at around 11:00, they like station 4 and they spend 1.14 seconds on stations.
+People from second cluster like to go to museum at around 15:00, they like station 1 and they spend 1.86 seconds on stations.
+The third and fourth cluster represent outliers.
+
+# Conclusion
+
+How to define the similarity measure between visitors? As above, we calculated similarity between visitors using different models:
+
+- start_hour, end_hour, weekday, consumed_time and station features with Hierarchical clustering.
+- Start Time and Consumed Time with k-means
+- visited pages with k-means 
+
+Is the population homogenous or heterogonous. If heterogeneous then how many groups you can derive/define? Population
+is heterogeneous as it can be seen from the last graph where we used all features. Four main clusters can be derived,
+but also we can divide those four classter into smaller ones.
+
+
+How to characterize different groups of visitors? In different groups of visitors, visitors started using stations
+on different weekdays, time of consumption is different, hours when they started using station are different, 
+machines they are using are different and so on.
+
+And For K-means and Pam We noticed that:
+
+One Cluster depends on the consumed time, and this cluster contains the visits which have consumed time bigger than three minutes.
+while both of the second and the third clusters contain the records which have consumed time less than three (approximatly), but the visits in one of them started before jan 16, and the other after 16 Jan. 
+
+And the visted pages table describe the clusters when we used the interactions dataset.
+
+Is there a pattern in stations that visitor tends to visit? We analyzed only few stations because of computational 
+speed and visitors tend to visit those stations equally.
+And we have some plots with description to show some statistical information about the data.
+
+
+
+
