@@ -12,6 +12,8 @@ Download the dataset from  https://www.dropbox.com/s/okhx69t68k839mw/logs.rda?dl
 
 Smaller dataset https://www.dropbox.com/s/shh2oo35gjxixhs/smalllogs.rda?dl=0
 
+Very small dataset https://www.dropbox.com/s/jntva2xsong11st/verySmallLogs.rda?dl=0
+
 ```
 > head(logs)
                  date station visitor     type                               scene
