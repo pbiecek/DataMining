@@ -1,0 +1,38 @@
+You have used only very basic variables to find clusters (no. sessions, avg interaction time with sessions)
+
+
+
+1. How to define the similarity measure between visitors?
+
+Five interesting measures, you should do a single clustering for all these measures.
+
+
+2. Is the population homogenous or heterogonous. If heterogeneous then how many groups you can derive/define?
+
+I do not know why you have created few different clustering instead of one.
+Out of these 5 variables you could create one clustering and describe it.
+Instead of having different clusters based on two variables each.
+
+
+3. How to characterize different groups of visitors?
+
+Nothing concrete.
+Just summaries like 'certain groups prefer only certain machines'.
+How to draw any conclusion from 'something is different than something else' 
+
+
+4. Is there a pattern in stations that visitor tends to visit?
+
+There are different clusterings. 
+So you have performed one for stations and then you were looking for patterns based on this clustering only.
+I would expect one global clustering and then it will be interesting to see if patterns of visits are different for different stations.
+
+
+Points
+5/5 + 4/5 + 2/5 + 2/5  = 13
+
+
+
+
+
+
