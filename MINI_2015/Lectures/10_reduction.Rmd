@@ -167,6 +167,14 @@ pcaL$scores[1:5,]
 plot(pcaL)
 
 pcaL$loadings
+
+
+
+clusters <- kmeans(nvisits[-1,-1], 50)
+onlycenters <- clusters$centers
+ndf <- sammon(dist(onlycenters), k = 2)
+plot(ndf$points, col="white")
+text(ndf$points[,1], ndf$points[,2], 1:15)
 ```
 
 ## Isometric scaling
@@ -185,19 +193,48 @@ All we need is to define dissimilarity
 
 Let us start with an example
 
+Sammon scaling - the sum of squared differences between the initial distances and obtained ones, weighted by the distances
+
 ```{r}
 library(MASS)
 head(USArrests)
 distances <- dist(scale(USArrests))
 
+USArrests <- unique(USArrests)
+distances <- distances+0.01
+
 mds1 <- sammon(distances, k=2)
 str(mds1)
-plot(mds1$points)
 
+clusters <- kmeans(USArrests, 10)
+mds1 <- sammon(dist(clusters$centers), k=2)
+plot(mds1$points, pch=19, col="white")
+text(mds1$points[,1], mds1$points[,2], 1:10)
+
+
+plot(mds1$points, pch=19, col=clusters$cluster)
+```
+
+We can then see some diagnostics
+
+```{r}
+stress <- Shepard(distances, mds1$points)
+plot(stress)
+```
+
+Kruskal scaling - different objective, square root of the ratio of squared difference between distances divided by squares of initial distances.
+
+```{r}
 mds2 <- isoMDS(distances, k=2)
 str(mds2)
 plot(mds2$points)
+```
 
+We can then see some diagnostics
+
+```{r}
+stress <- Shepard(distances, mds2$points)
+plot(stress)
 ```
 
 
