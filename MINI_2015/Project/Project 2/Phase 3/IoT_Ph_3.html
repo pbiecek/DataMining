@@ -67,6 +67,11 @@ img {
 </div>
 
 
+<div id="introduction" class="section level1">
+<h1>Introduction</h1>
+<p>The Dataset is about interaction of stations in a museum by various vistors with entering and leaving time. Our goal is to characterize the flow of visitors through these stations. We are trying to answer the following questions in Phase I</p>
+<p>what is the average (or distribution) time of interaction with a given machine ? is there a relation between the duraion of an interaction and variables like weekday or hour ?</p>
+</div>
 <div id="phase-i-exploratory-data-analysiseda" class="section level1">
 <h1>Phase I : Exploratory Data Analysis(EDA)</h1>
 <div id="putting-the-data-in-the-correct-form" class="section level2">
@@ -266,11 +271,11 @@ ggplot(data=SmallLogs,aes(x=station,fill=cluster))+geom_bar(position = &quot;fil
 </div>
 <div id="inference---kmeans-results" class="section level1">
 <h1>Inference - KMeans Results</h1>
-<p>The characterization of clusters is made by plotting variables used in the clustering and the resulting clusters. So the above plot help us to define the characteristic of each cluster:</p>
-<p>1.Dance, Example, Instruction, Idle, Game over corresponding to the first cluster and it correspond to the <strong>cnk04</strong> machine which is believed to be a gaming machine with dancing patterns.</p>
-<p>2.Stations <strong>cnk02a</strong> and <strong>cnk02b</strong> are believed to typical station machine, almost all users use these two stations who are believed to be regular stations at the museum that everyone uses.</p>
-<p>3.Station <strong>cnk03</strong> belong to the 4th cluster, and the most pattern used in this station are Multi level Main (LevelOneMain, LevelTwoMain,etc.)</p>
-<p>The most used patterns are more related to the stations <strong>cnk02a</strong> and <strong>cnk02b</strong>. As said before those patterns are Screen and Splash.</p>
+<p>The caracterization of clusters is made by plotting variables used in the clustering and the resulting clusters. So the above plot help us to define the caracteristic of each cluster:</p>
+<p>1.Dance, Example, Game over corresponding to the first cluster and it correspond to the <strong>cnk04</strong> machine who is believed to be a station with dancing patterns. This machine have a really small amount of time of interaction and can be described suitable for occasional players.</p>
+<p>2.Stations <strong>cnk02a</strong> and <strong>cnk02b</strong> are believed to be typical station machines, almost all users use these two stations who are believed to be regular stations at the museum that everyone uses. The time of interaction is quite short (&lt;5min), although, both stations are used intensivly.</p>
+<p>3.Station <strong>cnk03</strong> belong to the 4th cluster, and the most pattern used in this station are Multi level Main (LevelOneMain, LevelTwoMain,etc.). According to the boxplot of time interaction, this station is used with a great amount of time of interaction and may contain multilevel stages to accomplish the goal behind it. So users spend too much time with it and can be decribed as ‘addictive’ for visitors.</p>
+<p>The most used patterns are more related to the stations <strong>cnk02a</strong> and <strong>cnk02b</strong>. As said before those patterns are Screen and Splash. This station is believed to have</p>
 <div id="partitioning-around-medoids" class="section level2">
 <h2>Partitioning Around Medoids</h2>
 <p>Partitioning around Medoids is robust version of k means. The similarity between the two is due to mostly because to the fact that the two algorithms break the dataset into groups, and both work by trying to minimize the error, but PAM works with medoids, that are an entity of the dataset that represent the group in which it is inserted, and Kmeans works with centroids, that are artificially created entity that represent its cluster.</p>
