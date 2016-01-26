@@ -1,0 +1,26 @@
+In the third phase you should create a brief summary of your results. 
+Try to make it easy to understand for non-specialist. 
+We will host a guest that will help to give feedback related to these analyses.
+
+
+Your results are not brief. They have similar length as the second phase.
+
+You have included a lot of plots. 
+But they are not consistent (different color palettes) 
+and they are not rich in information.
+Just 9 bars for 9 numbers. 
+You loose whole page to present 9 numbers.
+
+Additional enumeration of plots or sections will help to share comments.
+For example, in the plot above 'Analysis of clusters', you use a lot of vertical space without any good reason for it (a lot of empty space) and data that is hard to read anyway.
+
+Histograms in the section 'Analysis of clusters' have different OX axes and it is hard to compare them.
+
+Plots for the 'optimal' number of clusters are huge, but they present only little fraction of information (that optimal number of clusters is 4-5).
+Also one would expect that the discussion what is the optimal number of clusters will go before the final clustering.
+ 
+Points
+16/25
+
+
+
