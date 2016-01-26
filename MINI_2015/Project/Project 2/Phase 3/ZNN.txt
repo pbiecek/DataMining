@@ -1,0 +1,16 @@
+Task:
+In the third phase you should create a brief summary of your results. 
+Try to make it easy to understand for non-specialist. 
+We will host a guest that will help to give a feedback related to these analyses.
+
+
+The for of presentation was a good idea (you could do such presentation in R with Rpres).
+The structure was good.
+Things that you could improve are related to data concentration on each slide.
+In most cases you can add one sentence to each plot (with key point. You have such information in comments but not on slide)
+and in case of barplots you could present more information on them (see slides 4-7)
+
+Points
+20/25
+
+
