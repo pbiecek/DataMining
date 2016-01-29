@@ -121,7 +121,7 @@ ggplot(avgs, aes(x=math, y=read, label=CNT)) +
 ggplot(avgs, aes(x=math, y=read, label=CNT, size = 5)) + 
   geom_text()
 
-ggplot(avgs, aes(x=math, y=read, label=CNT)) +
+# ggplot(avgs, aes(x=math, y=read, label=CNT)) +
   geom_text(size = 5)
 
 ```
