@@ -1,72 +1,101 @@
 ---
-title: "Phase2"
+title: "Phase 2 - Project 2"
 author: "Tomasz K, Tomasz Z, Margareta K"
-date: "January 8, 2016"
-output: html_document
+date: "2016-01-14"
+output: 
+  html_document:
+    self_contained: yes
+    toc: TRUE
 ---
 
-#Introduction
+# Introduction
 In the second phase we will segment visitors into separate categories (segments) and answer the following questions:
 
- - how to define the similarity measure between visitors?
- - is the population homogeneous or heterogeneous? If heterogeneous then how many groups can we derive/define?
- - How to characterize different groups of visitors?
- - is there a pattern in stations that visitor tends to visit?
+- how to define the similarity measure between visitors?
+- is the population homogeneous or heterogeneous? If heterogeneous then how many groups can we derive/define?
+- How to characterize different groups of visitors?
+- is there a pattern in stations that visitor tends to visit?
 
-#Loading libraries and dataset
-```{r, warnings = FALSE, cache = TRUE}
-library(ggplot2)
-library(MASS)
-library(cluster)
-library(tidyr)
+# Data preparation
+
+Before performing any clustering or inferance on the data there are couple of operations that need to be performed in order to cleanse/improve quality of the set. Based on the data set analysis we decided to take the following steps:
+
+- Remove all events where visitor id is equal -1 because this are erroneous records
+- Remove all events including two initial 'Splash' screens present in every station because these tend to occur in a spurious way (e.g. one event including these on a visitor id that was used two days earlier). When their occurence is justified, usually within the same second visitors go to the next screen on the station (so it doesn't affect interacion times)
+- Generate session identifier that is unique for each interaction of any visitor with any machine, i.e. when two uses of the same machine by the same visitor are separated in time by use of another visitor then for each of this uses the session is different
+- Create weekday column based on date to analyse the population distribution within the usual week
+
+```{r, warning = FALSE, cache = TRUE, message = FALSE, results = 'hide'}
 library(sqldf)
-library(reshape2)
 library(cluster)
+library(ggplot2)
 library(fpc)
+library(reshape2)
 
-# load("verySmallLogs.rda")
 load("C:\\Users\\Tomek\\Desktop\\BISD\\Semestr 2\\Data mining\\Projekty\\4\\verySmallLogs.rda")
-verySmallLogs$dayOfWeek = strftime(verySmallLogs$date,'%A')
-verySmallLogs$dayOfWeekNumber = as.numeric(strftime(verySmallLogs$date,'%u'))
-verySmallLogs$hour = substr(as.character(verySmallLogs$date), 12, 13);
-verySmallLogs = verySmallLogs[order(verySmallLogs$dayOfWeekNumber), ]
 verySmallLogs = verySmallLogs[!verySmallLogs$visitor == -1, ]
+verySmallLogs = verySmallLogs[!verySmallLogs$scene == "<Scene:Splash sceneId=Splash>", ]
+verySmallLogs = verySmallLogs[!verySmallLogs$scene == "<Scene:SecondSplash sceneId=Splash>", ]
+verySmallLogs$visitor = as.numeric(verySmallLogs$visitor)
+verySmallLogs = verySmallLogs[order(verySmallLogs$station, verySmallLogs$date, verySmallLogs$visitor), ]
+verySmallLogs$session <- cumsum(c(TRUE,as.logical(diff(verySmallLogs$visitor))))
+verySmallLogs$dayOfWeekNumber = as.numeric(strftime(verySmallLogs$date,'%u'))
+
 ```
 
-# Clustering
+
+# Visitors clustering analysis
 
 ## How to define the similarity measure between visitors?
 
-We decided to cluster visitors by the following measures:<br />
- 1) days of week of visits<br />
- 2) stations visited by visitors during one visit to the centre<br />
- 3) how long did the visitor stay at any of the stations during one visit<br />
- 4) number of times each station was visited by every visitor during one visit<br />
+We decided to cluster visitors by the following measures:
 
-## Day of week clusters
-```{r, warnings = FALSE, cache = TRUE}
+- days of week of visits
+- combined number of interactions with stations for visitor
+- average time of interaction with stations for visitor
+- stations visited by visitors during one visit to the centre
+- number of scenes used at each station by every visitor during one visit
+
+
+## Day of week clustering
+```{r, warning = FALSE, cache = TRUE, message = FALSE}
 visitor_day_of_week = sqldf('SELECT visitor, dayOfWeekNumber as cluster FROM verySmallLogs GROUP BY visitor, dayOfWeekNumber')
-clustersCount = sqldf('SELECT cluster, count(*) FROM visitor_day_of_week group by cluster');
-clustersCount
-barplot(clustersCount$`count(*)`, main="How visitors fall into days of week", xlab="Days per week")
+clusters_count = sqldf('SELECT cluster, count(*) FROM visitor_day_of_week GROUP BY cluster')
+clusters_count
+
+ggplot(data=clusters_count, aes(x=clusters_count$cluster, y=clusters_count$'count(*)')) + geom_bar(stat="identity", fill="steelblue") + scale_x_continuous(breaks=c(1:7)) + scale_y_continuous(limits=c(0, 11500)) + labs(x="Cluster / Day of week number", y="Visitors count")
 ```
-<br />
-From the plot we can see that Friday is the most popular day amongst visitors, Saturday and Thursday following. Sunday is the least popular, as for Monday the station is closed. 
+
+Looking at the barplot we can clearly confirm that the population concentrates right at the beggining of the weekend (with peak during friday - ~11400 visitors). Visitors count in monday cluster confirms that the center is closed on that day and probably only employees use the stations. Least popular for visitors the center is on wednesday and sunday (~9800 visitors).
+
+
+## Clustering based on number of interactions with stations and average time of interactions
+```{r, warning = FALSE, cache = TRUE, message = FALSE}
+time_per_session <- sqldf('SELECT station, visitor, session, dayOfWeekNumber, MAX(date) - MIN(date) as time FROM verySmallLogs GROUP BY station, visitor, session, dayOfWeekNumber')
+
+avg_time_and_uses <- sqldf('SELECT station, visitor, AVG(time) as average_time, COUNT(station) as sessions FROM time_per_session GROUP BY station, visitor')
+
+avg_time_and_sessions <- sqldf('SELECT visitor, AVG(average_time) as average_time, SUM(sessions) as total_sessions FROM avg_time_and_uses GROUP BY visitor')
+
+km_avg_time_and_sessions <- kmeans(scale(avg_time_and_sessions[,2:3]), 3)
+visitors_clustered = avg_time_and_sessions
+visitors_clustered$cluster = km_avg_time_and_sessions$cluster
+clusters_count = sqldf('SELECT cluster, count(*) FROM visitors_clustered GROUP BY cluster')
+clusters_count
+
+ggplot(avg_time_and_sessions, aes(x=avg_time_and_sessions$average_time, y=avg_time_and_sessions$total_sessions, color=as.character(km_avg_time_and_sessions$cluster))) + geom_point(shape=1) + scale_x_continuous(limits=c(0, 1000)) + scale_y_continuous(limits=c(1, 10), breaks=c(1:10)) + labs(x="Average interaction time with stations", y="Total sessions with stations") + guides(color=guide_legend(title="Clusters"))
+```
+
+Majority of visitors (~36k) belong to cluster '1'. This cluster characterizes with low number of interactions with stations (at most 2) as well as short average time of these interactions (< 130 seconds). Second cluster groups ~21,5k visitors and can be described as cluster of visitors which try large number of stations and use them for average at most 250 seconds. Third cluster is least populated (only 5k visitors) and groups visitors which use stations moderate number of times and do this for longer than previous clusters members (> 130 seconds).
 
 ## Stations visited by visitors during one visit to the centre
 
-###Matrix preparation
-```{r, warnings = FALSE, cache=TRUE}
-time_per_visitor <- sqldf('SELECT station, visitor, MAX(date) - MIN(date) as time FROM verySmallLogs GROUP BY station, visitor')
+```{r, warnings = FALSE, cache=TRUE, message = FALSE, fig.width = 12}
+visitorStation <- sqldf('SELECT station, visitor FROM verySmallLogs GROUP BY station, visitor')
 
-data <- time_per_visitor[,c(1,2)]
+data <- visitorStation[,c(1,2)]
 mat <- t(table(data))
 mat <- mat[, colSums(mat != 0) > 0]
-pmat = mat[1:5000, ]
-```
-
-###K-means
-```{r, warnings = FALSE, cache=TRUE}
 # run K-Means
 km <- kmeans(mat, 3)
 
@@ -77,162 +106,81 @@ clustersCount
 
 # Cluster plot
 plotcluster(mat, km$cluster)
+
+# Cluster one: 
+one = visitorsClustered[visitorsClustered$cluster == 1,]
+one = colSums(one != 0)
+one$cluster = NULL
+one = t(one)
+barplot(one, main="Stations visited by visitors from cluster 1", xlab="Stations", ylab="Number of visitors")
+
+# Cluster two: 
+two = visitorsClustered[visitorsClustered$cluster == 2,]
+two = colSums(two != 0)
+two$cluster = NULL
+two = t(two)
+barplot(two, main="Stations visited by visitors from cluster 2", xlab="Stations", ylab="Number of visitors")
+
+# Cluster three:
+three = visitorsClustered[visitorsClustered$cluster == 3,]
+three = colSums(three != 0)
+three$cluster = NULL
+three = t(three)
+barplot(three, main="Stations visited by visitors from cluster 3", xlab="Stations", ylab="Number of visitors")
 ```
-
-###PAM
-```{r, warnings = FALSE, cache=TRUE}
-pm <- pam(pmat, 3)
-
-visitorsClustered = as.data.frame(pmat);
-visitorsClustered$cluster = pm$cluster;
-clustersCount = sqldf('SELECT cluster, count(*) FROM visitorsClustered group by cluster');
-clustersCount
-
-# Cluster plot
-plotcluster(pmat, pm$cluster)
-```
-
-###Hierarchical clustering (binary)
-```{r, warnings = FALSE, cache=TRUE}
-
-# Hierarchical clustering (binary distance)
-d = dist(pmat, method = "binary")
-hc = hclust(d, method="ward.D")
-# hc = agnes(d, method="ward")
-plot(hc)
-
-# Clusters
-visitorsClustered = visitorsClustered2 = as.data.frame(pmat);
-visitorsClustered$cluster = factor(cutree(hc, k=3));
-clustersCount = sqldf('SELECT cluster, count(*) FROM visitorsClustered group by cluster');
-clustersCount
-plotcluster(pmat, visitorsClustered$cluster)
-# ggplot(data=visitorsClustered,aes(x=cluster))+geom_bar(binwidth=1)
-```
-
-###Hierarchical clustering (euclidean)
-```{r, warnings = FALSE, cache=TRUE}
-
-# Hierarchical clustering (euclidean distance)
-d = dist(pmat, method = "euclidean")
-# Yo
-hc = hclust(d, method="ward.D")
-# hc = agnes(d, method="ward")
-plot(hc)
-
-# Clusters
-visitorsClustered2$cluster = factor(cutree(hc, k=3));
-clustersCount = sqldf('SELECT cluster, count(*) FROM visitorsClustered2 group by cluster');
-clustersCount
-plotcluster(pmat, visitorsClustered2$cluster)
-```
-
-## Clustering based on time spent at each station
-
-```{r, warnings = FALSE, cache = TRUE}
-# Time spent by visitors at each station
-visitorsTimePerStation = dcast(time_per_visitor, visitor ~ station, value.var = "time", fill = 0)
-
-# Scaling
-visitorsTimePerStationMatrix <- as.matrix(scale(visitorsTimePerStation[, 2:ncol(visitorsTimePerStation)]))
-``` 
-
-###K-means
-```{r, warnings = FALSE, cache = TRUE}
-
-# Kmeans clustering by time
-km <- kmeans(visitorsTimePerStationMatrix, 3)
-
-# Clusters by time
-visitorsClustered = as.data.frame(visitorsTimePerStationMatrix)
-visitorsClustered$cluster = km$cluster
-clustersCount = sqldf('SELECT cluster, count(*) FROM visitorsClustered GROUP BY cluster')
-clustersCount
-
-plotcluster(visitorsTimePerStationMatrix, km$cluster)
-```
-
-###PAM
-```{r, warnings = FALSE, cache=TRUE}
-pm <- pam(visitorsTimePerStationMatrix[1:5000,], 3)
-
-visitorsClustered = as.data.frame(visitorsTimePerStationMatrix[1:5000,]);
-visitorsClustered$cluster = pm$cluster;
-clustersCount = sqldf('SELECT cluster, count(*) FROM visitorsClustered group by cluster');
-clustersCount
-
-# Cluster plot
-plotcluster(mat[1:5000,], pm$cluster)
-```
-
-###Hierarchical clustering
-```{r, warnings = FALSE, cache=TRUE}
-
-distanceMatrix = dist(visitorsTimePerStationMatrix[1:5000,], method = "euclidean")
-hc = hclust(distanceMatrix, method="ward.D")
-plot(hc)
-
-# Clusters by time
-visitorsClustered = visitorsTimePerStation[1:5000, ];
-visitorsClustered$cluster = factor(cutree(hc, k=3));
-clustersCount = sqldf('SELECT cluster, count(*) FROM visitorsClustered group by cluster');
-clustersCount
-plotcluster(visitorsTimePerStationMatrix[1:5000,], visitorsClustered$cluster)
-```
-
-## Clustering based on number of times each station was visited
-```{r, warnings = FALSE, cache=TRUE}
-
+<p>
+From clustering of visitors based on stations they visited we can derive three clusters. Visitors from the first cluster tend to visit 'cnk18' by far the most, while they absolutely avoid 'cnk19a'. Visitors from the second cluster tend to visit 'cnk19a' the most and 'cnk66' the least. Third group of visitors tends to visit 'cnk05', 'cnk18', 'cnk20' and 'cnk66' the most, while 'cnk38' and 'cnk56' the least.
+</p>
+## Clustering based on the number of scenes used in each station per visit
+```{r, warnings = FALSE, cache=TRUE, message = FALSE}
 interactionsPerMachinePerVisit = sqldf('SELECT station, visitor, COUNT(*) as cnt FROM verySmallLogs WHERE type = "Entering" GROUP BY station, visitor');
 
 interactionsPerMachinePerVisit = dcast(interactionsPerMachinePerVisit, visitor ~ station, value.var = "cnt", fill = 0)
 
-# Scaling
-interactionsPerMachinePerVisitMatrix <- as.matrix(scale(interactionsPerMachinePerVisit[, 2:ncol(interactionsPerMachinePerVisit)]))
+interactionsPerMachinePerVisitMatrix = as.matrix(interactionsPerMachinePerVisit[, 2:ncol(interactionsPerMachinePerVisit)])
 ```
 
-###K-means
-```{r, warnings = FALSE, cache=TRUE}
+```{r, warnings = FALSE, cache=TRUE, message = FALSE}
 km <- kmeans(interactionsPerMachinePerVisitMatrix, 3)
 
-# Clusters by time
 visitorsClustered = as.data.frame(interactionsPerMachinePerVisitMatrix)
 visitorsClustered$cluster = km$cluster
+
+plotcluster(interactionsPerMachinePerVisitMatrix, km$cluster)
+
 clustersCount = sqldf('SELECT cluster, count(*) FROM visitorsClustered GROUP BY cluster')
 clustersCount
 
-plotcluster(interactionsPerMachinePerVisitMatrix, km$cluster)
+clusterStationAverages = sqldf('SELECT cluster, AVG(cnk05), AVG(cnk10), AVG(cnk18), AVG(cnk19a), AVG(cnk20), AVG(cnk38), AVG(cnk56), AVG(cnk61), AVG(cnk66) FROM visitorsClustered GROUP BY cluster');
+
+par(mar = c(5, 4, 1.5, 0.5), ps = 12, cex  = 1, cex.main = 2, las = 1)
+barplot(
+  as.matrix(t(clusterStationAverages[, -1])), 
+  beside      = TRUE, 
+  xlab        = "Cluster",
+  ylab        = "Average number of scenes",
+  axes        = TRUE,
+  axis.lty    = 1, 
+  col         = c("darkblue", "dodgerblue3", "deepskyblue1", "yellow", "red", "grey", "black", "orange", "pink"),
+  panel.first =  abline(
+    h    =  seq.int(25, 100, 25), 
+    col  =  "grey", 
+    lty  =  2
+  )
+)
+
+legend("topright", 
+       legend = c("cnk05", "cnk10", "cnk18", "cnk19a", "cnk20", "cnk38", "cnk56", "cnk61", "cnk66"), 
+       fill = c("darkblue", "dodgerblue3", "deepskyblue1", "yellow", "red", "grey", "black", "orange", "pink"))
+
 ```
+<p>We can see differences between the number of scenes used in each station by customers from different clusters. Visitors in the first cluster played a lot with scenes from station cnk05 and also stations cnk10 and cnk66. Cnk56 was not popular at all in this group. Scenes from station cnk56 were very popular among visitors from the second cluster (the smallest one) while scenes from other stations were much less popular (the number of scenes used is very similar in all of them). People from the third cluster, who make up the majority of all visitors, played with a very small number of scenes on all stations.</p>
 
-###PAM
-```{r, warnings = FALSE, cache=TRUE}
-pm <- pam(interactionsPerMachinePerVisitMatrix[1:5000,], 3)
+# Summary
+We found out that the population is heterogeneous because we can clearly see separate clusters when looking at the plots generated using plotcluster after k-means clustering using different measures.
 
-visitorsClustered = as.data.frame(interactionsPerMachinePerVisitMatrix[1:5000,]);
-visitorsClustered$cluster = pm$cluster;
-clustersCount = sqldf('SELECT cluster, count(*) FROM visitorsClustered group by cluster');
-clustersCount
+People from different clusters differ by the stations visited, the number of interactions with the stations, time spent at the stations and the number of scenes used at these stations.
 
-# Cluster plot
-plotcluster(interactionsPerMachinePerVisitMatrix[1:5000,], pm$cluster)
-```
+When dividing customers by the number of interactions with the machines and the average time spent at them, we can distinguish 3 clusters. The first one characterizes with low number of interactions with stations (at most 2) as well as short average time of these interactions (< 130 seconds). Second cluster can be described as cluster of visitors who try large number of stations and use them for average at most 250 seconds. Third cluster is the smallest and groups visitors who use stations moderate number of times and do this for longer than previous clusters members (> 130 seconds).
 
-###Hierarchical clustering
-```{r, warnings = FALSE, cache=TRUE}
-distanceMatrix = dist(interactionsPerMachinePerVisitMatrix[1:5000,], method = "euclidean")
-hc = hclust(distanceMatrix, method="ward.D")
-plot(hc)
-
-# Clusters by time
-visitorsClustered = interactionsPerMachinePerVisit[1:5000,];
-visitorsClustered$cluster = factor(cutree(hc, k=3));
-clustersCount = sqldf('SELECT cluster, count(*) FROM visitorsClustered group by cluster');
-clustersCount
-plotcluster(interactionsPerMachinePerVisitMatrix[1:5000,], visitorsClustered$cluster)
-```
-
-#Summary
-
-For using 3 clusters, we found out that the population is heterogeneous because we can clearly see 3 separate clusters when looking at plots generated using plotcluster on kmeans and pam clustering. There are 3 completely separated clusters in clustering based on stations visited by visitors during one visit to the centre with kmeans and pam method. Also there are 3 clusters in clustering based on number of times each station was visited and clustering based on time spent at each station using kmeans, however on these two similarity measures pam method didn't recognize distinct clusters which may be due to having used only 5000 visitors because of computing limitations.
-
-When it comes to station utilization, we can describe the 3 groups in the following way. The first group of visitors uses most of the stations and does this also for a fairly long time (when compared with average station interaction time). Second group only briefly uses at most few stations for a relatively short period. Third group focuses on occupying few (1-3) stations for a relatively (very) long time. Visitors also differ by the number of times they play with machines. Some of them use certain machines (rather little) multiple times during one visit to the centre and don't play with other machines at all or just try them a bit. Other visitors try some machines for a smaller number of times. The last group tries most of the machines for a more or less equal (not very high) number of times.
+We can also see that people from certain groups prefer only certain machines and use them extensively while others try many more machines but do not play much with them.

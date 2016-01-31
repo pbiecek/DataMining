@@ -1,0 +1,45 @@
+It is hard to refer to specific plots or results, since they are not named.
+Please include some hooks, numbers or names for results, will be much easier to comment them.
+
+Technically your solution is correct.
+But there are not related to behaviors of visitors but rather to time of visit (like starting hour ending hour).
+Or date of visit. Such variables are not that useful to identify segments of visitors.
+
+Also you have a lot of similar results, but without strong selection.
+
+It will be much better to put 80% of your results to he appendix, and leave only the 20% but the one that are the most important.
+
+
+
+1. How to define the similarity measure between visitors?
+
+Here it's mostly based on the length of interaction and starting/ending hour.
+You could consider much more variables, like stations that have been visited, order of visits, average time per station and so on.
+
+
+2. Is the population homogenous or heterogonous? If heterogeneous then how many groups you can derive/define?
+
+Your groups are based on the time and the length of the visit.
+You have also considered pages that were observed, but these results were not merged and these are two separate groupings.
+
+Thinking about 'profile' and 'behavior' it might be useful to take into account also other features.
+
+3. How to characterize different groups of visitors?
+
+In conclusions you have presented four clusters. 
+All of them are characterized only based on time / length of the visit.
+
+
+4. Is there a pattern in stations that visitor tends to visit?
+
+You have analyzed only four stations. 
+There are differences between cluster 1 and cluster 2 in terms of distribution of stations.
+Bus such comments / characteristics are not presented in the point 'Stations in each Cluster' nor in conclusions.
+
+
+
+Points
+3/5 + 3/5 + 4/5 + 3/5  = 13
+
+
+

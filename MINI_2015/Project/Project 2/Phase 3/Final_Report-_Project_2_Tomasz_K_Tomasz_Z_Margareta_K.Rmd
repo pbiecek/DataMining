@@ -1,0 +1,229 @@
+---
+title: "Project #2 Final report"
+author: "Tomasz K, Tomasz Z, Margareta K"
+date: "January 22, 2016"
+output: 
+  html_document:
+    toc : TRUE
+---
+
+# Introduction
+In the second phase we will segment visitors into separate categories (segments) and answer the following questions:
+
+- how to define the similarity measure between visitors?
+- is the population homogeneous or heterogeneous? If heterogeneous then how many groups can we derive/define?
+- How to characterize different groups of visitors?
+- is there a pattern in stations that visitor tends to visit?
+
+# Data preparation
+
+Before performing any clustering or inferance on the data there are couple of operations that need to be performed in order to cleanse/improve quality of the set. Based on the data set analysis we decided to take the following steps:
+
+- Remove all events where visitor id is equal -1 because this are erroneous records
+- Remove all events including two initial 'Splash' screens present in every station because these tend to occur in a spurious way (e.g. one event including these on a visitor id that was used two days earlier). When their occurence is justified, usually within the same second visitors go to the next screen on the station (so it doesn't affect interacion times)
+- Generate session identifier that is unique for each interaction of any visitor with any machine, i.e. when two uses of the same machine by the same visitor are separated in time by use of another visitor then for each of this uses the session is different
+- Create weekday column based on date to analyse the population distribution within the usual week
+```{r, warning = FALSE, cache = TRUE, echo = FALSE, results = "hide", message = FALSE}
+library(lubridate)
+library(sqldf)
+library(ggplot2)
+library(reshape2)
+library(MASS)
+library(cluster)
+library(fpc)
+
+load("C:\\Users\\Tomek\\Desktop\\BISD\\Semestr 2\\Data mining\\Projekty\\4\\verySmallLogs.rda")
+verySmallLogs = verySmallLogs[!verySmallLogs$visitor == -1, ]
+verySmallLogs = verySmallLogs[!verySmallLogs$scene == "<Scene:Splash sceneId=Splash>", ]
+verySmallLogs = verySmallLogs[!verySmallLogs$scene == "<Scene:SecondSplash sceneId=Splash>", ]
+verySmallLogs$dayOfWeek = strftime(verySmallLogs$date,'%A')
+verySmallLogs$dayOfWeekNumber = as.numeric(strftime(verySmallLogs$date,'%u'))
+verySmallLogs$hour = as.numeric(substr(as.character(verySmallLogs$date), 12, 13));
+verySmallLogs = verySmallLogs[order(verySmallLogs$station, verySmallLogs$date, verySmallLogs$visitor), ]
+verySmallLogs$visitor = as.numeric(verySmallLogs$visitor)
+verySmallLogs$session <- cumsum(c(TRUE,as.logical(diff(verySmallLogs$visitor))))
+```
+
+# Exploratory Analysis
+
+```{r, warning = FALSE, cache = TRUE, echo = FALSE, results = "hide", message = FALSE}
+time_per_visitor <- sqldf('SELECT station, visitor, MAX(date) - MIN(date) as time FROM verySmallLogs GROUP BY station, visitor')
+
+machineStatistics <- sqldf('SELECT station, MEDIAN(time) as median_time, count(*) as numberOfVisitors FROM time_per_visitor GROUP BY station')
+```
+
+## Distribution of times of interactions
+```{r, warning = FALSE, cache = TRUE, echo = FALSE, results = "hide"}
+ggplot(data=time_per_visitor,aes(x=time)) + geom_bar(binwidth=1) + labs(x="Time of interaction with a machine", y="Number of sessions") + scale_y_continuous(limits=c(0, 1800), breaks=seq(0, 1800, 100)) + scale_x_continuous(limits=c(0, 1000), breaks=seq(0, 1000, 50))
+```
+<p>We can observe that a great majority of interactions with stations lasted less than 150 seconds. On the other hand, there is a significant number of very long interactions (up to 1000 seconds) which will seriously affect the average times of interaction. For this reason, we decided to use median instead.</p>
+
+## Median time of interaction per station
+```{r, warning = FALSE, cache = TRUE, echo = FALSE, results = "hide"}
+ggplot(data=machineStatistics, aes(x=station, y=median_time)) + geom_bar(stat="identity", fill="steelblue") + labs(x="Station", y="Median time of interaction per station") + scale_y_continuous(limits=c(0, 150), breaks=seq(0, 150, 25))
+```
+<p>From this plot we can see that the station where visitors stayed the longest is 'cnk38', followed by 'cnk56', 'cnk20' and 'cnk66'. 'cnk19a', on the other hand, is the station for which the median time of interaction is short comparing to other stations.</p>
+
+## Number of visitors per station
+```{r, warning = FALSE, cache = TRUE, echo = FALSE, results = "hide"}
+ggplot(data=machineStatistics, aes(x=station, y=numberOfVisitors)) + geom_bar(stat="identity", fill="steelblue") + labs(x="Machine", y="Number of visitors per station") + scale_y_continuous(limits=c(0, 29000), breaks=seq(0, 29000, 2500))
+```
+<p>We can see that cnk19a was the most popular machine and cnk38 was the least popular one. This seems logical as these are the two machines which had the smallest and the biggest median time of interaction respectively. We can suspect that the small number of visitors using cnk38 comes from the fact that on average it was used the longest. The great number of visitors using cnk19a may come from the fact that on average it was used for a short time so many people could try it.</p>
+
+## Median time spent at a station per week day
+```{r, warning = FALSE, cache = TRUE, echo = FALSE, results = "hide"}
+time_per_session <- sqldf('SELECT station, visitor, session, dayOfWeekNumber, hour, MAX(date) - MIN(date) as time FROM verySmallLogs GROUP BY station, visitor, session, dayOfWeekNumber')
+
+avg_time_of_session_per_weekday <- sqldf('SELECT dayOfWeekNumber, MEDIAN(time) as median_session_time FROM time_per_session GROUP BY dayOfWeekNumber')
+
+ggplot(data=avg_time_of_session_per_weekday, aes(x=dayOfWeekNumber, y=median_session_time)) + geom_bar(stat="identity", fill="steelblue") + labs(x="Weekday number", y="Median time of session") + scale_y_continuous(limits=c(0, 90), breaks=seq(0, 90, 10)) + scale_x_continuous(breaks=c(2:7))
+```
+<p>The longest interactions with stations are recorded during the weekends, starting from Friday till Sunday. During the other work days (except for Monday when the centre is closed) the times of interactions are similar.</p>
+
+## Number of visitors per week day
+```{r, warning = FALSE, cache = TRUE, echo = FALSE, results = "hide"}
+# Barplot of the number of visitors in particular weekdays
+
+time_per_day_visitor = sqldf('SELECT station, visitor, MAX(date) - MIN(date) as time, dayOfWeek, dayOfWeekNumber FROM verySmallLogs GROUP BY station, visitor, dayOfWeekNumber')
+
+# Median time and the number of visitors per machine and weekday
+machineStatisticsWeekday <- sqldf('SELECT station, dayOfWeek, dayOfWeekNumber, AVG(time) as median_time, count(*) as numberOfVisitors FROM time_per_day_visitor GROUP BY station, dayOfWeekNumber')
+
+# Average time and the number of visitors per weekday
+weekdayStatistics = sqldf('SELECT dayOfWeek, dayOfWeekNumber, AVG(median_time) as average_time_per_day, sum(numberOfVisitors) as numberOfVisitorsPerDay FROM machineStatisticsWeekday GROUP BY dayOfWeekNumber')
+
+weekdayStatistics = weekdayStatistics[!weekdayStatistics$dayOfWeekNumber == 1, ]
+
+ggplot(data=weekdayStatistics, aes(x=dayOfWeekNumber, y=numberOfVisitorsPerDay)) + geom_bar(stat="identity", fill="steelblue") + labs(x="Weekday number", y="Number of visitors per day") + scale_y_continuous(limits=c(0, 25000), breaks=seq(0, 25000, 2500)) + scale_x_continuous(breaks=c(2:7))
+```
+<p>The number of visitors in the centre is the highest on Fridays and Saturdays. The distribution seems to be quite similar in the remaining week days.</p>
+## Median time of station session per starting hour
+```{r, warning = FALSE, cache = TRUE, echo = FALSE, results = "hide"}
+avg_time_of_session_per_hour <- sqldf('SELECT hour, MEDIAN(time) as avg_session_time FROM time_per_session GROUP BY hour')
+
+ggplot(data=avg_time_of_session_per_hour, aes(x=hour, y=avg_session_time)) + geom_bar(stat="identity", fill="steelblue") + labs(x="Hour", y="Median time of session") + scale_x_continuous(breaks=c(8:21)) + scale_y_continuous(limits=c(0, 90), breaks=seq(0, 90, 10))
+```
+
+<p>The biggest median time of interaction with a machine was recorded for sessions started at 6 PM and 9 PM. The shortest sessions were recorded in the morning (between 8 and 9 AM) and between 7 and 8 PM.</p>
+
+## Median time of session per station per week day
+```{r, warning = FALSE, cache = TRUE, results = "hide", echo = FALSE}
+avg_time_of_session_on_station_per_weekday <- sqldf('SELECT station, dayOfWeekNumber, MEDIAN(time) as avg_session_time FROM time_per_session GROUP BY station, dayOfWeekNumber')
+avg_time_of_session_on_station_per_weekday = avg_time_of_session_on_station_per_weekday[!avg_time_of_session_on_station_per_weekday$dayOfWeekNumber == 1, ]
+
+ggplot(avg_time_of_session_on_station_per_weekday, aes(x=factor(dayOfWeekNumber), y=avg_session_time)) +
+  geom_bar(stat="identity",aes(fill=factor(dayOfWeekNumber))) + facet_grid(.~station) + labs(x="Station", y="Median time of session") + scale_fill_discrete(name="Weekday number")
+```
+<p>The results which we can see on this diagram are consistent with what we have observed before. The median time of interaction is usually bigger during the weekends (not only in general but also per station). 'Cnk38' is again the station with the longest median time of interaction, 'cnk19a' is the other extreme.</p>
+
+## Median time of session per station per hour
+```{r, warning = FALSE, cache = TRUE, results = "hide", echo = FALSE}
+avg_time_of_session_on_station_per_hour <- sqldf('SELECT station, hour, MEDIAN(time) as avg_session_time FROM time_per_session GROUP BY station, hour')
+avg_time_of_session_on_station_per_hour = avg_time_of_session_on_station_per_hour[!avg_time_of_session_on_station_per_hour$hour <= 8, ]
+
+ggplot(avg_time_of_session_on_station_per_hour, aes(x=factor(hour), y=avg_session_time)) +
+  geom_bar(stat="identity",aes(fill=factor(hour))) + facet_grid(.~station) + labs(x="Station", y="Median time of session") + (scale_fill_discrete(name="Hour"))
+```
+<p>We can see that most of the stations are used much longer at the end of the day. 'Cnk18' and 'Cnk56' are great examples here with median times of interaction between 7 and 9 PM being several times bigger than during the day. Shortest times of interaction were recorded in the mornings for almost all of the stations. We can also notice some peaks in the early afternoon.</p>
+
+## Summary
+<p>The majority of interactions last less than 200 seconds. There are, however, some observations (outliers) with very big times of interaction which affect the mean so the median is a better criterion to use when analyzing this data.</p>
+
+<p>The centre is closed every day between 10 PM and 7 AM and is closed completely on Mondays. There are, however, some technical works performed then, so the number of registered visitors is not zero then. We can see that ‘cnk19a’ is the most popular machine and ‘cnk38’ is the least popular one. On the other hand, the time spent on ‘cnk19a’ is the shortest and the time spent on ‘cnk38’ is on usually the longest. We might suspect that ‘cnk38’ is usually used for a long time so people are blocking it. The machine ‘cnk19a’ is tried very often but only for a short time.</p>
+
+<p>The number of visitors is the smallest in the morning and the biggest durring the day, especially in the afternoon. The number of visitors does not differ significantly between days (except Monday, where the centre is closed) but we can observe that more people visit the centre during the weekends. The times of interaction with stations are also bigger then.</p>
+
+# Visitors clustering analysis
+
+## Similarity measures between visitors
+
+We decided to cluster visitors by the following measures:
+
+- number of interactions per station by every visitor
+- average time of interaction with stations for visitor
+- combined number of interactions with stations for visitor
+- total sessions with stations of a visitor
+
+## Clustering based on all measures
+
+### Cluster centres
+```{r, warning = FALSE, cache = TRUE, echo = FALSE, results = "hide", message = FALSE}
+time_per_session <- sqldf('SELECT station, visitor, session, dayOfWeekNumber, MAX(date) - MIN(date) as time FROM verySmallLogs GROUP BY station, visitor, session, dayOfWeekNumber')
+avg_time_and_uses <- sqldf('SELECT station, visitor, AVG(time) as average_time, COUNT(station) as sessions FROM time_per_session GROUP BY station, visitor')
+avg_time_and_sessions <- sqldf('SELECT visitor, AVG(average_time) as average_time, SUM(sessions) as total_sessions FROM avg_time_and_uses GROUP BY visitor')
+
+interactionsPerMachinePerVisit = sqldf('SELECT station, visitor, COUNT(*) as cnt FROM verySmallLogs WHERE type = "Entering" GROUP BY station, visitor');
+interactionsPerVisit = sqldf('SELECT visitor, SUM(cnt) as interacton_count FROM interactionsPerMachinePerVisit GROUP BY visitor');
+interactionsPerMachinePerVisit = dcast(interactionsPerMachinePerVisit, visitor ~ station, value.var = "cnt", fill = 0)
+visitDayOfWeek = sqldf('SELECT visitor, dayOfWeekNumber FROM verySmallLogs GROUP BY visitor')
+
+
+clusteringMatrix = interactionsPerMachinePerVisit
+clusteringMatrix$interacton_count = interactionsPerVisit$interacton_count
+clusteringMatrix$average_time = avg_time_and_sessions$average_time
+clusteringMatrix$total_sessions = avg_time_and_sessions$total_sessions
+
+a=scale(clusteringMatrix[,-1], scale = FALSE)
+kMeans <- kmeans(scale(clusteringMatrix[,-1]), 3)
+distances <- dist(kMeans$centers)
+clusters <- unique(kMeans$cluster)
+mds1 <- sammon(distances, k=2)
+centers = as.data.frame(mds1$points)
+ggplot(centers, aes(x=V1, y=V2, color=factor(clusters))) + geom_point() + guides(color=guide_legend(title="Cluster centers"))
+```
+<p>Cluster centers are very distant from each other which indicates that there is heterogenity in the data.</p>
+
+### Clusters plot
+```{r, warning = FALSE, cache = TRUE, echo = FALSE, results = "hide", message = FALSE}
+plotcluster(clusteringMatrix[,-1], kMeans$cluster)
+```
+<p>The boundaries between clusters in this PCA based multidimensional scaling are clear and we will now select 2 variables for explaing the cluster characteristics.</p>
+
+### Cluster representatives
+```{r, warning = FALSE, cache = TRUE, echo = FALSE, results = "hide", message = FALSE}
+clusteredVisitors <- clusteringMatrix
+clusteredVisitors$cluster <- kMeans$cluster
+clusteredVisitorsSample <- clusteredVisitors[sample(1000),]
+distancesVisitors <- dist(clusteredVisitorsSample)
+mds2 <- sammon(distancesVisitors, k=2)
+visitors2d = as.data.frame(mds2$points)
+visitors2d$cluster <- clusteredVisitorsSample$cluster
+ggplot(visitors2d, aes(x=V1, y=V2, color=factor(cluster))) + geom_point() + guides(color=guide_legend(title="Clusters"))
+```
+<p>Distance matrix based position of 1000 sample visitors confirms that separate groups can be identified though they sometimes overlap each other.</p>
+
+### Scenes used at station per cluster
+```{r, warning = FALSE, cache = TRUE, echo = FALSE, results = "hide", message = FALSE}
+scenes = sqldf('SELECT station, visitor, count(*) as count FROM verySmallLogs WHERE type = "Entering" GROUP BY station, visitor');
+scenes_used = merge(scenes, clusteredVisitors, by="visitor");
+scenes_used = sqldf('SELECT station, cluster, count FROM scenes_used GROUP BY station, cluster');
+scenes_used$cluster = factor(scenes_used$cluster);
+
+ggplot(data=scenes_used, aes(x=station, y=count, fill=cluster)) + geom_bar(position = "fill", stat="identity") + theme(axis.text.x=element_text(angle=90)) + labs(x="Station", y="Proportion of scenes used")
+
+```
+<p>We can observe that for some machines the number of scenes played with is similar between clusters but in the other machines the differences are significant. Visitors from the second cluster use much more scenes in stations 'cnk38' and 'cnk56' than visitors from clusters one and two. On the other hand, the number of scenes used by them in 'cnk61' and 'cnk66' is the smallest. Visitors from the first cluster use the biggest number of scenes in station 'cnk66', whereas visitors from the third cluster use scenes from 'cnk61' extensively.</p>
+
+### Average time of interaction with station per cluster
+```{r, warning = FALSE, cache = TRUE, echo = FALSE, results = "hide", message = FALSE}
+avg_times <- merge(time_per_session, clusteredVisitors, by="visitor");
+avg_times = sqldf('SELECT station, cluster, AVG(time) as average_time FROM avg_times GROUP BY station, cluster');
+avg_times$cluster = factor(avg_times$cluster)
+
+ggplot(data=avg_times, aes(x=station, y=average_time, fill=cluster)) + geom_bar(position = "fill", stat="identity") + theme(axis.text.x=element_text(angle=90)) + labs(x="Station", y="Average time of interaction")
+```
+<p>We can see that the average time of interaction with machines 'cnk38' and 'cnk56' is the biggest among visitors from cluster 2. This seems consistent with the diagram above. 
+Visitors from cluster 3 spend on average less time than visitors from other clusters on every machine. Visitors from cluster 1 spend on average a similar amount of time at every station.</p>
+
+### Interactions with stations
+```{r, warning = FALSE, cache = TRUE, echo = FALSE, results = "hide", message = FALSE}
+ggplot(clusteringMatrix, aes(x=interacton_count, y=average_time, color=as.character(kMeans$cluster))) + geom_point(shape=1) + scale_x_continuous(limits=c(0, 200)) + scale_y_continuous(limits=c(0, 1000)) + labs(x="Total interactions with stations", y="Average interaction time with stations") + guides(color=guide_legend(title="Clusters"))
+```
+<p>First cluster of visitors characterizes with low number of interactions with stations (up to 50) as well as shorter average time of these interactions (< 250 seconds). Second cluster group can be described as cluster of visitors which number of interactions with stations ranges mainly from 25 to 100 and average average interactions time is above 125 seconds. Third cluster groups visitors which use stations with extensive total number of interactions (above 25) and do this for average time of up to 250 seconds.</p>
+
+## Summary
+<p>The analysis of clustering turned out with 3 different clusters. These clusters show heterogenity of visitors in a few ways.</p>
+<p>There is a fuzzy boundary between these 3 groups which was shown on the example of two chosen variables: total number of interactions with stations and average time of interactions with stations.</p>
+<p>What is worth noting, the second cluster characterised with highest average time of interaction with stations is also responsible for occupying majority of stations cnk38 and cnk56.</p>
+<p>The first cluster responsible for making most interactions with stations also used the most of cnk66 station.</p>
+<p>The third cluster with overall smallest average interaction time as well as total interactions makes the most use of station cnk61.</p>

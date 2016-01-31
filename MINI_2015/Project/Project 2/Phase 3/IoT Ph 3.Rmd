@@ -1,0 +1,332 @@
+---
+title: "Internet of Things"
+author: "Anand Gowrishankar Sudhan "
+date: "8 January 2016"
+output: html_document
+---
+
+```{r, echo=FALSE}
+#load("SmallLogs.rda") 
+
+#SmallLogs <- read.table("verysmallLogs_12.csv",header=T,sep=',')
+SmallLogs <- read.table("smallLogs_170000.csv",header=T,sep=',')
+```
+# Introduction
+
+The Dataset is about interaction of stations in a museum by various vistors with entering and leaving time.
+Our goal is to characterize the flow of visitors through these stations. 
+We are trying to answer the following questions in Phase I
+
+what is the average (or distribution) time of interaction with a given machine ?
+is there a relation between the duraion of an interaction and variables like weekday or hour ?
+
+
+#Phase I : Exploratory Data Analysis(EDA)
+
+##Putting the data in the correct form
+
+```{r, message=FALSE,warning=FALSE}
+#Elliminate the first var(useless indexing and memory consuming)
+SmallLogs <- SmallLogs[,-1]
+
+# Setting date as POSIXct object that we can do compuations over it 
+SmallLogs$time <- as.POSIXct(SmallLogs$date,format="%Y-%m-%d %H:%M:%S")
+
+#Extract scene names from the variable "scene" and convert them as factors 
+test=sub(".*=", "", SmallLogs$scene)
+SmallLogs$scene_name<- substr(test,1, nchar(test)-1)
+SmallLogs$scene_name<-as.factor(SmallLogs$scene_name)
+```
+
+
+#Calculating time of interaction 
+```{r, message=FALSE,warning=FALSE}
+library(dplyr)
+#first log to the station
+test=SmallLogs %>% group_by(station,visitor) %>% summarise(first=first(time)) 
+ #last log to the station
+test2=SmallLogs %>% group_by(station,visitor) %>% summarise(last=last(time)) 
+dataset=merge(test,test2,by=c("station","visitor"))
+#Time of interaction
+dataset$time_inter=as.numeric(dataset$last-dataset$first)
+```
+
+
+###Distribtion of time of interaction in seconds
+
+```{r, message=FALSE,warning=FALSE}
+library(ggplot2)
+ggplot(data=dataset,aes(x=time_inter))+geom_bar(binwidth=1)+xlim(0,1000)
+summary(dataset$time_inter)
+```
+
+The time of interaction have the great concentration before 500s(8 min) and most of interactions lasts two min if outliers are eliminated.
+Only 515 visitors have a time of interaction greater than 500s and it because of the structure of data(a lot of errors like entering two time successively without logging out)
+Clearly, by showing numeric summaries of the time of interaction, the max value and the third quartile are way too separated.
+
+We aggregate stations according to their names, for example stations **chnk01 ... chnk09** will be grouped into one group *chnk0* and so on.
+
+```{r}
+#Agreggate stations for better visualisations 
+index_0=grep("cnk0",as.character(dataset$station))
+index_1=grep("cnk1",as.character(dataset$station))
+index_2=grep("cnk2",as.character(dataset$station))
+index_3=grep("cnk3",as.character(dataset$station))
+index_4=grep("cnk4",as.character(dataset$station))
+index_5=grep("cnk5",as.character(dataset$station))
+index_6=grep("cnk6",as.character(dataset$station))
+index_7=grep("cnk7",as.character(dataset$station))
+
+C=c(rep("cnk0",length(index_0)),rep("cnk1",length(index_1)),rep("cnk2",length(index_2)),rep("cnk3",length(index_3)),rep("cnk4",length(index_4)),rep("cnk5",length(index_5)),rep("cnk6",length(index_6)),rep("cnk7",length(index_7)))
+
+dataset$stationAgg=C
+```
+
+###Distribution of time interaction by station
+
+```{r, message=FALSE,warning=FALSE,fig.height=7,fig.width=14}
+ggplot(data=dataset,aes(x=time_inter))+geom_bar(aes(y =(..count..)/sum(..count..)))+facet_grid(~station)+xlim(0,500)+xlab("Time of interaction(s)")+ylab("Percentage")
+```
+
+Time of interaction according to stations tend to have different distributions, for example stations **cnk02a** and **cnk02b** have a great interaction for the time 60 seconds.
+
+```{r,message=FALSE,warning=FALSE}
+#Boxplot of time interaction according to stations
+ggplot(dataset,aes(y=time_inter,x=station))+geom_boxplot()+ylim(0,1000)
+```
+
+Using box plots we show the mean, *1st* quartile and *3rd* quartile for time interaction in each station.
+Station  **cnk03** have a mean greater than other stations
+
+##Relation between time of interaction, weekday and hour of the day
+
+```{r, message=FALSE,warning=FALSE}
+dataset$Dayofweek=as.factor(weekdays(dataset$first))
+ggplot(dataset,aes(x=Dayofweek,y=time_inter/60))+geom_boxplot(alpha=1/3)+ylim(0,10)+ylab("Time of interaction(min)")
+```
+
+In the over all shape of distributions according to the time of interaction, we remark that days don't have a real influence on the time of interaction, unless the special case of Monday.
+We remark also a great concentration of interaction whose time is less than *2.5min*.
+Monday don't figure on the plot because of the fact that the machines aren't used heavily that day of the week(recall that we've used a subset, for the whole data set a very few logs are made on Monday).   
+we can look at the table of count of days that visitors use the machines:
+
+```{r, message=FALSE,warning=FALSE}
+table(dataset$Dayofweek)
+dataset=subset(dataset,Dayofweek!="Monday")
+```
+####  Using one way ANOVA to test the effect of day of the week over time of interaction
+Let's compare means of time of interaction in each day of the week using anova.
+```{r, message=FALSE,warning=FALSE}
+aov=aov(time_inter ~ Dayofweek, data=dataset)
+summary(aov)
+```
+The output from **the one way ANOVA table** confirm that there is an influence of the days of the week over time of interaction (pvalue < 0.05), and deny then our graphical findings. 
+
+```{r, message=FALSE,warning=FALSE}
+library(gplots)
+attach(dataset)
+plotmeans(time_inter ~ Dayofweek,xlab="Days of the week",
+  ylab="Time of interaction in seconds", main="Mean plot of time interaction\nwith 95% CI")
+detach(dataset)
+```
+
+
+
+```{r, message=FALSE,warning=FALSE}
+#hours of the day 
+dataset$hour<- format(dataset$first,"%H")
+
+#Percentage for each hour of using machines
+round(table(dataset$hour)*100/nrow(dataset),digits = 2)
+```
+
+Hour of logging does have influence on time interaction with stations, The period between 11 a.m and 4p.m is the part of the day that visitors interact with stations the most. 
+
+
+
+**What features are used the most?**  
+The next table will show the most used actions by visitors 
+```{r, message=FALSE,warning=FALSE}
+head(sort(table(SmallLogs$scene_name),decreasing = TRUE),10)
+tb=(table(SmallLogs$scene_name))
+tb=data.frame(tb)
+sb=subset(tb,Freq>1500)
+index=as.vector(sb[,1])
+```
+
+```{r, message=FALSE,warning=FALSE,fig.height=7,fig.width=14}
+#This vizualisation is about the most features used
+ggplot(data = sb,aes(x=Var1,y=Freq))+geom_bar(stat="identity")+theme(axis.text.x=element_text(angle=90,size=9))+xlab("Scene")+ylab("Count")
+```
+The actions (scenes or features): Splash, Main, RemovalWarningScence,Dance,Example are the most used actions by the users when they interact with machines.
+
+
+# Phase II : Clustering visitors 
+
+##Define similarity dissimilarity between visitors 
+
+The first step is to find a way to characterize the dissimilarity between visitors. 
+The relations that we've made to find links with descriptive statistics will help to define a profiling of users according to hour of logs, stations and patterns. To do so, and since
+the variables we've got are for the most categorical, the data set is also huge to process v
+via k modes (hard to be scalable) we decided to convert factors to dummy variables and then perform the k-means by scaling the resulting variables.
+
+```{r, message=FALSE,warning=FALSE}
+library(dplyr)
+
+#Adding week of the day when the log took place and the hour of logging
+SmallLogs$Dayofweek=as.factor(weekdays(SmallLogs$time))
+SmallLogs$date=NULL
+SmallLogs$hour <- format(SmallLogs$time,"%H")
+
+Logstocluster=merge(SmallLogs,dataset[,c(1,2,5)],by=c("station","visitor"),all=TRUE)
+
+#This selection ignore the day of the week
+Logstocluster <- select(Logstocluster,-scene,-time,-Dayofweek)
+Logstocluster$hour<-as.factor(Logstocluster$hour)
+
+#Converting factors to dummy variables 
+library(ade4)
+test2=acm.disjonctif(Logstocluster[,-c(2,6)])
+test1=select(Logstocluster,visitor,time_inter)
+
+#final dataset
+test2$visitor=test1$visitor
+test2$time_inter=test1$time_inter
+Logstocluster=test2
+```
+
+##Within Sum of Squared to choose **k**:
+
+```{r, message=FALSE,warning=FALSE}
+n=ncol(Logstocluster)
+wss=data.frame(NULL)
+
+
+#Scale variables
+Logstocluster.s=scale(Logstocluster[,-c(n,n-1)])
+set.seed(1234)
+for (i in 2:15){
+  wss[i,1]=sum(fit=kmeans(Logstocluster.s,centers=i)$withinss)
+}
+colnames(wss)="wss"
+wss$k=seq(1,15,1)
+ggplot(data = wss,aes(x=k,y=wss))+geom_line()+scale_x_discrete(breaks=seq(1,15,1))
+
+```
+
+According to the wss it seems that there is a great dissimilarity between visitors, users are quite hetergenous and we can pick 3 to 4 clusters that are stable. 
+As we can see from plot of k against the wss measure, the slope of the graph changes in many situations, but we can consider that there is a significant drop of within sum of squared with k=4, the 5th weren't stable since the *wss* increases for the k=5.
+
+# Using K-means with k=4
+
+```{r, message=FALSE,warning=FALSE}
+
+km=kmeans(Logstocluster.s,4,nstart=100,iter.max = 100)
+summary(km)
+
+Logstocluster$cluster=as.factor(km$cluster)
+SmallLogs$cluster=as.factor(km$cluster)
+```
+
+```{r}
+#Size of each cluster 
+km$size
+```
+
+
+#Interpretation of clusters
+
+```{r, message=FALSE,warning=FALSE,fig.height=7,fig.width=15}
+#Plotting clusters against scenes 
+library(ggplot2)
+ggplot(data=subset(SmallLogs,scene_name%in%index),aes(x=scene_name,fill=cluster))+geom_bar(position = "fill")+theme(axis.text.x=element_text(angle=90))
+```
+
+```{r}
+#Station
+ggplot(data=SmallLogs,aes(x=station,fill=cluster))+geom_bar(position = "fill")+theme(axis.text.x=element_text(angle=90,size=9))
+```
+
+# Inference - KMeans Results 
+
+The caracterization of clusters is made by plotting variables used in the clustering and the resulting clusters. So the above plot help us to define the caracteristic of each cluster:  
+
+1.Dance, Example, Game over corresponding to the first cluster and it correspond to the **cnk04** machine who is believed to be a station with dancing patterns. This machine have a really small amount of time of interaction and can be described suitable for occasional players.  
+
+2.Stations **cnk02a** and **cnk02b** are believed to be typical station machines, almost all users use these two stations who are believed to be regular stations at the museum that everyone uses. The time of interaction is quite short (<5min), although, both stations are used intensivly.
+
+3.Station **cnk03** belong to the 4th cluster, and the most pattern used in this station are Multi level Main (LevelOneMain, LevelTwoMain,etc.). According to the boxplot of time interaction, this station is used with a great amount of time of interaction and may contain multilevel stages to accomplish the goal behind it. So users spend too much time with it and can be decribed as 'addictive' for visitors.  
+
+The most used patterns are  more related to the stations **cnk02a** and **cnk02b**. As said before those patterns are Screen and Splash. This station is believed to have 
+
+
+##Partitioning Around Medoids
+
+Partitioning around Medoids is robust version of k means. The similarity between the two  is due to mostly because to the fact that the two algorithms break the dataset into groups, and both work by trying to minimize the error, but PAM works with medoids, that are an entity of the dataset that represent the group in which it is inserted, and Kmeans works with centroids, that are artificially created entity that represent its cluster.
+
+```{r}
+library(cluster)
+Logstocluster$time_inter=NULL
+Logstocluster$visitor=NULL
+max=nrow(Logstocluster)
+set.seed(1223)
+train_Logs=Logstocluster[sample(nrow(Logstocluster),nrow(Logstocluster)*0.01), ]
+pam=pam(train_Logs[,-38],k=4)
+pam$medoids
+
+#to compare the k means and pam 
+clusters_pam=unname(as.numeric(pam$clustering))
+clusters_km=as.numeric(as.character(train_Logs[,38]))
+
+#Percentage of similarity between the two clustering methods
+diss=function(v,c){
+  sum=0
+  for(i in 1:length(c)){
+    if (c[i]==v[i]) sum=sum+1
+  }
+
+return(sum)
+  }
+diss(clusters_km,clusters_pam)/nrow(train_Logs)
+#0.35
+```
+
+The similarity between pam and K-means clustering is about 35%.
+
+### Using PCA to confirm k-means clustering
+
+We took the clustering from the k means Implementation and try to confirm it by principal component analysis. We plot the clusters in the two principal component of this reduction, and as we see, we've got almost 4 clusters. Clusters 1 and 4 are quite the same cluster.
+
+```{r}
+library(FactoMineR)
+res=PCA(Logstocluster,quali.sup = 38,graph = FALSE)
+plot(res,habillage=38)
+plot(res,invisible="ind")
+```
+
+#Hierarchical clustering
+```{r}
+
+d=dist(train_Logs[,-max],method = "manhattan")
+hc=hclust(d,method = "complete")
+plot(hc,labels = train_Logs$cluster,cex=0.8)
+
+```
+
+# Conclusion 
+
+It shows again three clusters 1,2 and 3. The  2nd and 3rd cluster are quite similar while the 1st cluster is a bit different.  
+Comparing this method to k means confirmed the choice of k=4 and showed that the choice of three cluster is a good hint.
+According to pam, there is a similarity in the way the two algorithms works with 35% of similarity. 
+With no rule of thumb to choose the best clustering method, the k means and its interpretation are still valid to cluster the population of Logs into machines.
+
+# Summary
+
+Segmentation of stations is made through the interaction that have visitors with these machines and according to their various caracteristics such as most patterns used, time of the day when logs are made,etc.
+
+The first cluster as described in the k-means section represent a station that visitors rarely visit, and should guide the mueseum to focus on this station and find a way to have visitors' attention.
+
+The second distinct group, contains stations that most of visitors used and should be a must-see station for everyone.
+
+The third cluster contain station with a complex concept /purpose, or a time consuming station that users needs to wait and go through multistage to finish their turn.
+
