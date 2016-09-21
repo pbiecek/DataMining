@@ -1,0 +1,210 @@
+---
+title: "Data exploration"
+author: "Przemyslaw Biecek, Anna Wróblewska"
+date: "Data Mining - Advances"
+output: 
+  html_document:
+    toc: TRUE
+---
+
+# Introduction
+
+In this part we are going to cover following topics:
+
+* how to read data into R
+* how to present basic summaries for a single variable
+* how to present summaries for pairs of variables
+
+We are going to work with three datasets: `GermanCredit` from `caret` package, `pancan` from csv/xlsx file, `iris` from `datasets` package.
+
+# Loading data
+
+You may read data from many different formats into the R. Let’s cover three typical use cases.
+
+## Data from core packages
+
+For datasets that are available in core packages (i.e. `base`, `datasets`) it's enough to use the `data()` function in order to load the data into the namespace.
+
+Here we are going to load famous Anderson's iris data.
+
+```{r}
+data(iris)
+head(iris)
+```
+
+## Data from additional packages
+
+For datasets that are available in other packages load the package and then all datasets are available. Note that you should install the package first. Use `install.packages(“caret”)` for example.
+
+```{r}
+library(caret)
+data(GermanCredit)
+
+head(GermanCredit[,1:10])
+```
+
+## Data from cvs/rda/xlsx files
+
+Use `read.table{}` or `read.xlsx{openxlsx}` in order to read data from csv/xlsx files. 
+Use `load{}` function in order to load data from binary rda files.
+
+Here we are going to read data from The Cancer Genome Atlas. For 5 different cancers we have information about expressions of 31 different genes.
+
+```{r}
+load("pancan.rda")
+pancan <- read.table("pancan.csv", header=TRUE, sep=";")
+library(openxlsx)
+pancan <- read.xlsx("pancan.xlsx",sheet = 1)
+
+head(pancan)
+```
+
+# Summaries for one variable
+
+## Numerical summaries for one variable
+
+Let's start with contingency tables for categorical variables like `disease` or `gender` from the `pancan` dataset.
+
+The `table()` function calculates contingency tables for given variable.
+
+```{r}
+# species in the iris dataset
+table(iris$Species)
+
+# classes of credit Good/Bad
+table(GermanCredit$Class)
+
+# diseases/genders in pancan dataset
+table(pancan$disease)
+table(pancan$gender)
+```
+
+For continuous variable one can use the `summary()` function. 
+
+```{r}
+# 5 quartiles and mean for Sepal.Length
+summary(iris$Sepal.Length)
+
+# Age for German Credit data
+summary(GermanCredit$Age)
+
+# expression for selected genes
+summary(pancan$ARHGAP8)
+summary(pancan$PAX8)
+```
+
+## Graphical summaries for one variable
+
+In many cases it is a good idea to present summaries graphically.
+
+Contingency tables may be presented by barplots. 
+Play with additional arguments like `horiz` or `las` to get nicer plot.
+
+```{r}
+# classes of credit Good/Bad
+tab_credits <- table(GermanCredit$Class)
+barplot(tab_credits)
+
+# diseases/genders in pancan dataset
+tab_disease <- table(pancan$disease)
+par(mar=c(5,15,2,2))
+barplot(tab_disease, horiz = TRUE, las=2)
+```
+
+For continuous variable the variable distribution may be presented with histograms `hist()` or boxplots `boxplot()`.
+
+```{r}
+# Age for German Credit data
+par(mar=c(5,5,2,2))
+hist(GermanCredit$Age, 100, col="grey")
+boxplot(GermanCredit$Age, horizontal = TRUE)
+
+# expression for selected genes
+hist(pancan$ARHGAP8, col="grey")
+boxplot(pancan$ARHGAP8, horizontal = TRUE)
+```
+
+# Summaries for two variables
+
+## Numerical summaries for two variables
+
+The `table()` function may be used for two categorical variables as well. 
+
+Use `prop.table()` to calculate proportions in rows / columns.
+
+```{r}
+# classes of credit Good/Bad
+tab <- table(GermanCredit$Class, GermanCredit$Personal.Male.Single)
+tab
+prop.table(tab, 1)
+
+# diseases/genders in pancan dataset
+tab2 <- table(pancan$disease, pancan$gender)
+tab2
+round(100*prop.table(tab2, 1),1)
+```
+
+Use `by()` function to calculate summaries for different sub-groups. 
+
+```{r}
+# Age for German Credit data
+by(GermanCredit$Age, GermanCredit$Class, summary)
+
+# expression for selected genes
+by(pancan$ARHGAP8, pancan$disease, summary)
+```
+
+## Graphical summaries for two variables
+
+Two dimensional contingency tables may be presented with mosaicplots.
+They are not easy to read but very useful.
+
+```{r}
+tab <- table(GermanCredit$Class, GermanCredit$Personal.Male.Single)
+tab
+mosaicplot(tab)
+
+# diseases/genders in pancan dataset
+tab2 <- table(pancan$disease, pancan$gender)
+tab2
+mosaicplot(tab2, las=2, main="", color = c("red", "blue"))
+```
+
+For continuous variable boxplots (`boxplot()`) are very good for making comparisons. 
+Try `vioplot{vioplot}` if you are not scared by densities.
+
+```{r, cache=TRUE, fig.width=10, fig.height=10}
+# Age for German Credit data
+boxplot(GermanCredit$Age ~ GermanCredit$Class)
+
+# expression for selected genes
+par(mar=c(5,15,2,2))
+boxplot(pancan$ARHGAP8 ~ pancan$disease, horizontal = TRUE, las=1)
+
+mosaicplot(Titanic, color=c("red3", "green3"))
+
+library(vioplot)
+par(mar=c(5,5,2,2))
+vioplot(pancan$ARHGAP8[pancan$disease == "breast invasive carcinoma"],
+        pancan$ARHGAP8[pancan$disease == "glioblastoma multiforme"],
+        pancan$ARHGAP8[pancan$disease == "kidney clear cell carcinoma"],
+        pancan$ARHGAP8[pancan$disease == "ovarian serous cystadenocarcinoma"])
+```
+
+# Computer classes
+
+1. Load the `PogromcyDanych` package.
+
+2. Use the `setLang()` function to translate columns names into English.
+
+3. For the dataset `auta2012` present numerical and graphical summaries for following variables: Price.in.PLN, Mileage, Brand, Type.of.fuel. 
+
+4. Create a report in `knitr` with these summaries. Use only cars produced in years 2009-2010.
+
+
+# Home work
+
+Use `knitr` to create a report with numerical and graphical summaries for GermanCredit.
+
+Summarize following variables: Duration, Amount, Class, Personal.Male.Single.
+
