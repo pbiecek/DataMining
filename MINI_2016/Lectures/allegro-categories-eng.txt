@@ -1,0 +1,28 @@
+﻿main_category; main_category_eng
+Komputery; Computers
+Odzież, Obuwie, Dodatki; Clothing, Shoes, Accessories
+Dom i Ogród; Home & Garden
+Książki i Komiksy; Books and Comics                 
+Biżuteria i Zegarki; Jewelry & Watches
+RTV i AGD; RTV & AGD                        
+Motoryzacja; Automotive
+Dla Dzieci; Babies                        
+Uroda; Beauty
+Telefony i Akcesoria; Phones & Accessories               
+Sport i Turystyka; Sport & Tourism
+Delikatesy; Delicatessen                      
+Kolekcje; Collections
+Gry; Games                               
+Rękodzieło; Crafts
+Zdrowie; Health                           
+Przemysł; Industry
+Filmy; FIlms                             
+Fotografia; Photography
+Biuro i Reklama; Office & Advertising                   
+Instrumenty; Instruments
+Muzyka; Music                            
+Konsole i automaty; Consoles
+Sprzęt estradowy, studyjny i DJ-ski; Technics, studio & DJ
+Antyki i Sztuka; Antiques & Arts
+Bilety; Tickets                            
+Nieruchomości; Real Estate  

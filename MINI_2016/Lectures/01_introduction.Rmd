@@ -37,9 +37,13 @@ head(iris)
 For datasets that are available in other packages load the package and then all datasets are available. Note that you should install the package first. Use `install.packages(“caret”)` for example.
 
 ```{r}
+library(PogromcyDanych)
+library(maps)
+data(countries)
+head(countries)
+
 library(caret)
 data(GermanCredit)
-
 head(GermanCredit[,1:10])
 ```
 
@@ -57,6 +61,15 @@ library(openxlsx)
 pancan <- read.xlsx("pancan.xlsx",sheet = 1)
 
 head(pancan)
+```
+
+Here are student alcohol consumption data from [http://archive.ics.uci.edu/ml/datasets/STUDENT+ALCOHOL+CONSUMPTION](http://archive.ics.uci.edu/ml/datasets/STUDENT+ALCOHOL+CONSUMPTION)
+```{r}
+student_mat <- read.table("student-mat.csv",sep=";",header=TRUE)
+nrow(student_mat)
+
+student_por <- read.xlsx("student-por.xlsx",sheet=1)
+head(student_por)
 ```
 
 # Summaries for one variable
@@ -77,6 +90,11 @@ table(GermanCredit$Class)
 # diseases/genders in pancan dataset
 table(pancan$disease)
 table(pancan$gender)
+
+# diseases/genders in pancan dataset
+# sex/work day alcohol consumption Dalc in student dataset
+table(student_por$sex)
+table(student_por$Dalc)
 ```
 
 For continuous variable one can use the `summary()` function. 
@@ -88,8 +106,9 @@ summary(iris$Sepal.Length)
 # Age for German Credit data
 summary(GermanCredit$Age)
 
-# expression for selected genes
-summary(pancan$ARHGAP8)
+# students absences
+summary(student_por$absence)
+
 summary(pancan$PAX8)
 ```
 
@@ -138,8 +157,8 @@ tab <- table(GermanCredit$Class, GermanCredit$Personal.Male.Single)
 tab
 prop.table(tab, 1)
 
-# diseases/genders in pancan dataset
-tab2 <- table(pancan$disease, pancan$gender)
+# Dalc/genders in pancan dataset
+tab2 <- table(student_por$Dalc, student_por$sex)
 tab2
 round(100*prop.table(tab2, 1),1)
 ```
@@ -168,6 +187,9 @@ mosaicplot(tab)
 tab2 <- table(pancan$disease, pancan$gender)
 tab2
 mosaicplot(tab2, las=2, main="", color = c("red", "blue"))
+
+mosaicplot(Titanic, color=c("red3", "green3"))
+
 ```
 
 For continuous variable boxplots (`boxplot()`) are very good for making comparisons. 
@@ -181,30 +203,33 @@ boxplot(GermanCredit$Age ~ GermanCredit$Class)
 par(mar=c(5,15,2,2))
 boxplot(pancan$ARHGAP8 ~ pancan$disease, horizontal = TRUE, las=1)
 
-mosaicplot(Titanic, color=c("red3", "green3"))
-
 library(vioplot)
 par(mar=c(5,5,2,2))
 vioplot(pancan$ARHGAP8[pancan$disease == "breast invasive carcinoma"],
         pancan$ARHGAP8[pancan$disease == "glioblastoma multiforme"],
         pancan$ARHGAP8[pancan$disease == "kidney clear cell carcinoma"],
         pancan$ARHGAP8[pancan$disease == "ovarian serous cystadenocarcinoma"])
+
+vioplot(student_por$Dalc[student_por$famsize=="GT3"],
+        student_por$Dalc[student_por$famsize=="LE3"])
 ```
 
 # Computer classes
+
+1. Read files: `allegro-api-transactions.csv` and `allegro-categories-eng.txt`.
+
+2. Merge the files to translate main_category names. (`merge`, `join` in `library(dplyr)`)
+
+3. For the dataset present numerical and graphical summaries for following variables: `price`, `it_is_allegro_standard`, `it_is_brand_zone`, `it_seller_rating`, `date`. 
+
+4. Create a report in `knitr` with these summaries. Use only top 5 transactional main categories and compere the gmv=sum(price) to the overall gmv in one day.
+
+# Home work
 
 1. Load the `PogromcyDanych` package.
 
 2. Use the `setLang()` function to translate columns names into English.
 
-3. For the dataset `auta2012` present numerical and graphical summaries for following variables: Price.in.PLN, Mileage, Brand, Type.of.fuel. 
+3. For the dataset `skiJumps2013` present numerical and graphical summaries for following variables: jumpSpeed, jumpDistance, compCountry, jumperCountry, jumperDateOfBirth. 
 
-4. Create a report in `knitr` with these summaries. Use only cars produced in years 2009-2010.
-
-
-# Home work
-
-Use `knitr` to create a report with numerical and graphical summaries for GermanCredit.
-
-Summarize following variables: Duration, Amount, Class, Personal.Male.Single.
-
+4. Create a report in `knitr` with these summaries. Use only competitions in 2014 year.

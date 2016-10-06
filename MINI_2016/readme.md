@@ -12,10 +12,11 @@ Advances in Data Mining:
 # Syllabus
 
 * Introduction to data exploration 
+* Linear regression
 * [Classification]
 * k-nearest neighbors algorithm 
 * Receiver Operating Characteristic (ROC) and other techniques
-* Decision tree
+* Decision trees
 * Linear discriminant analysis, Quadratic discriminant analysis
 * Naive Bayes classifier
 * Support Vector Machines
@@ -28,6 +29,7 @@ Advances in Data Mining:
 * Principal Component Analysis
 * MultiDimensional Scaling
 * Association Rules
+
 * Text Mining
 * Big Data Issues 
 
