@@ -216,7 +216,7 @@ vioplot(student_por$Dalc[student_por$famsize=="GT3"],
 
 # Computer classes
 
-1. Read files: `allegro-api-transactions.csv` and `allegro-categories-eng.txt`.
+1. Read files: (`allegro-api-transactions.csv`)[https://www.dropbox.com/s/360xhh2d9lnaek3/allegro-api-transactions.csv?dl=0] and `allegro-categories-eng.txt`.
 
 2. Merge the files to translate main_category names. (`merge`, `join` in `library(dplyr)`)
 
