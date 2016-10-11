@@ -1,6 +1,6 @@
 ---
 title: "k-nearest neighbors algorithm"
-author: "Przemyslaw Biecek"
+author: "Przemyslaw Biecek, Anna Wróblewska"
 date: "Data Mining - Advances"
 output: 
   html_document:
