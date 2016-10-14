@@ -26,7 +26,7 @@ The example below is based on the `iris` data.
 
 ```{r, warning=FALSE, message=FALSE}
 library(ggplot2)
-load("iris")
+data("iris")
 
 ggplot(iris, aes(Sepal.Length, Sepal.Width, color=Species)) +
   geom_point() +
@@ -54,7 +54,7 @@ The kNN method is implemented in a few different packages. Here we are going to 
 
 ```{r, message=FALSE, warning=FALSE}
 library(caret)
-knnFit <- knn3(Species ~ Sepal.Length+Sepal.Width, data = iris, k=20, prob=TRUE)
+knnFit <- knn3(Species ~ Sepal.Length+Sepal.Width, data = iris, k=5, prob=TRUE)
 knnFit
 ```
 
@@ -90,7 +90,7 @@ sum(diag(tab)) / sum(tab)
 
 ## Over fitting
 
-It looks like the performance is 100%. Is it possible? Maybe, but here it is a result of over fitting.
+When it looks like the performance is 100%. Is it possible? Maybe, but here it is a result of over fitting.
 
 Note: One should not calculate performance of a classifier on the same dataset that have been used for training. Never!
 
@@ -112,7 +112,7 @@ irisTest <- iris[-indxTrain$Resample1,]
 Now we can train classifier on the training dataset and test it on the second dataset.
 
 ```{r}
-knnFit <- knn3(Species ~ Sepal.Length+Sepal.Width, data = iris, k=1)
+knnFit <- knn3(Species ~ Sepal.Length+Sepal.Width, data = irisTrain, k=1)
 pred <- predict(knnFit, irisTest, type="class")
 
 tab <- table(true = irisTest$Species, predicted = pred)
@@ -129,15 +129,14 @@ sum(diag(tab2)) / sum(tab2)
 The performance may be assessed for different values of parameter k. Based on such results one can select the ,,optimal'' k, i.e. k that maximizes some measure of performance. Here the performance is just the fraction of correct guesses (called accuracy). We will introduce more measures for performance later.
 
 ```{r}
-tuneK <- 1:200
+tuneK <- 1:100
 performance <- sapply(tuneK, function(k) {
-  knnFit <- knn3(Species ~ Sepal.Length+Sepal.Width, data = iris, k=k)
+  knnFit <- knn3(Species ~ Sepal.Length+Sepal.Width, data = irisTrain, k=k)
   tab <- table(true = irisTest$Species,
           predict = predict(knnFit, irisTest, type="class"))
   sum(diag(tab)) / sum(tab)
 }) 
 
-warnings()
 df <- data.frame(tuneK, performance)
 
 ggplot(df, aes(tuneK, performance)) +
@@ -153,8 +152,10 @@ Note that by default the Euclidian distance is used. To make sure that all varia
 
 Note that majority voting is not best solution if classes have unequal distribution. If one class is predominant then it may happen that the classifier will vote for it in every case. In order to deal with unbalanced labels one can consider weighted votes.
 
-Look at this plot below. Iris data are not linear separable. What about normalization?
+Look at this plot below. Iris data have different scales and they are not linear separable. What about normalization?
 ```{r}
+summary(iris[,c("Sepal.Length","Sepal.Width")])
+
 library(plotly)
 library(magrittr)
 plot_ly(iris, x = ~Sepal.Width, y = ~Petal.Width, z = ~Petal.Length, color=~Species) %>% add_markers()
@@ -173,7 +174,7 @@ plot_ly(iris, x = ~Sepal.Width, y = ~Petal.Width, z = ~Petal.Length, color=~Spec
 # Home work
 
 Use `knitr` to create a report for kNN method based on `student-mat.csv` dataset.
-Choose variables and build classifier for them. The response variable is the 'Class'. Find optimal `k` and calculate performance for it.
+Choose variables and build classifier for them. Try use the response/target variables  'Dalc' or 'Walc'. You need to make factors from these variables to use them as target viriables. Find optimal `k` and calculate performance for it.
 
 # Additional materials
 
