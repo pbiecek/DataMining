@@ -1,0 +1,106 @@
+---
+title: "DMA - Homework 2"
+author: "Viet Ba Mai"
+date: "14 pazdziernika 2016"
+output: 
+  html_document:
+  toc: TRUE
+---
+
+#Loading data
+Firstly we need to load the data from a given .csv file `student-mat`.
+```{r, cache=TRUE}
+student_mat <- read.csv(file="C:/Users/vietba/Downloads/student-mat.csv", header=TRUE, sep=";", encoding="UTF-8")
+
+```
+
+
+#Input data
+Below 10 first observations of the imported table are presented.
+
+```{r, echo=FALSE, cache=TRUE}
+head(student_mat, 10)
+```
+
+I chose the `Dalc` column as the target class. This column stands for workday alcohol consumption.
+However factor needs to be applied on the `Dalc` variable in order to use it as the ideal value.
+
+Below are 10 first observations of columns selected for the classifier and the factored response variable:
+
+```{r, cache=TRUE}
+#install.packages("caret")
+library(caret)
+studentnew <- within(student_mat, Dalc <- factor(Dalc))
+head(studentnew[, c("Dalc", "studytime", "age", "absences", "failures", "freetime", "goout")], 10)
+```
+
+I chose these particular variables, because after observing the table it seems that they affect the value of `Dalc`. In other words they change with that value fairly proportionally.
+
+
+#Preparing training and testing set
+We divide the `student_mat` set into training and testing set with their ratio being 3:1 respectively.
+```{r, cache=TRUE}
+set.seed(1313)
+indxTrain <- createDataPartition(y = studentnew$Dalc, p = 0.75)
+str(indxTrain)
+
+stdntmatTrain <- studentnew[indxTrain$Resample1,]
+stdntmatTest <- studentnew[-indxTrain$Resample1,]
+```
+
+
+#Train and test
+We build the classifier for selected variables and then train it on the training set `stdntmatTrain`.
+```{r, cache=TRUE}
+knnFit <- knn3(Dalc ~ studytime + age + absences + failures + freetime + goout, data = stdntmatTrain, k=20, prob=TRUE)
+```
+Above I performed training on 20 nearest neighbours model.
+
+
+Testing on the testing set `stdntmatTest`.
+```{r, cache=TRUE}
+pred <- predict(knnFit, stdntmatTest, type="class")
+tab <- table(true = stdntmatTest$Dalc, predicted = pred)
+```
+
+
+Calculating accuracy:
+```{r, cache=TRUE}
+sum(diag(tab)) / sum(tab)
+```
+
+
+#Optimal k and performance
+Now we can find the opitmal value of `k` in the k-means algorithm.
+For this task we can assume that the best value would be the one which yields the highest value for performance.
+```{r, cache=TRUE}
+tuneK <- 1:100
+performance <- sapply(tuneK, function(k) {
+  knnFit <- knn3(Dalc ~ studytime + age + absences + failures + freetime + goout, data = stdntmatTrain, k=k)
+  tab <- table(true = stdntmatTest$Dalc,
+          predict = predict(knnFit, stdntmatTest, type="class"))
+  tab2 <- prop.table(tab, 1)
+  tab2
+  sum(diag(tab)) / sum(tab)
+}) 
+```
+
+
+Optimal k and its performance:
+```{r, cache=TRUE}
+optimal_k = which.max(performance)
+optimal_k
+performance[optimal_k]
+```
+
+
+#Performance plot
+```{r, warning=FALSE, cache=TRUE}
+df <- data.frame(tuneK, performance)
+
+ggplot(df, aes(tuneK, performance)) +
+  geom_point() + 
+  geom_smooth(se=FALSE, span=0.1, size=2) +
+  theme_bw()
+
+```
