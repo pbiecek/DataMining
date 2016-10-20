@@ -1,0 +1,208 @@
+---
+title: 'DMA - Lab Task #1'
+author: "Viet Ba Mai"
+date: "11 października 2016"
+output:
+  html_document:
+    toc: TRUE
+---
+
+#File Import
+
+```{r, cache=TRUE}
+allegro_trans <- read.csv(file="C:/Users/vietba/Documents/Computer Science/Masters/II/Data Mining Advances/Homeworks/Lab 1/allegro-api-transactions.csv", header=TRUE, sep=",", encoding="UTF-8")
+
+allegro_cat <- read.table("C:/Users/vietba/Documents/Computer Science/Masters/II/Data Mining Advances/Homeworks/Lab 1/allegro-categories-eng.txt", header=TRUE, sep=";", quote=NULL, comment="", encoding="UTF-8")
+```
+
+##Tables
+Below 10 first observations of each imported tables are presented.
+
+1. Allegro Transactions
+```{r, echo=FALSE, cache=TRUE}
+head(allegro_trans, 10)
+```
+
+2. Allegro Categories (eng)
+```{r, echo=FALSE, cache=TRUE}
+head(allegro_cat, 10)
+```
+
+
+#Lookup Table and Translation
+In the following case we will make use of the dplyr library.
+
+##Joining the tables with left_join
+```{r, cache=TRUE}
+#install.packages("dplyr")
+
+library(dplyr)
+allegro_eng <- left_join(allegro_trans, allegro_cat, by = c("main_category" = "X.U.FEFF.main_category"))
+```
+
+##Merged tables result
+To make the result clearer the number of columns selected was restricted to 3.
+
+```{r, echo=FALSE, cache=TRUE}
+head(allegro_eng[, c("item_id", "main_category", "main_category_eng")], 10)
+```
+
+
+#Summaries
+In this section summaries of the following variables will be done:
+- price
+
+-it_is_allegro_standard
+
+-it_is_brand_zone
+
+-it_seller_rating
+
+-date
+
+We need to select top 5 categories hence we will find the frequencies of each category and then filter to only the best 5.
+
+```{r, echo=FALSE, cache=TRUE}
+sort(table(allegro_eng$main_category_eng), decreasing=TRUE)
+```
+
+Now we can see that the top 5 categories are:
+1. Home & Garden
+2. Clothing, Shoes, Accessories
+3. Automotive
+4. Babies
+5. Beauty
+
+And will create a new table with only these categories.
+
+```{r, cache=TRUE}
+top5 <- c(" Home & Garden", " Clothing, Shoes, Accessories", " Automotive", " Babies", " Beauty")
+allegro_trans_top <- subset(allegro_eng, allegro_eng$main_category_eng %in% top5)
+```
+
+##Numerical Summaries
+###Categorical Variables
+
+1. Is Allegro Standard:
+
+```{r, echo=FALSE, cache=TRUE}
+sort(table(allegro_trans_top$it_is_allegro_standard), decreasing=TRUE)
+```
+
+2. Brand Zone:
+
+```{r, echo=FALSE, cache=TRUE}
+sort(table(allegro_trans_top$it_is_brand_zone), decreasing=TRUE)
+```
+
+3. Transaction Date:
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE, R.options=list(max.print=5)}
+sort(table(allegro_trans_top$date), decreasing=TRUE)
+```
+The number of output was limited to 5.
+
+
+###Continuous Variables
+
+1. Price:
+
+```{r, echo=FALSE, cache=TRUE}
+summary(allegro_trans_top$price)
+```
+
+2. Seller Rating:
+
+```{r, echo=FALSE, cache=TRUE}
+summary(allegro_trans_top$it_seller_rating)
+```
+
+##Graphical Summaries
+###Categorical Variables
+
+1. Is Allegro Standard:
+
+```{r, echo=FALSE, cache=TRUE}
+all_standard <- table(allegro_trans_top$it_is_allegro_standard)
+barplot(all_standard, horiz = FALSE, las=1, col="lightyellow")
+
+```
+
+2. Brand Zone:
+
+```{r, echo=FALSE, cache=TRUE}
+b_zone <- table(allegro_trans_top$it_is_brand_zone)
+barplot(b_zone, las=1, col="khaki")
+
+```
+
+
+###Continuous Variables
+
+1. Price:
+
+```{r, echo=FALSE, cache=TRUE}
+par(mar=c(5,5,2,2))
+hist(allegro_trans_top$price, col="lightblue")
+boxplot(allegro_trans_top$price, horizontal = TRUE)
+
+```
+
+2. Seller Rating:
+
+```{r, echo=FALSE, cache=TRUE}
+hist(allegro_trans_top$it_seller_rating, col="lightgreen")
+boxplot(allegro_trans_top$it_seller_rating, horizontal = TRUE)
+```
+
+##2-variable representations
+###Numerical Summaries for different discrete variables
+
+1. Price by Brand Zone:
+
+
+```{r, echo=FALSE, cache=TRUE}
+by(allegro_trans_top$price, allegro_trans_top$it_is_brand_zone, summary)
+```      
+
+
+2. Seller Rating by Brand Zone:
+
+```{r, echo=FALSE, cache=TRUE}
+by(allegro_trans_top$it_seller_rating, allegro_trans_top$it_is_brand_zone, summary)
+```
+
+3. Price by Allegro Standard:
+
+
+```{r, echo=FALSE, cache=TRUE}
+by(allegro_trans_top$price, allegro_trans_top$it_is_brand_zone, summary)
+```      
+
+
+4. Seller Rating by Allegro Standard:
+
+```{r, echo=FALSE, cache=TRUE}
+by(allegro_trans_top$it_seller_rating, allegro_trans_top$it_is_brand_zone, summary)
+```
+
+##Graphical summary of continuous variables.
+
+Seller Rating and Price:
+
+```{r, echo=FALSE, cache=TRUE}
+boxplot(allegro_trans_top$it_seller_rating, allegro_trans_top$price)
+par(mar=c(5,15,2,2))
+
+```
+
+#Conclusions
+Most of items are of Allegro standard and in Brand Zone 0.
+On 2016-04-03 22:32:33 the most number of recorded transactions were made with the value being 105. Following that were transactions made around 2 hours earlier with the number being 95.
+
+The mean price of items is 80.59 while the maximum found is 119000.00.
+On average the seller's rating is 19020.
+The mean prices are higher in zone 1, but the maximum price was recorded in the zone 0.
+On the other hand the seller rating is greater in the zone 1.
+
+Allegro standard seems to affect both the price and seller rating, because in both cases the aforementioned factors were higher.

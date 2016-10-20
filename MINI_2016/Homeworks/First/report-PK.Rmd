@@ -1,0 +1,64 @@
+---
+title: "Report"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library('PogromcyDanych')
+setLang()
+data("skiJumps2013")
+```
+
+## Variable summary
+
+
+```{r jumpers}
+#jumpSpeed
+summary(skiJumps2013$jumpSpeed)
+#jumpDistance
+summary(skiJumps2013$jumpDistance)
+#compCountry
+table(skiJumps2013$compCountry)
+#jumperCountry
+table(skiJumps2013$jumperCountry)
+#jumperDateOfBirth - not very clear
+table(substr(skiJumps2013$jumperDateOfBirth, 1, 4))
+```
+
+This summary shows us that most players come from Germany, and there is quite a lot competitions held there.
+
+## Variable cross-comparison
+
+Below two plots:
+jumpDistance ~ jumperCountry <br \>
+jumpDistance ~ jumperYearOfBirth
+
+```{r compare, echo=FALSE}
+#jumperCountry and jumpDistance
+tab4 <- table(skiJumps2013$jumpDistance, skiJumps2013$jumperCountry)
+boxplot(skiJumps2013$jumpDistance ~ skiJumps2013$jumperCountry)
+#jumpDistance and year of birth
+boxplot(skiJumps2013$jumpDistance ~ substr(skiJumps2013$jumperDateOfBirth, 1, 4))
+```
+
+You can easily see that jump distance is not dependent on age and nationality
+
+Lets check jump speed then:
+
+```{r compare2, echo=FALSE}
+boxplot(skiJumps2013$jumpSpeed ~ skiJumps2013$jumperCountry, ylim = c(80, 110))
+boxplot(skiJumps2013$jumpSpeed ~ substr(skiJumps2013$jumperDateOfBirth, 1, 4), ylim = c(80, 110))
+```
+
+It seems that some countries some countries have more players that have higher scores then average. Also contestants borne in 1996 have higher average then all, but all players match average, without any outliers.
+
+Lets see how does distance depend on speed
+
+```{r compare3, echo=FALSE}
+boxplot(skiJumps2013$jumpDistance ~ skiJumps2013$jumpSpeed)
+````
+
+There's a visible jump at ~97km/h where distances are visibly higher then below given speed.
+
+

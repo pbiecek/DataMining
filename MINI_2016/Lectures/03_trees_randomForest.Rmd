@@ -33,8 +33,11 @@ head(pima)
 ggplot(pima, aes(glucose, insulin, color=factor(test), shape=factor(test))) +
   geom_point() + theme_bw()
 ```
+Try the plot with other variables. Find out correlations with `library(corrgram)`.
+And then remove the correlated variables.
+Find out finding correlated variables using `library(caret)`.
 
-And now for all variables.
+And now try for all variables.
 ```{r, warning=FALSE, message=FALSE, fig.width=10, fig.height=10}
 library(GGally)
 pima$test <- factor(pima$test)
@@ -155,8 +158,6 @@ table(real = pima$test,
 mean(pima$test ==
        predict(tfit, data=pima, type = "class"))
 
-
-
 plot(tfit)
 text(tfit)
 ```
@@ -207,6 +208,15 @@ diabTree
 
 plot(diabTree)
 ```
+
+Roughly, the algorithm works as follows: 
+
+1. Test the global null hypothesis of independence between any of the input variables and the response. 
+
+STOP if this hypothesis cannot be rejected. Otherwise select the input variable with strongest association to the response. This association is measured by a p-value corresponding to a test for the partial null hypothesis of a single input variable and the response. 
+
+2. Implement a binary split in the selected input variable. 
+3. Recursively repeate steps 1. and 2.
 
 Use the `predict()` function to classify data based on fitting model.
 
@@ -351,21 +361,4 @@ plot(fit.perf)
 abline(a=0,b=1)
 ```
 
-# The Homework
-
-Download the dataset `adult` (find more about this dataset here: http://archive.ics.uci.edu/ml/machine-learning-databases/adult/). 
-Train a decision tree and a random forest. 
-Compare performance of both methods. 
-
-Take some time to find variables that are not used by anyone else (sumbissions with same set of variables will not be scored).
-
-```{r}
-data = read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data",
-        sep=",",header=F,col.names=c("age", "type_employer", "fnlwgt", "education", 
-                "education_num","marital", "occupation", "relationship", "race","sex",
-                "capital_gain", "capital_loss", "hr_per_week","country", "income"),
-        fill=FALSE,strip.white=T)
-head(data,3)
-
-```
 

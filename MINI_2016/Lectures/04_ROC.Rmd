@@ -67,19 +67,3 @@ fit.perf@y.values[[1]]
 ```
 
 
-# The Homework
-
-Download the dataset `adult` (find more about this dataset here: http://archive.ics.uci.edu/ml/machine-learning-databases/adult/). 
-
-Train a k-nn for different k and Random Forest for different `m` and compare these results with the use of ROC curves and AUC values. 
-
-```{r, eval=FALSE}
-data = read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data",
-        sep=",",header=F,col.names=c("age", "type_employer", "fnlwgt", "education", 
-                "education_num","marital", "occupation", "relationship", "race","sex",
-                "capital_gain", "capital_loss", "hr_per_week","country", "income"),
-        fill=FALSE,strip.white=T)
-head(data,3)
-
-```
-
