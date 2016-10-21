@@ -361,4 +361,9 @@ plot(fit.perf)
 abline(a=0,b=1)
 ```
 
+# The Homework
+
+Download the dataset `student alcohol consumption` (find more about this dataset here: http://archive.ics.uci.edu/ml/datasets/STUDENT+ALCOHOL+CONSUMPTION). 
+Train a decision tree and a random forest for different `m`.  Compare performance of both methods. 
+
 

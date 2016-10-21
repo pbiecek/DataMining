@@ -16,6 +16,7 @@ Advances in Data Mining:
 * [Classification]
 * k-nearest neighbors algorithm 
 * Receiver Operating Characteristic (ROC) and other techniques
+* PCA and other techniques of feature selection
 * Decision trees
 * Linear discriminant analysis, Quadratic discriminant analysis
 * Naive Bayes classifier
@@ -82,3 +83,5 @@ How to use git repo:
 ____________________
 
 http://www.cheat-sheets.org/saved-copy/git-cheat-sheet.pdf
+
+useful instructions: `git clone`, `git status`, `git add`, `git commit -m "..."`, `git push origin branch-name`, `git pull ...`
