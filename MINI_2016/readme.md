@@ -40,8 +40,8 @@ mainly Fridays
 * 7.X - 4 hours, s. 219 Faculty of MINI
 * 14.X - 2 hours
 * 21.X - 4 hours
-* 28.X [Part 1 - project 1] - 2 hours
-* 4.XI - 4 hours
+* 28.X - 2 hours
+* 4.XI - [Part 1 - project 1] - 4 hours
 * 10.XI Thursday [Part 2 - project 1] - 2 hours
 * 18.XI - 4 hours
 * 25.XI - [Part 3 - project 1] - 2 hours
@@ -63,11 +63,7 @@ Al least 50% of the team is required to be present during the project presentati
 
 1. Project - Classification
 
-https://github.com/awroble/DataMining/tree/master/MINI_2016/Project/Project%201
-
 2. Project - Clustering
-
-https://github.com/awroble/DataMining/tree/master/MINI_2016/Project/Project%202
 
 Grade:
 ------
@@ -82,3 +78,7 @@ Each correct solution gives you 4 points.
 Home works have to be done personally. No group work here!
 Home works have to be submitted to github not later than 1 week after announcement.
 
+How to use git repo:
+____________________
+
+http://www.cheat-sheets.org/saved-copy/git-cheat-sheet.pdf
