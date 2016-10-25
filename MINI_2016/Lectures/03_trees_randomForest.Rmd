@@ -366,4 +366,8 @@ abline(a=0,b=1)
 Download the dataset `student alcohol consumption` (find more about this dataset here: http://archive.ics.uci.edu/ml/datasets/STUDENT+ALCOHOL+CONSUMPTION). 
 Train a decision tree and a random forest for different `m`.  Compare performance of both methods. 
 
+#Useful links
+
+https://www.r-bloggers.com/a-brief-tour-of-the-trees-and-forests/
+
 

@@ -3,14 +3,13 @@ Project 1
 
 # Introduction
 
-Build a classifier ...[TODO]
+Build a classifier that predict the number of shares in social networks (popularity).
 
-Use dataset from ...[TODO]
+Use dataset from https://archive.ics.uci.edu/ml/datasets/Online+News+Popularity
 
 # The Goal
 
-The goal of this project is to compare performances of different classifiers and building a final classifier that can be used in ...[TODO]
-
+The goal of this project is to compare performances of different classifiers and building a final classifier that can be used in predicting popularity of online news.
 
 # Phases
 
@@ -23,5 +22,10 @@ Report from this phase shall have not more than 10 pages (but may be shorter as 
 
 In the third phase you should crease a brief summary (up to 3 pages) with description and validation of your classifier.
 
- 
+# Useful links
+
+https://inclass.kaggle.com/c/predicting-online-news-popularity
+
+http://cs229.stanford.edu/proj2015/328_report.pdf
+
 

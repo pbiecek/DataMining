@@ -178,8 +178,11 @@ Choose variables and build classifier for them. Try use the response/target vari
 
 # Additional materials
 
-A Short Introduction to the `caret` Package
-
+A Short Introduction to the `caret` package
 https://cran.r-project.org/web/packages/caret/vignettes/caret.pdf
+
+https://www3.nd.edu/~steve/computing_with_data/17_Refining_kNN/refining_knn.html
+
+https://rstudio-pubs-static.s3.amazonaws.com/123438_3b9052ed40ec4cd2854b72d1aa154df9.html
 
 
