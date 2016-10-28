@@ -1,28 +1,128 @@
 ---
-title: "Measuring Classification Results"
+title: "Measuring Classification Performance"
 author: "Przemyslaw Biecek, Anna Wróblewska"
 date: "Data Mining - Advances"
 output: 
   html_document:
     toc: TRUE
 ---
-# Contingency Tables
 
-#Kappa
+# Preparing data for classification task
 
+At first try if your data is imbalanced regarding target variable. Check if there are some problematic variables.
+
+```{r, fig.width=8, fig.height=8}
+library(faraway)
+library(caret)
+library(dplyr)
+pima$test <- factor(pima$test)
+
+prop.table(table(pima$test))
+
+lapply(pima %>% select(glucose,pregnant,test), function(x) data.frame(table(x)))
+
+#problematic features
+nearZeroVar(pima, saveMetrics = TRUE)
+
+#there are no correlated features
+d.num <- pima %>% select(which(sapply(pima, is.numeric))) # only numeric features
+high.corr.num <- findCorrelation(cor(d.num), cutoff = .75)
+names(d.num)[high.corr.num]
+```
+
+Normalize input data if they are numeric, continuous and if you use a classfier that uses numeric equations. Generally normalization is useful, when you are solving a system of equations, least squares, etc, where you can have serious issues due to rounding errors. 
+
+# Measuring classification performance
+
+```{r}
+library(party)
+diabTree <- ctree(test ~ ., data = pima)
+diabTree
+plot(diabTree)
+predicted.pima = predict(diabTree)
+tab<-table(real = pima$test,
+      predicted = predicted.pima)
+tab
 #Accuracy
+mean(pima$test == predict(diabTree))
+sum(diag(tab)) / sum(tab)
+```
 
-#Not balanced input dataset
+# Contingency Tables
+ The most common performance measures consider the model's ability to differentiate between classess, i.e. one class versus all other classess in mulitlabel case. One class is called positive class and the other (the others) - negative class. The model's predictions fall into one of four categories:
+ 
+ * True positive (TP) - Correctly classified as the class of interest
+ * True negative (TN) - Correctly classified as not the class of interest
+ * False positive (FP) - Incorrectly classified as the class of interest
+ * False negative (FN) - Incorrectly classfied as not the class of interest
+ 
+The schema of contingency table is as follows: <br>
+
+|  &nbsp; | &nbsp; 0 | &nbsp; 1 |
+| --- | ----- | ----: |
+|  0  |   TN   |   FP   |
+|  1  |   FN   |   TP   |
+ 
+```{r}
+library(gmodels)
+ctab<-CrossTable(pima$test,predicted.pima)
+ctab
+```
+
+Basic measures are as follows:
+
+$Accuracy = \frac{TP + TN }{TP + TN + FP + FN}$
+
+Accuracy is the sum of diagonals of a contingency table.
+
+$Error rate = \frac{FP+FN}{TP + TN + FP + FN} = 1 - Accuracy$
+
+# Kappa 
+
+Kappa statistics takes into account the agreement occurring by chance and is proper for imbalanced input datasets. Imbalanced datasets occure when the is substantial difference between number of examples in target classes, e.g. a large majority samples belongs to one class. For example in screening mammography there are 2 cases of breast cancer among above 100 000 examples for health mammograms. Simple accuracy does not work in this case, i.e. it will be very high even for any classifier will predict only healthy cases.
+
+The equation for $\kappa$ is:
+
+$\kappa = \frac{p_o - p_e}{1 - p_e} = 1- \frac{1 - p_o}{1 - p_e},$
+
+where $p_o$ is the observed agreement between the classifier and the true values, and $p_e$ is the hypothetical probability of chance agreement, using the observed data to calculate the probabilities of each observer randomly saying each predicted category.
+
+https://en.wikipedia.org/wiki/Cohen%27s_kappa
+
+To calculate the observed agreement, we add the proportion of all instances when the predicted type and actual type agree.
+
+```{r}
+a<-ctab$prop.tbl
+p_o <- ctab$prop.tbl[1,1] + ctab$prop.tbl[2,2]
+p_o
+
+p_e <- (ctab$prop.tbl[1,1]+ctab$prop.tbl[2,1]) * (ctab$prop.tbl[1,1]+ctab$prop.tbl[1,2]) +
+       (ctab$prop.tbl[2,1]+ctab$prop.tbl[2,2]) * (ctab$prop.tbl[1,2]+ctab$prop.tbl[2,2])
+p_e
+
+kappa = (p_o - p_e) / (1 - p_e) 
+
+library(vcd)
+#unweighted value
+Kappa(table(real = pima$test, predicted = predicted.pima))
+
+library(irr)
+kappa2(pima$test, predicted.pima)
+```
+# Other metrics
+Sensitivity of a model measures the proportion of positive examples that were correctly classified.
+
+$Sensitivity = /frac{TP}{TP+FN}$
+
+Specificity of a model measures the proportion of 
+$Specificity = /frac{TN}{TN+FP}$
 
 # ROC (Receiver Operating Characteristics)
 
 Classifiers that calculate scores / probabilities may be examined with the use of so called ROC. Let’s see an simple example for the trained random forest.
 
-```{r, fig.width=8, fig.height=8}
+```{r}
 library(randomForest)
-library(faraway)
-pima$test <- factor(pima$test)
-
 ffit <- randomForest(test ~ .,   data=pima, importance = TRUE)
 prob <- predict(ffit, type="prob")[,2]
 
@@ -72,4 +172,10 @@ fit.perf = performance(fit.pred,"auc")
 fit.perf@y.values[[1]]
 ```
 
+# Class excercise
+1. Use data `churn` from package `caret` or `C50`
+2. Prepare data for classification (http://topepo.github.io/caret/pre-processing.html)
+3. Examine various methods of splitting data to train and test sets (e.g. random samples, cross-validation, http://topepo.github.io/caret/data-splitting.html) - 1 group
+4. Examine various methods of feature selection (http://topepo.github.io/caret/feature-selection-overview.html) - 1 group
+5. Use different measures to show classifier performance (find out more packages, e.g. pROC)
 

@@ -7,6 +7,11 @@ Build a classifier that predict the number of shares in social networks (popular
 
 Use dataset from https://archive.ics.uci.edu/ml/datasets/Online+News+Popularity
 
+or take part in a contenst 
+
+https://www.kaggle.com/c/santander-product-recommendation
+
+
 # The Goal
 
 The goal of this project is to compare performances of different classifiers and building a final classifier that can be used in predicting popularity of online news.
