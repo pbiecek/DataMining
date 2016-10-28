@@ -172,10 +172,11 @@ fit.perf = performance(fit.pred,"auc")
 fit.perf@y.values[[1]]
 ```
 
-# Class excercise
-1. Use data `churn` from package `caret` or `C50`
+# Class excercise & Homework
+1. Use data `churn` from package `C50`
 2. Prepare data for classification (http://topepo.github.io/caret/pre-processing.html)
-3. Examine various methods of splitting data to train and test sets (e.g. random samples, cross-validation, http://topepo.github.io/caret/data-splitting.html) - 1 group
-4. Examine various methods of feature selection (http://topepo.github.io/caret/feature-selection-overview.html) - 1 group
+3. Examine various methods of splitting data to train and test sets (e.g. random samples, cross-validation, http://topepo.github.io/caret/data-splitting.html) 
+4. Examine various methods of feature selection (http://topepo.github.io/caret/feature-selection-overview.html)
+5. Use any known classifier , e.g. trees or random forest
 5. Use different measures to show classifier performance (find out more packages, e.g. pROC)
 
