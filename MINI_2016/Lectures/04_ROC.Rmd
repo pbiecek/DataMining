@@ -21,7 +21,7 @@ prop.table(table(pima$test))
 
 lapply(pima %>% select(glucose,pregnant,test), function(x) data.frame(table(x)))
 
-#problematic features
+#problematic features with near zero variance
 nearZeroVar(pima, saveMetrics = TRUE)
 
 #there are no correlated features
@@ -31,6 +31,11 @@ names(d.num)[high.corr.num]
 ```
 
 Normalize input data if they are numeric, continuous and if you use a classfier that uses numeric equations. Generally normalization is useful, when you are solving a system of equations, least squares, etc, where you can have serious issues due to rounding errors. 
+
+```{r}
+pre_processed_data <- preProcess(pima, method = c("center", "scale"))
+pre_processed_pima <- predict(pre_processed_data, pima)
+```
 
 # Measuring classification performance
 
@@ -110,12 +115,15 @@ library(irr)
 kappa2(pima$test, predicted.pima)
 ```
 # Other metrics
-Sensitivity of a model measures the proportion of positive examples that were correctly classified.
+Sensitivity of a model measures the proportion of positive examples that were correctly classified to all examples that are positive.
 
 $Sensitivity = /frac{TP}{TP+FN}$
 
-Specificity of a model measures the proportion of 
+Specificity of a model measures the proportion of not correcly classified examples to all misclassifications.
+
 $Specificity = /frac{TN}{TN+FP}$
+
+Any ROC curve shows the dependency of sensitivity to 1-specificity.
 
 # ROC (Receiver Operating Characteristics)
 

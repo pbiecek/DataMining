@@ -108,3 +108,16 @@ http://www.cheat-sheets.org/saved-copy/git-cheat-sheet.pdf
 how to make a pull request tutorial: https://github.com/yangsu/pull-request-tutorial
 
 useful instructions: `git clone`, `git status`, `git add`, `git commit -m "..."`, `git push origin branch-name`, `git pull ...`
+
+Instruction to make a pull request with your homework:
+
+1. fork the repo from github/awroble/DataMining
+2. `git clone` to your local repo
+3. `git status` - you can always check the state of your local repo
+4. `git branch "name-of-the-branch"`
+5. `git checkout "name-of-the-branch"`
+6. `git add any-files`
+7. `git commint -m "your-comment"`
+8. `git push -u origin "name-of-your-branch"`
+9. `git push`
+10. make pull request from you repo at github to the source repo (github/awroble)

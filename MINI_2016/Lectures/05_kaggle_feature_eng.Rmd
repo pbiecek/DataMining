@@ -1,0 +1,175 @@
+---
+title: "Kaggle and the feature engineering"
+author: "Przemyslaw Biecek"
+date: "Data Mining - Advances"
+output: 
+  html_document:
+    toc: TRUE
+---
+
+# Many methods
+
+For classifications dozens of good methods are proposed. The list of methods supported by caret is listed here (quite long):
+http://topepo.github.io/caret/bytag.html
+
+We have discussed some of them, the classical ones (kNN) and the state of the art (Random Forests). There are a lot of methods that still should be covered. 
+
+But here is the point:
+
+* The list of methods will grow
+* You can read about them yourself (it's good idea to read about Neural Networks https://en.wikipedia.org/wiki/Artificial_neural_network or Support vector machines https://en.wikipedia.org/wiki/Support_vector_machine)
+* Usually it is cheap to try dozens of them, so DO NOT GET USED TO SMALL SET OF METHODS
+* In many cases it's the feature engineering that play key role in classification.
+
+So today, we are going to see how to apply some new methods and then we will focus on features.
+
+## Letters again 
+
+So, let's read the letters dataset again, and let's test different classifiers there.
+
+```{r, cache=TRUE, message=FALSE, warning=FALSE}
+library(caret)
+letters <- read.table("letter-recognition.data.txt", sep=",")[1:2000,]
+head(letters)
+
+indxTrain <- createDataPartition(y = letters$V1, p = 0.75)
+lettersTrain <- letters[indxTrain$Resample1,]
+lettersTest <- letters[-indxTrain$Resample1,]
+```
+
+There are dozens of different classifiers, so how to check which are a good choices?
+
+One approach is to read what other people are using on websites like kaggle. Try these methods, validate their performance, and then use only these with good performance (note that there are many different rules to measure performance).
+
+Here we are going to compare random forests, SVM, eXtreme Gradient Boosting (the new sheriff in town) or Boosted Logistic Regression.
+
+```{r, cache=TRUE, message=FALSE, warning=FALSE}
+library(caret)
+mat <- sapply(c( 'LogitBoost', 'xgbTree', 'rf', 'svmRadial'), function (met) {
+  modelFit<- train(V1~., method=met, data=lettersTrain)
+  confusionMatrix(lettersTest$V1, predict(modelFit, lettersTest))$overall
+})
+
+round(mat*100,2)
+```
+
+
+# The Kaggle use case
+
+Kaggle is a platform for crowd data-based problem solving.
+
+Companies submit their problems and data scientists compete to find best solution (best according to a given criteria).
+
+We are going to use this platform to try some more complex feature engineering.
+
+## The use case
+
+Today we are going to play with 'Walmart Recruiting: Trip Type Classification' task.
+
+Here you have an introduction to this problem: https://www.kaggle.com/c/walmart-recruiting-trip-type-classification
+
+Here you can download data and read about columns/variables: https://www.kaggle.com/c/walmart-recruiting-trip-type-classification/data
+
+Let's build a classifier for this data
+
+## Load the data
+
+```{r, message=FALSE, warning=FALSE}
+data <- read.table("train.csv", sep=",", head=T)
+
+library(dplyr)
+data %>% filter(VisitNumber == 7)
+
+```
+
+## The key is the feature engeneriing
+
+We cannot even directly fit/train any of our classifiers on this dataset.
+
+* First, we need to prepare some data transformation,
+* Second, we have to extract some features with potential,
+* Third, we can try different methods to assess performance.
+
+Note, the quite often the choice for an algorithm is not the most important thing.  Much more important is the feature engineering.
+
+## The plan
+
+Work in pairs.
+
+Extract useful features. This is usually done in iterations, so start with ,,small'' set of features and then add new.
+
+What features may be derived for this data?
+This is the creative part of data mining. Start with 10 different types of features.
+
+Examples: 
+
+* number of products per trip
+* number of different products per trip
+* number of different departments per trip
+* link between Weekday and TripType
+* link between DepartmentDescription and TripType
+
+What other feature you can derive?
+
+On this stage it is better to have more features than small set of the most important ones. Having more there will be time for reductions/selections.
+
+Iteration 1 (90 minutes):
+
+* Spend 15 minutes for feature extraction.
+* Here we will compare different ideas
+* Write an R function for assessing the performance of a classifier (see https://www.kaggle.com/c/walmart-recruiting-trip-type-classification/details/evaluation)
+* Try few different classifiers, try random forests and few others.
+* Compare performance
+* Here we will compare results
+
+Iteration 2 (60 minutes):
+
+* Spend 15 minutes to think about new features
+* Here we will compare different ideas
+* Try few different classifiers
+* Validate which classes are easy to guess and which are hard
+* Compare performance
+
+# During classess
+
+```{r, message=FALSE, warning=FALSE}
+
+data %>% 
+  group_by(VisitNumber) %>%
+  summarise(TripType = head(TripType,1),
+            count = n(),
+            day = unique(Weekday)[1]) %>%
+  head()
+
+data1000 <- head(data,1000)
+library(tidyr)
+data1000 %>% 
+  group_by(TripType, VisitNumber, DepartmentDescription) %>% 
+  summarise(count = n()) %>%
+  spread(DepartmentDescription, count, fill=0)
+
+
+library(randomForest)
+rf <- randomForest(V1~., data=lettersTrain)
+scores <- predict(rf, lettersTest, type = "prob")
+
+myScores <- sapply(1:nrow(lettersTest), function(i){
+  scores[i, lettersTest$V1[i]]
+})
+
+mean(-log(pmax(myScores,0.05)))
+
+```
+
+# The Homework
+
+See the Kaggle leaderboard for this problem
+
+https://www.kaggle.com/c/walmart-recruiting-trip-type-classification/leaderboard
+
+And the definition for the error function
+
+https://www.kaggle.com/c/walmart-recruiting-trip-type-classification/details/evaluation
+
+Train a model/classifier that will have score that will give you a position in top 150.
+
