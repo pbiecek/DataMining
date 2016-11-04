@@ -22,7 +22,7 @@ After each phase you should create a single report (e.g. with the use of knitr).
 
 In the first phase you should build two classifiers and compare their performances.
 
-In the second phase you should try any number of classifier you wish in order to create the best possible classifier.
+In the second phase you should try any number of classifier you wish in order to create the best possible classifier. You should do descriptive analysis for the dataset in order to know the data and how to cope with them. Moreover try other models: more target classes (more than two - very pupular and with avarage popularity) or any regression models.
 Report from this phase shall have not more than 10 pages (but may be shorter as well).
 
 In the third phase you should crease a brief summary (up to 3 pages) with description and validation of your classifier.
