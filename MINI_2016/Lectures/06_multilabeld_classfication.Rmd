@@ -101,6 +101,7 @@ multiclass.roc(iris$Species, myPr)
 # Additional links
 <http://blog.revolutionanalytics.com/2016/03/com_class_eval_metrics_r.html>
 <https://mlr-org.github.io/mlr-tutorial/devel/html/index.html#machine-learning-in-r-mlr-tutorial>
+<https://www.r-bloggers.com/error-metrics-for-multi-class-problems-in-r-beyond-accuracy-and-kappa/>
 
 # Class excercise
 
