@@ -1,0 +1,107 @@
+---
+title: "06_multilabeled_classification"
+author: "Anna Wróblewska"
+date: "Data Mining - Advances"
+output: 
+  html_document:
+    toc: TRUE
+---
+
+# Multiclass classification
+Most classifiers were initially designed for binary (two-class) problems. When dealing with multiple classes, an appropriate multi-class method is needed.
+
+Some classifiers are directly multi-class, e.g. naive Bayes, logistic regression, kNN. Other are basically designed for binary problems.
+
+Solving the problem with binary classifications you can use as follows.
+
+One solutions for dataset with more than two classes are comparing one class with the others taken together. This strategy generates n classifiers, where n is the number of classes. This method is also called **winner-take-all** classification or **one-vs-all** method. 
+
+A second approach is to combine several classifiers (‘one against one’, **all pairs**). While performing pair-wise comparisons between all n classes, all possible two-class classifiers are evaluated from the training set of n classes, each classifier being trained on only two out of n classes, giving a total of n(n-1)/2 classifiers. Applying each classifier to the test data vectors gives one vote to the winning class. The data is assigned the label of the class with most votes. It is generally faster and more accurate the **one-against-all**.
+
+Other thechnique is **error correcting output codes**. <http://www.ccs.neu.edu/home/vip/teach/MLcourse/4_boosting/lecture_notes/ecoc/ecoc.pdf>
+
+```{r, cache=TRUE, message=FALSE, warning=FALSE}
+data(iris)
+library(e1071)
+
+svm.model=svm(Species~., data=iris, kernel="polynomial",probability=TRUE)
+
+plot(svm.model, iris, Petal.Width ~ Petal.Length,
+     slice = list(Sepal.Width = 3, Sepal.Length = 4),
+     svSymbol = "x", dataSymbol = "o", symbolPalette = rainbow(4),
+     color.palette = terrain.colors,fill=TRUE,grid=200)
+
+pred <- predict(svm.model, iris, decision.values = TRUE, probability = TRUE)
+attr(pred, "decision.values")[1:4,]
+attr(pred, "probabilities")[1:4,]
+
+# visualize (classes by color, SV by crosses):
+plot(cmdscale(dist(iris[,-5])),
+     col = as.integer(iris[,5]),
+     pch = c("o","+")[1:150 %in% svm.model$index + 1])
+
+```
+Please read the slides <http://karchinlab.org/fcbb2_spr14/Lectures/Machine_Learning_R.pdf> and code below.
+```{r}
+library(ROCR)
+library(klaR)
+
+data(iris)
+
+lvls = levels(iris$Species)
+testidx = which(1:length(iris[, 1]) %% 5 == 0) 
+iris.train = iris[testidx, ]
+iris.test = iris[-testidx, ]
+
+aucs = c()
+plot(x=NA, y=NA, xlim=c(0,1), ylim=c(0,1),
+     ylab='True Positive Rate',
+     xlab='False Positive Rate',
+     bty='n')
+
+for (type.id in 1:3) {
+  type = as.factor(iris.train$Species == lvls[type.id])
+
+  nbmodel = NaiveBayes(type ~ ., data=iris.train[, -5])
+  nbprediction = predict(nbmodel, iris.test[,-5], type='raw')
+
+  score = nbprediction$posterior[, 'TRUE']
+      actual.class = iris.test$Species == lvls[type.id]
+
+  pred = prediction(score, actual.class)
+  nbperf = performance(pred, "tpr", "fpr")
+
+  roc.x = unlist(nbperf@x.values)
+  roc.y = unlist(nbperf@y.values)
+  lines(roc.y ~ roc.x, col=type.id+1, lwd=2)
+
+  nbauc = performance(pred, "auc")
+  nbauc = unlist(slot(nbauc, "y.values"))
+  aucs[type.id] = nbauc
+}
+
+lines(x=c(0,1), c(0,1))
+
+mean(aucs)
+```
+
+```{r}
+library(randomForest)
+library(pROC)
+# 3-class in response variable
+rf = randomForest(Species~., data = iris, ntree = 100)
+# predict(.., type = 'prob') returns a probability matrix
+pr = predict(rf, iris, type = 'prob')
+myPr <- sapply(1:nrow(iris), function(i){
+  pr[i, iris$Species[i]]
+})
+multiclass.roc(iris$Species, myPr)
+```
+
+# Additional links
+<http://blog.revolutionanalytics.com/2016/03/com_class_eval_metrics_r.html>
+<https://mlr-org.github.io/mlr-tutorial/devel/html/index.html#machine-learning-in-r-mlr-tutorial>
+
+# Class excercise
+
+Please prepare a nice tutorial using interesting dataset for students that want to know about multi-class dataset.
