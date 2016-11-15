@@ -1,0 +1,196 @@
+---
+title: "DMA - Homework 6"
+author: "Viet Ba Mai"
+date: "12 listopada 2016"
+output: 
+  html_document:
+    toc : TRUE
+---
+
+
+#Description
+Given is Walmart's transactional dataset. The task is to classify customer shopping trips
+The goal of this homework is to create a model which results will be within the top 150 from the Kaggle leaderboard:
+https://www.kaggle.com/c/walmart-recruiting-trip-type-classification/leaderboard
+
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+library(caret)
+library(dplyr)
+library(tidyr)
+library(randomForest)
+import <- read.csv(file.path(file.path(getwd(), "data"), "train.csv"), header=TRUE, sep=",", encoding="UTF-8")
+head(import)
+
+#test <- read.csv(file.path(file.path(getwd(), "data"), "test.csv"), header=TRUE, sep=",", encoding="UTF-8")
+```
+
+In the competition both training and testing datasets are given, but the testing set does not have the target variable with which checking the performance would be possible, so for the purpose of the homework the training and testing sets will be partitioned from the original train set.
+
+#Data fields
+The following are field descriptions taken from https://www.kaggle.com/c/walmart-recruiting-trip-type-classification/data?train.csv.zip :
+
+- **TripType** - a categorical id representing the type of shopping trip the customer made. This is the ground truth that you are predicting. TripType_999 is an "other" category.
+
+- **VisitNumber** - an id corresponding to a single trip by a single customer.
+
+- **Weekday** - the weekday of the trip.
+
+- **Upc** - the UPC number of the product purchased.
+
+- **ScanCount** - the number of the given item that was purchased. A negative value indicates a product return.
+
+- **DepartmentDescription** - a high-level description of the item's department.
+
+- **FinelineNumber** - a more refined category for each of the products, created by Walmart.
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+head(train)
+```
+
+
+#Creating new features
+The fields given by Walmart are not the best for classification which raises the need to create new features from the original ones.
+The newly created variables will be:
+
+- **BoughtProducts** - bought products per VisitNumber
+
+- **ReturnedProducts** - returned products per VisitNumber
+
+- **TotalProducts** - total products per VisitNumber
+
+- **ReturnedProducts** - returned products per VisitNumber
+
+- **DepartmentCount** - number of departments per VisitNumber
+
+- **FinelineCount** - number of finelines per VisitNumber
+
+- **BoughtPerDepartment** - returned products per Department
+
+- **ReturnedPerDepartment** - returned products per Department
+
+And also I will create features by spreading the `DepartmentDescription`.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+data = import %>% 
+  group_by(VisitNumber) %>%
+  summarise(TripType = head(TripType,1),
+            Day = unique(setNames(0:6, c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))[Weekday])[1],
+            BoughtProducts = sum(ScanCount >= 0),
+            ReturnedProducts = sum(ScanCount < 0),
+            TotalProducts = sum(ScanCount),
+            DepartmentCount = n_distinct(DepartmentDescription),
+            FinelineCount = n_distinct(FinelineNumber)
+            )
+# prop.table(table(tmp$Day))
+# prop.table(table(data$Day))
+head(data)
+
+dataDepartments = import %>%
+  group_by(TripType, VisitNumber, DepartmentDescription) %>%
+  summarise(count = n()) %>%
+  spread(DepartmentDescription, count, fill=0)
+head(dataDepartments)
+
+prodsPerDept = import %>%
+  group_by(VisitNumber, DepartmentDescription) %>%
+  summarise(
+    BoughtPerDepartment = sum(ScanCount >=0),
+    ReturnedPerDepartment = sum(ScanCount < 0)
+  )
+head(prodsPerDept)
+
+
+merged.data <- merge(data, dataDepartments, by=c("TripType", "VisitNumber"))
+merged.data <- merge(merged.data, prodsPerDept, by=c("VisitNumber"))
+merged.data <- subset(merged.data, select = -c(DepartmentDescription))
+```
+
+
+#Data Preparation
+Since the dataset is very complex now (with 80 variables and over 300k observations) I need to make some data preparations.
+
+Firstly I decrease the number of observations to 100k and then I will remove the `nearZeroVariance` variables.
+When the dataset is ready I split it into a training and testing set.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+indxSample <- sample(seq_len(nrow(merged.data)), size = 100000)
+sample <- merged.data[indxSample, ]
+
+prop.table(table(sample$TripType))
+
+nzv <- nearZeroVar(sample)
+names(sample)[nzv]
+data <- sample[, -nzv]
+
+data$TripType <- factor(data$TripType)
+levels(data$TripType)
+
+names(data) = make.names(names(data), unique = FALSE)
+
+set.seed(1313)
+indxTrain <- createDataPartition(y = data$TripType, p = 0.75)
+train <- data[indxTrain$Resample1,]
+test <- data[-indxTrain$Resample1,]
+```
+
+
+#Classification
+##Random Forest
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+rf <- randomForest(TripType ~ ., data=train)
+scores <- predict(rf, test, type = "prob")
+
+myScores <- sapply(1:nrow(test), function(i){
+  scores[i, test$TripType[i]]
+})
+
+perf <- mean(-log(pmax(myScores,0.05)))
+perf
+
+scoresClass <- predict(rf, test, type = "class")
+rfConfusionMatrix <- confusionMatrix(scoresClass, test$TripType)
+
+
+varImpPlot(rf)
+importance(rf)
+```
+
+
+##Random Forest top values by importance
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+sortedImportance=order(-rf$importance[,1])
+tops=rownames(rf$importance)[sortedImportance][1:15][1:15]
+
+tops <- append(tops, "TripType")
+tops
+subTrain <- train[tops]
+subTest <- test[tops]
+
+rfTop <- randomForest(TripType ~ ., data=subTrain)
+scoresTop <- predict(rfTop, subTest, type = "prob")
+
+myScoresTop <- sapply(1:nrow(subTest), function(i){
+  scoresTop[i, subTest$TripType[i]]
+})
+
+perfTop <- mean(-log(pmax(myScoresTop,0.05)))
+perfTop
+
+scoresTopClass <- predict(rfTop, subTest, type = "class")
+rfTopConfusionMatrix <- confusionMatrix(scoresTopClass, subTest$TripType)
+```
+
+
+#Results
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#Random Forest
+rfConfusionMatrix$overall
+
+#Random Forest Top variables by importance
+rfTopConfusionMatrix$overall
+```
+
+#Conclusions
+The random forest using only top variables by importance performed worse and yields lower accuracy (~73%).
+For the other forest accuracy is 80% which is very good result.

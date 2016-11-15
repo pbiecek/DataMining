@@ -1,0 +1,53 @@
+\documentclass{article}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+\title{Report-Homework2}
+\author{Klaudia Magda}
+\maketitle
+
+
+
+What is a KNN algorithm?
+
+KNN algorithm is a non-parametric method for classification based on similarity functions. Can be used also for regression
+
+Stores all available cases and classifies new cases by a majority vote of its k neighbors. The case being assigned to the class is most common amongst its K nearest neighbors measured by a distance function.
+
+ In other words, the higher the score for a certain data point that was already stored, the more likely that the new instance will receive the same classification as that of the neighbor.
+
+All variables should have the same impact on results one should first normalize each variable that is used for predictions.
+
+Target variable -> determines the result of other numeric variables
+
+
+Data which is collected: 
+
+To measure a distance it was used Euclidean distance.
+
+
+A case is classified by a majority vote of its neighbours, with the case being assigned to the class most common amongst its K nearest neighbours measured by a distance function.
+This algorithms segregates unlabeled data points into well defined groups.
+
+In second homework is given student-mat.csv dataset. The aim goals for this project are:
+
+1.Choosing variables and build classifier for them.
+2.Creating a factors from response/target variables.
+3.Find optimal k and calculate performance for it.
+
+In this task response/target variable is given as 'Dalc' or 'Walc', where
+Dalc - workday alcohol consumption (numeric: from 1 - very low to 5 - very high) 
+Walc - weekend alcohol consumption (numeric: from 1 - very low to 5 - very high)
+
+This variable will determine the results of the diagnosis based on other numerical variables
+
+This data approach student achievement in secondary education school. In my case I've chosen 2 variables (Studytime and  failures) that can have an affect on target variable.
+
+In my .R script there are given 2 approaches -> 1 similiar to one from lecture and another from given sources.
+
+
+From R script we can assume that failures in school have an affect on consumption the alcohol.
+
+It seems increasing K increases the classification. Optimal K: ~5
+
+\end{document}

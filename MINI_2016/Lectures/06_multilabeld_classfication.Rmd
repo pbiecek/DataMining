@@ -103,6 +103,6 @@ multiclass.roc(iris$Species, myPr)
 <https://mlr-org.github.io/mlr-tutorial/devel/html/index.html#machine-learning-in-r-mlr-tutorial>
 <https://www.r-bloggers.com/error-metrics-for-multi-class-problems-in-r-beyond-accuracy-and-kappa/>
 
-# Class excercise
+# Class excercise and homework
 
 Please prepare a nice tutorial using interesting dataset for students that want to know about multi-class dataset.
