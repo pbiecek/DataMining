@@ -1,0 +1,45 @@
+#Load data
+library(lattice)
+library(ggplot2)
+student_mat <- read.csv(file="student-mat.csv", header=TRUE, sep=";", encoding="UTF-8")
+head(student_mat, 30)
+library(caret)
+student <- within(student_mat, Dalc <- factor(Dalc))
+head(student[, c("studytime", "absences",  "freetime", "goout")], 30)
+
+
+#Testing and Training
+set.seed(1313)
+indxTrain <- createDataPartition(y = student$Dalc, p = 0.75)
+str(indxTrain)
+
+stdntmatTrain <- student[indxTrain$Resample1,]
+stdntmatTest <- student[-indxTrain$Resample1,]
+
+knnFit <- knn3(Dalc ~ studytime + age + absences + failures + freetime + goout, data = stdntmatTrain, k=1)
+pred <- predict(knnFit, stdntmatTest, type="class")
+tab <- table(true = stdntmatTest$Dalc, predicted = pred)
+sum(diag(tab)) / sum(tab)
+
+
+#choose k
+tuneK <- 1:100
+performance <- sapply(tuneK, function(k) {
+  knnFit <- knn3(Dalc ~ studytime + age + absences + failures + freetime + goout, data = stdntmatTrain, k=k)
+  tab <- table(true = stdntmatTest$Dalc,
+               predict = predict(knnFit, stdntmatTest, type="class"))
+  tab2 <- prop.table(tab, 1)
+  tab2
+  sum(diag(tab)) / sum(tab)
+}) 
+
+optimal_k = which.max(performance)
+optimal_k
+performance[optimal_k]
+
+df <- data.frame(tuneK, performance)
+
+ggplot(df, aes(tuneK, performance)) +
+  geom_point() + 
+  geom_smooth(se=FALSE, span=0.1, size=2) +
+  theme_bw() 

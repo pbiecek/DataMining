@@ -1,0 +1,43 @@
+install.package('PogromcyDanych')
+install.package('knitr')
+library(PogromcyDanych)
+library(knitr)
+library(dplyr)
+library(ggplot2)
+
+setLang()
+
+
+d1<-data("skiJumps2013")
+
+tab_speed<-table(skiJumps2013$jumpSpeed)
+tab_distance<-table(skiJumps2013$jumpDistance)
+tab_country<-table(skiJumps2013$compCountry)
+tab_jumpcountry<-table(skiJumps2013$jumperCountry)
+tab_dateofbirth<-table(skiJumps2013$jumperDateOfBirth)
+
+
+barplot(tab_speed)
+barplot(tab_distance)
+barplot(tab_country)
+barplot(tab_jumpcountry)
+barplot(tab_dateofbirth)
+
+ggplot(d1, aes(x = CPI, y = HDI, size = HDI.Rank)) + geom_point()
+
+hist(skiJumps2013$speed)
+boxplot(skiJumps2013$compCountry, horizontal = TRUE)
+
+skiJumps2014 <- subset(skiJumps2013, as.Date(skiJumps2013$compDate) >= "2014-01-01")
+
+summary(skiJumps2014$jumpSpeed)
+summary(skiJumps2014$jumpDistance)
+comp_country <- table(skiJumps2014$compCountry)
+barplot(comp_country, horiz = TRUE, las=1)
+
+jumper_country <- table(skiJumps2014$jumperCountry)
+barplot(jumper_country, las=2)
+
+jumper_bday <- table(as.numeric(format(skiJumps2014$jumperDateOfBirth, '%Y')))
+barplot(jumper_bday, las=2)
+
