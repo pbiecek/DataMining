@@ -1,0 +1,250 @@
+---
+title: "Naive Bayes"
+author: "Przemyslaw Biecek"
+date: "Data Mining - Advances"
+output: 
+  html_document:
+    toc: TRUE
+---
+
+# New datasets
+
+Today we are going to work with two new dataset from UCI repository. For more details see http://archive.ics.uci.edu/ml/index.html
+
+## Wine
+
+Is it possible to assess the quality of wine based on physicochemical properties like
+
+* fixed acidity
+* volatile acidity
+* citric acid
+* residual sugar
+* chlorides
+* free sulfur dioxide
+* total sulfur dioxide
+* density
+* pH
+* sulphates
+* alcohol
+
+Let's do this for red wines.
+
+The quality here is a score with 6 levels but we are going to divide it into two classes good/bad.
+
+Description: http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality.names
+
+```{r, cache=TRUE}
+wines <- read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv", sep=";", header=TRUE)
+
+table(wines$quality)
+
+```
+
+## Letters
+
+A very interesting set of applications of data mining techniques are tools for letters identification that base on some statistical properties of images that contain letters.
+
+There is a lot of different approaches to derive features from such data, here are features used in this study
+
+*	x-box	horizontal position of box	
+*	y-box	vertical position of box	
+*	width	width of box			
+*	high 	height of box			
+*	onpix	total # on pixels		
+*	x-bar	mean x of on pixels in box	
+*	y-bar	mean y of on pixels in box	
+*	x2bar	mean x variance			
+*	y2bar	mean y variance			
+*	xybar	mean x y correlation		
+*	x2ybr	mean of x * x * y		
+*	xy2br	mean of x * y * y		
+*	x-ege	mean edge count left to right	
+*	xegvy	correlation of x-ege with y	
+*	y-ege	mean edge count bottom to top	
+*	yegvx	correlation of y-ege with x	
+
+Description: http://archive.ics.uci.edu/ml/machine-learning-databases/letter-recognition/letter-recognition.names
+
+```{r}
+letters <- read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/letter-recognition/letter-recognition.data", sep=",")
+
+head(letters)
+```
+
+# Naive Bayes
+
+Today we will work with a very simple and very interesting tool for classification, called the Naive Bayes Classifier.
+
+Let's construct the classifier based on Bayes rule.
+
+In general form, the Bayes rule is
+
+$P(A|B) = P(B|A)P(A)/P(B)$.
+
+What we are really interesting in is the probability for class C given observations, so.
+
+$P(C|X_1, X_2, ..., X_k) = P(X_1, X_2, ..., X_k|C)P(C)/P(X_1, X_2, ..., X_k)$.
+
+The dominator is a constant and we may neglect it.
+
+Still the problem is, how to calculate $P(X_1, X_2, ..., X_k|C)$. 
+
+If we assume independence, then we can rewrite it as
+
+$$P(X_1|C)P(X_2|C)...P(X_k|C)$$
+
+## How to do this in R
+
+We are going to show two implementations, from the `naiveBayes{e1071}` and `NaiveBayes{klaR}`.
+
+For both of them it is better to supply categorical variables, so first we are going to categorize each variable
+
+```{r}
+winesb <- wines
+
+winesb$quality <- factor(ifelse(wines$quality > 5, "good", "bad")) 
+table(wines$quality)
+
+for (i in 1:11) {
+  winesb[,i] <- cut(winesb[,i], 3)
+}
+
+```
+
+Let's start with `naiveBayes`.
+
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+library(e1071)
+
+nbc <- naiveBayes(quality~., data=winesb)
+# what is inside
+nbc
+
+# the task is not that easy
+pred <- predict(nbc, winesb)
+
+table(winesb$quality , pred)
+mean(winesb$quality == pred)
+```
+
+The advantage of `NaiveBayes` is that it can handle continuous variables as well.
+Let's train it on continuous variables.
+
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+library(klaR)
+
+nbc <- NaiveBayes(winesb$quality~.-quality, data=wines, usekernel=TRUE)
+plot(nbc)
+
+pred <- predict(nbc, wines)
+
+table(winesb$quality , pred$class)
+
+mean(winesb$quality == pred$class)
+
+```
+
+
+# How to evaluate performance
+
+We have new tools in out toolbox. It would be nice to have more methods to compare performance of these new methods.
+
+We have already discussed the train/test approach. Let us define two more approaches.
+
+You will find more examples here: http://machinelearningmastery.com/how-to-estimate-model-accuracy-in-r-using-the-caret-package/
+
+## k-fold cross validation
+
+Let's divide the whole dataset into k-subsets. And then for each subset let's train the classifier on all remaining subsets and test it on the selected one.
+
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+library(caret)
+library(e1071)
+
+folds <- createFolds(winesb$quality, k = 10)
+
+perf <- sapply(folds, function(fold) {
+  nbc <- naiveBayes(quality~., data=winesb[-fold,])
+  pred <- predict(nbc, winesb[fold,])
+  mean(winesb$quality[fold] == pred)
+})
+
+barplot(perf, horiz = TRUE, las=1)
+
+```
+
+With the `caret` package we can do this in a more automated way.
+
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+library(caret)
+train_control <- trainControl(method="cv", number=10)
+
+# train the model 
+model <- train(quality~., data=winesb, trControl=train_control, method="nb")
+# make predictions
+predictions <- predict(model, winesb)
+# summarize results
+confusionMatrix(predictions, winesb$quality)
+```
+
+Note that you may increase the number of classes to the sample size and this leads to one-leave-out validation. See `method="LOOCV"` for more details.
+
+## Bootstrap
+
+An alternative approach is to use bootstrap. Here for each iteration we draw random sample of the same size. Since some observations are not in the sample we may calculate performance for them.
+
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+train_control <- trainControl(method="boot", number=10)
+
+model <- train(quality~., data=winesb, trControl=train_control, method="nb")
+
+predictions <- predict(model, winesb)
+
+confusionMatrix(predictions, winesb$quality)
+
+```
+
+
+# Feature selection
+
+NB assumes independence, so sometimes it may be a good idea to remove highly correlated columns.
+
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+library(corrplot)
+correlationMatrix <- cor(wines[, 1:11])
+highlyCorrelated <- findCorrelation(correlationMatrix, cutoff = 0.6)
+corrplot(correlationMatrix, method = 'number', tl.cex = 0.5)
+```
+
+Feature importance
+
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+model <- train(quality~., data=winesb, trControl=train_control, method="nb")
+varImp(model, scale=TRUE)
+plot(varImp(model))
+```
+
+
+# Lab
+
+1. Create the ROC curves for naiveBayes, randomForest and k-nn. Which method has better ROC curve?
+
+2. See how the performance is related with number of classes that we are going to predict.
+Calculate performance for two classes (<>5), three classes (<>4<>6<>) and more classes. 
+Plot the performance as a function on number of classes.
+
+5. Calculate performance (forest/knn/naiveBayes) for new dataset `letters`. Note that we have more than two classes here. 
+
+
+# The Homework
+
+1. By default the `cut` function creates intervals of equal length. But then sometimes one of these intervals contains majority of points.
+
+Let's check what will happen if we divide each variable into three classes but with equal number of observations. Will it improve classification or not?
+
+Compare performance (based on the wine dataset) for two Naive Bayes classifier based on data after categorisation. In one classifier create categories of equal length in the second one of the equal size.
+
+2. Check how the performance of the classifier will change if we will use not all features but only 3 best ones.
+How to choose the best features? Try randomForest for feature importance or boxplots or density plots.
+
+
