@@ -247,4 +247,7 @@ Compare performance (based on the wine dataset) for two Naive Bayes classifier b
 2. Check how the performance of the classifier will change if we will use not all features but only 3 best ones.
 How to choose the best features? Try randomForest for feature importance or boxplots or density plots.
 
+# Text mining
+
+You can use this data: http://www.dt.fee.unicamp.br/~tiago/smsspamcollection/
 
