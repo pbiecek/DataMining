@@ -47,12 +47,12 @@ mainly Fridays
 * 18.XI - [Part 2 - project 1] - 2 hours
 * 25.XI - 2 hours
 * 2.XII - [Part 3 - project 1] - 4 hours
-* 9.XII - [Part 1 - project 2] - 2 hours
-* 16.XII - 4 hours
-* 21.XII Wednesday [Part 2 - project 2] - 2 hours
-* 13.I - 4 hours
-* 20.I [Part 3 - project 2] - 2 hours
-* 27.I [Final test] - 4 hours
+* 9.XII - 2 hours
+* 16.XII - [Part 1 - project 2] - 4 hours
+* 21.XII Wednesday - 2 hours
+* 13.I - [Part 2 - project 2] - 4 hours
+* 20.I - [Part 3 - project 2] - 2 hours
+* 27.I - [Final test] - 4 hours
 
 Projects:
 ---------
