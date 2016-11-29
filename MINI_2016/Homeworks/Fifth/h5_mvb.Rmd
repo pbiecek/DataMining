@@ -1,5 +1,5 @@
 ---
-title: "DMA - Homework 6"
+title: "DMA - Homework 5"
 author: "Viet Ba Mai"
 date: "12 listopada 2016"
 output: 
@@ -32,7 +32,7 @@ The following are field descriptions taken from https://www.kaggle.com/c/walmart
 
 - **TripType** - a categorical id representing the type of shopping trip the customer made. This is the ground truth that you are predicting. TripType_999 is an "other" category.
 
-- **VisitNumber** - an id corresponding to a single trip by a single customer.
+- **VisitNumber** - an id corresponding to a single trip by a single customer. It is non-predictive hence will be excluded.
 
 - **Weekday** - the weekday of the trip.
 
@@ -103,7 +103,7 @@ head(prodsPerDept)
 
 merged.data <- merge(data, dataDepartments, by=c("TripType", "VisitNumber"))
 merged.data <- merge(merged.data, prodsPerDept, by=c("VisitNumber"))
-merged.data <- subset(merged.data, select = -c(DepartmentDescription))
+merged.data <- subset(merged.data, select = -c(DepartmentDescription, VisitNumber))
 ```
 
 
@@ -185,10 +185,10 @@ rfTopConfusionMatrix <- confusionMatrix(scoresTopClass, subTest$TripType)
 #Results
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 #Random Forest
-rfConfusionMatrix$overall
+rfConfusionMatrix#$overall
 
 #Random Forest Top variables by importance
-rfTopConfusionMatrix$overall
+rfTopConfusionMatrix#$overall
 ```
 
 #Conclusions
