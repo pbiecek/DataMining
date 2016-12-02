@@ -12,7 +12,7 @@ output:
 For classifications dozens of good methods are proposed. The list of methods supported by caret is listed here (quite long):
 http://topepo.github.io/caret/bytag.html
 
-We have discussed some of them, the classical ones (kNN) and the state of the art (Random Forests). There are a lot of methods that still should be covered. 
+We have discussed some of them, the classical ones (LDA/QDA/kNN) and the state of the art (Random Forests). There are a lot of methods that still should be covered. 
 
 But here is the point:
 
@@ -50,6 +50,7 @@ mat <- sapply(c( 'LogitBoost', 'xgbTree', 'rf', 'svmRadial'), function (met) {
   confusionMatrix(lettersTest$V1, predict(modelFit, lettersTest))$overall
 })
 
+
 round(mat*100,2)
 ```
 
@@ -64,7 +65,7 @@ We are going to use this platform to try some more complex feature engineering.
 
 ## The use case
 
-Today we are going to play with 'Walmart Recruiting: Trip Type Classification' task.
+Today we are going to play with ,Walmart Recruiting: Trip Type Classification' task.
 
 Here you have an introduction to this problem: https://www.kaggle.com/c/walmart-recruiting-trip-type-classification
 

@@ -5,17 +5,18 @@ Project 2 - Internet of Things
 
 The main goal is to excersise methods for clustering and description of data.
 
-Find segments of visitors with similar behavior. [TODO]
+At first show main characteristics of the data.
+Find segments of visitors / pupils with similar behavior. 
 Show the flow of visitors across different stations.
 
 # The Data
 
-Download the dataset from  ...[TODO]
+Dataset ia available from yout teeacher. You can copy during classes or write an email: wroblewskaa **at** mini.pw.edu.pl
 
 
 # The Goal
 
-In this dataset you have detailed information about ...[TODO]
+In this dataset you have detailed information about pupils and the way of visiting exibitions in Copernicus Center.
 
 # Phases
 
@@ -23,8 +24,9 @@ After each phase you should create a single report (e.g. with the use of knitr).
 
 In the first phase you should characterize types of interactions with different machines (exploratory analysis). Try to answer following questions:
 
+* is there a relation between the duration of an interaction and variables like weekday or hour, or knowledge of the pupil, the occupation of parents etc.
 * what is the average (or distribution) time of interaction with a given machine
-* is there a relation between the duration of an interaction and variables like weekday or hour
+* and many other questions: use brainstorming in your team
 
 In the second phase you should try to segment visitors into separate categories / segments. Try to answer following questions:
 

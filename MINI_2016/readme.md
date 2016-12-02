@@ -49,10 +49,10 @@ mainly Fridays
 * 2.XII - [Part 3 - project 1] - 4 hours
 * 9.XII - 2 hours
 * 16.XII - [Part 1 - project 2] - 4 hours
-* 21.XII Wednesday - 2 hours
-* 13.I - [Part 2 - project 2] - 4 hours
+* 21.XII Wednesday - [Part 2 - project 2] - 2 hours
+* 13.I - [Additional projects presentation] - 4 hours
 * 20.I - [Part 3 - project 2] - 2 hours
-* 27.I - [Final test] - 4 hours
+* 27.I - [Final test], [Additional projects presentation] - 4 hours
 
 Projects:
 ---------
@@ -70,6 +70,8 @@ Grade:
 ------
 
 Final grade will be based on points from projects (each project id 15+20+25 points, different number of points for each phase of the project) and 10 home works (each home work is for 4 points), and final test 40 points.
+
+**Instead of homeworks and final test you can do additional project, please talk with your teacher.**
 
 Homeworks:
 ----------
