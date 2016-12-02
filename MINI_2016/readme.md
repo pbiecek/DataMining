@@ -69,9 +69,9 @@ Al least 50% of the team is required to be present during the project presentati
 Grade:
 ------
 
-Final grade will be based on points from projects (each project id 15+20+25 points, different number of points for each phase of the project) and 10 home works (each home work is for 4 points), and final test 40 points.
+Final grade will be based on points from projects (each project is for 60 points, which means 15+20+25 points for each phase of the project) and 10 homeworks (each home work is for 4 points), and final test 40 points.
 
-**Instead of homeworks and final test you can do additional project, please talk with your teacher.**
+**Instead of homeworks and final test you can do additional project, please talk with your teacher. The points for the additional project is 60.**
 
 Homeworks:
 ----------
