@@ -100,6 +100,7 @@ data(Boston)
 head(Boston)
 ```
 Please do some exploratory analysis of this dataset: summaries, plots, e.g. the range of `medv` column and its quantiles.  
+
 We will seek to predict `medv` (median house value) using 13 predictors such as `rm` (average number of rooms per house), `age` (average age of houses), and `lstat` (percent of households with low socioeconomic status).
 ```{r}
 lm.fit=lm(medv~lstat ,data=Boston)  
@@ -109,9 +110,11 @@ summary(lm.fit)
 ```
 As you can see `summary` will give us an information about p- values and standard errors for the coefficients, as well as the R2 statistic and F-statistic for the model.  
 In a simple linear regression setting, in order to determine whether there is a relationship between the response and the predictor we can simply check whether $\beta_1 = 0$. In the multiple regression setting with p predictors, we need to ask whether all of the regression coefficients are zero, i.e. whether $\beta_1 = \beta_2 = ··· = \beta_p = 0$. As in the simple linear regression setting, we use a hypothesis test to answer this question. We test the null hypothesis,  
-$H_0 : \beta_1 = \beta_2 = ··· = \beta_p = 0$ (There is no relationship between variables)  
+
+$H_0 : \beta_1 = \beta_2 = ··· = \beta_p = 0$ (There is no relationship between variables) 
+
 versus the alternative (There is any relationship)
-$H_a : at least one \beta_j is non-zero$.
+$H_a$ : at least one $\beta_j$ is non-zero.
 This hypothesis test is performed by computing the F-statistic and p-value.
 
 If you want to see confidence intervals for regression parameters, just write:
