@@ -1,0 +1,753 @@
+---
+title: "Project 2 - Internet of Things"
+author: "Viet Ba Mai, Piotr Kamoda"
+date: "December, 10th 2016"
+output: 
+  html_document:
+    toc : TRUE
+---
+
+#Introduction
+Given are two datasets:
+
+- dane_obserwacyjne - information about the duration and type of interactions (activities) done by students, potentially with other ones, in relation to exhibitions of Copernicus Center.
+
+- dane_kwestionariuszowe - information about the aforemantioned students covering their aspirations, parents job, school and grades.
+
+
+The goal of this project is to **explore and analyse given** data. Important aspects to consider include:
+
+- relationship between the duration of an activity and variables like: student's knowledge, parents occupation etc.
+
+- average distribution time of interaction with a given machine
+
+- other
+
+```{r, echo=FALSE, message=TRUE, warning=FALSE, fig.align='center'}
+Sys.setenv(JAVA_HOME='C:\\Program Files\\Java\\jdk1.7.0_51\\jre')
+
+library(rJava)
+library(xlsx)
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(corrplot)
+
+schoolData <- subset(read.xlsx("dane_kwestionariuszowe.xlsx", sheetName="dane_kwestionariuszowe", encoding="UTF-8"), select = -c(Kolum1))
+exhibitData <- subset(read.csv("dane_obserwacyjne.csv", header=TRUE, sep=";"), select = -c(Kolumna1, lp))
+data <- merge(exhibitData, schoolData, by = "ID")
+
+sub.num <- data %>% select(which(sapply(data, is.numeric)))
+sub.num [is.na(sub.num)] <- -1
+par(mar=c(1,1,1,1))
+
+
+corrplot(cor(sub.num), method="circle")
+```
+The correlation plot shows that most of attributes are not related. To confirm or deny this we must perform data exploration.
+
+
+#Exhibit analysis
+In this section we will analyse the exhibit data and find relations between several aggregates such as the average duration of interaction.
+
+##Unit/Event Type
+Analysed attributes are aggregated by the ekspot variable which describes a display unit or an event.
+
+```{r, echo=FALSE, message=TRUE, warning=FALSE, fig.align='center'}
+head(summary(exhibitData$ekspot))
+exhibitAnalysis = exhibitData %>% group_by(ekspot) %>% summarise(averageDuration = mean(czas_w_sek), IDCount = n_distinct(ID), avgPartners = median(ILE_OSTOW))
+
+summary(exhibitAnalysis$averageDuration)
+boxplot(exhibitAnalysis$averageDuration, main="Average Duration", horizontal = TRUE)
+
+
+summary(exhibitAnalysis$IDCount)
+boxplot(exhibitAnalysis$IDCount, horizontal = TRUE, main="Students Count")
+
+summary(exhibitAnalysis$avgPartners)
+
+sorted <- exhibitAnalysis[with(exhibitAnalysis, order(-averageDuration)), ][0:10,]
+ggplot(data=sorted, aes(x=ekspot, y=averageDuration)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Top 10 exhibits by Average Duration")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    xlab("Exhibit Type") +
+    ylab("Average Duration [s]")
+
+ggplot(sorted, aes(x =IDCount, y = averageDuration, colour = ekspot)) + geom_point(size = 3) +
+    ggtitle("Top 10 exhibits by Average Duration") +
+    xlab("Interacting students count") +
+    ylab("Average Duration [s]")
+
+sorted <- exhibitAnalysis[with(exhibitAnalysis, order(averageDuration)), ][0:10,]
+
+ggplot(data=sorted, aes(x=ekspot, y=averageDuration)) +
+    geom_bar(stat="identity", fill="#FF7070") +
+    ggtitle("Bottom 10 exhibits by Average Duration")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    xlab("Exhibit Type") +
+    ylab("Average Duration [s]")
+
+
+sorted <- exhibitAnalysis[with(exhibitAnalysis, order(-IDCount)), ][0:10,]
+ggplot(data=sorted, aes(x=ekspot, y=IDCount)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Top 10 exhibits by students count")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    xlab("Exhibit Type") +
+    ylab("Students Count")
+
+ggplot(data=sorted, aes(x=ekspot, y=averageDuration)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Top 10 exhibits by students count")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    xlab("Exhibit Type") +
+    ylab("Average Duration [s]")
+
+ggplot(sorted, aes(x =IDCount, y = averageDuration, colour = ekspot)) + geom_point(size = 3) +
+    ggtitle("Top 10 exhibits by students count") +
+    xlab("interacting students count") +
+    ylab("Average Duration [s]")
+
+
+sorted <- exhibitAnalysis[with(exhibitAnalysis, order(IDCount)), ][0:10,]
+ggplot(data=sorted, aes(x=ekspot, y=IDCount)) +
+    geom_bar(stat="identity", fill="#FF7070") +
+    ggtitle("Bottom 10 exhibits by students count")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    xlab("Exhibit Type") +
+    ylab("Students Count")
+
+ggplot(data=sorted, aes(x=ekspot, y=averageDuration)) +
+    geom_bar(stat="identity", fill="#FF7070") +
+    ggtitle("Bottom 10 exhibits by students count")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    xlab("Exhibit Type") +
+    ylab("Average Duration [s]")
+
+ggplot(data=exhibitAnalysis, aes(x=avgPartners, y=averageDuration)) +
+    geom_bar(stat="identity", fill="#789DFF") +
+    ggtitle("Median number of partners by Average Duration") +
+    xlab("Median number of partners") +
+    ylab("Average Duration [s]")
+```
+
+
+We can see that the units with which the average duration time was the longest are Miniwarsztat and Majsternia with the time being over 15 minutes. This is natural as they are events engaging students into some activities.
+
+The most popular unit is however Okno Kopernika with the total of over 125 students interacting with it. It is also clear that there is no relation between the average duration and number of interacting students, as the most popular ones have the average duration of only 30-120 seconds which is similar in case of the least popular units (having only 1 student interaction).
+
+
+Additionally in students visiting in pairs seem to take longest time interacting with units.
+
+
+##By Category
+
+There are three categories:
+
+- Breaks
+
+- Exhibits 
+
+- Other Activities (f.e. theatrical performance)
+
+In this section unit categories as analysed against the average duration, students count and unit count.
+
+
+```{r, echo=FALSE, message=TRUE, warning=FALSE, fig.align='center'}
+summary(exhibitData$kategorie)
+
+categoryAnalysis = exhibitData %>% group_by(kategorie) %>% summarise(averageDuration = mean(czas_w_sek), avgPartners = median(ILE_OSTOW), IDCount = n_distinct(ID), expotCount = n_distinct(ID))
+categoryAnalysis <- categoryAnalysis[complete.cases(categoryAnalysis[, 'kategorie']),]
+
+categoryAnalysis$kategorie <- as.character(categoryAnalysis$kategorie)
+categoryAnalysis$kategorie[categoryAnalysis$kategorie == '1'] <- "Breaks"
+categoryAnalysis$kategorie[categoryAnalysis$kategorie == '2'] <- "Exhibits"
+categoryAnalysis$kategorie[categoryAnalysis$kategorie == '3'] <- "Other Activities"
+
+summary(categoryAnalysis$averageDuration)
+boxplot(categoryAnalysis$averageDuration, horizontal = TRUE, main="Average Duration")
+
+
+summary(categoryAnalysis$IDCount)
+boxplot(categoryAnalysis$IDCount, horizontal = TRUE, main="Students Count")
+
+summary(categoryAnalysis$avgPartners)
+
+summary(categoryAnalysis$expotCount)
+boxplot(categoryAnalysis$expotCount, horizontal = TRUE, main="Unit Count")
+
+
+ggplot(categoryAnalysis, aes(x="", y=expotCount, fill=kategorie)) +
+geom_bar(width = 1, stat = "identity")+ coord_polar("y", start=0) + 
+  theme_void() +
+    ggtitle("Unit Count")
+
+ggplot(categoryAnalysis, aes(x="", y=averageDuration, fill=kategorie)) +
+geom_bar(width = 1, stat = "identity")+ coord_polar("y", start=0) + 
+  theme_void() +
+    ggtitle("Average Duration")
+
+
+ggplot(categoryAnalysis, aes(x="", y=IDCount, fill=kategorie)) +
+geom_bar(width = 1, stat = "identity")+ coord_polar("y", start=0) + 
+  theme_void() +
+    ggtitle("Students Count")
+
+
+
+
+ggplot(categoryAnalysis, aes(x="", y=avgPartners, fill=kategorie)) +
+geom_bar(width = 1, stat = "identity")+ coord_polar("y", start=0) + 
+  theme_void() +
+    ggtitle("Median number of partners")
+```
+
+
+The largest category is Exhibits. Again, it can be observed that other activities which include events are the longest. This is not surprising as most of them have by default some time duration.
+
+The shortest time is spent on Exhibits, however they are also the most popular category among the students. This implies that pupils pay more interest in short interaction categories.
+
+There is almost no difference in the number of accompanied students for each category.
+
+
+##By Interactions
+
+There are different types of student interactions with units. They include:
+
+- Experimenting
+
+- Looking
+
+- Touching
+
+- Using
+
+Interactions will be analysed in terms of duration, students count and unit count.
+
+```{r, echo=FALSE, message=TRUE, warning=FALSE, fig.align='center'}
+summary(exhibitData$zach)
+
+interactionAnalysis = exhibitData %>% group_by(zach) %>% summarise(averageDuration = mean(czas_w_sek), IDCount = n_distinct(ID),  expotCount = n_distinct(ID))
+interactionAnalysis <- interactionAnalysis[complete.cases(interactionAnalysis[, 'zach']),]
+
+interactionAnalysis$zach <- as.character(interactionAnalysis$zach)
+interactionAnalysis$zach[interactionAnalysis$zach == '1'] <- "Looking"
+interactionAnalysis$zach[interactionAnalysis$zach == '2'] <- "Touching"
+interactionAnalysis$zach[interactionAnalysis$zach == '3'] <- "Using"
+interactionAnalysis$zach[interactionAnalysis$zach == '4'] <- "Experimenting"
+
+summary(interactionAnalysis$averageDuration)
+boxplot(interactionAnalysis$averageDuration, horizontal = TRUE, main="Average Duration")
+
+
+summary(interactionAnalysis$IDCount)
+boxplot(interactionAnalysis$IDCount, horizontal = TRUE, main="Students Count")
+
+summary(interactionAnalysis$avgPartners)
+
+summary(interactionAnalysis$expotCount)
+boxplot(interactionAnalysis$expotCount, horizontal = TRUE, main="Unit Count")
+
+
+ggplot(interactionAnalysis, aes(x="", y=averageDuration, fill=zach)) +
+geom_bar(width = 1, stat = "identity")+ coord_polar("y", start=0) + 
+  theme_void() +
+    ggtitle("Average Duration")
+
+
+ggplot(interactionAnalysis, aes(x="", y=IDCount, fill=zach)) +
+geom_bar(width = 1, stat = "identity")+ coord_polar("y", start=0) + 
+  theme_void() +
+    ggtitle("Students Count")
+
+
+ggplot(interactionAnalysis, aes(x="", y=expotCount, fill=zach)) +
+geom_bar(width = 1, stat = "identity")+ coord_polar("y", start=0) + 
+  theme_void() +
+    ggtitle("Unit Count")
+```
+
+The most time is spent on experimenting with exhibits, followed by using. We can conclude that students are more engaged into direct interactions with the units rather than passive  - touching or looking.
+
+In terms of unit and student count there is no significant difference between the interaction types.
+
+
+#Students Analysis
+In this section the subject of analysis are students.
+
+##Exhibit
+Here we will find out which students are the most active/engaged.
+
+```{r, echo=FALSE, message=TRUE, warning=FALSE, fig.align='center'}
+studentAnalysis = exhibitData %>% group_by(ID) %>% summarise(averageDuration = mean(czas_w_sek), expotCount = n_distinct(ekspot))
+studentAnalysis$ID <- factor(studentAnalysis$ID)
+
+sorted <- studentAnalysis[with(studentAnalysis, order(-averageDuration)), ][0:10,]
+ggplot(data=sorted, aes(x=ID, y=averageDuration)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Top 10 students by Average Duration")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    xlab("Student") +
+    ylab("Average Duration [s]")
+
+ggplot(sorted, aes(x =expotCount, y = averageDuration, colour = ID)) + geom_point(size = 3) +
+    ggtitle("Top 10 students by Average Duration") +
+    xlab("Unit Count") +
+    ylab("Average Duration [s]")
+
+
+sorted <- studentAnalysis[with(studentAnalysis, order(-expotCount)), ][0:10,]
+ggplot(data=sorted, aes(x=ID, y=averageDuration)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Top 10 students by Unit Count")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    xlab("Student") +
+    ylab("Average Duration [s]")
+
+ggplot(sorted, aes(x =expotCount, y = averageDuration, colour = ID)) + geom_point(size = 3) +
+    ggtitle("Top 10 students by Unit Count") +
+    xlab("Unit Count") +
+    ylab("Average Duration [s]")
+```
+
+A relation between the average duration and unit count can be observed. This means that student which spent more time on units also interacted with less.
+
+
+
+##Reading descriptions
+We will analyse the variable Opis which is a flag whether a student read description of a unit or not and determine whether there is a relation between this fact and the average duration as well as grades.
+
+```{r, echo=FALSE, message=TRUE, warning=FALSE, fig.align='center'}
+data$opis[is.na(data$opis)] <- 0
+description = data %>% group_by(opis) %>% summarise(averageDuration = mean(czas_w_sek), avgMath = mean(na.omit(oceM)), avgPol = mean(na.omit(oceJP)), avgBiol = mean(na.omit(oceP)))
+description$opis <- as.character(description$opis)
+description$opis[interactionAnalysis$opis == '1'] <- "Yes"
+description$opis[interactionAnalysis$opis == '0'] <- "No"
+
+ggplot(description, aes(x="", y=averageDuration, fill=opis)) +
+geom_bar(width = 1, stat = "identity")+ coord_polar("y", start=0) + 
+  theme_void() +
+    ggtitle("Average Duration")
+
+
+ggplot(description, aes(x="", y=avgMath, fill=opis)) +
+geom_bar(width = 1, stat = "identity")+ coord_polar("y", start=0) + 
+  theme_void() +
+    ggtitle("Average Mathematics Grade")
+
+ggplot(description, aes(x="", y=avgPol, fill=opis)) +
+geom_bar(width = 1, stat = "identity")+ coord_polar("y", start=0) + 
+  theme_void() +
+    ggtitle("Average Polish Language Grade")
+
+ggplot(description, aes(x="", y=avgBiol, fill=opis)) +
+geom_bar(width = 1, stat = "identity")+ coord_polar("y", start=0) + 
+  theme_void() +
+    ggtitle("Average Biology Grade")
+```
+
+The difference is only slight, but we can see that students that read descriptions spend a little more time interacting with units and have on average higher grades. This can be the best observed when looking at the average proposed grades from Mathematics.
+
+
+##Aspirations
+We thought it would be interesting to check how the average duration and grades look like depending on the aspirations of students (their dream future carreer paths).
+Because there were a lot of distinct jobs in the data we take into account the 15 most frequently occuring ones.
+
+```{r, echo=FALSE, message=TRUE, warning=FALSE, fig.align='center'}
+aspirations = data %>% group_by(aspiracje) %>% summarise(averageDuration = mean(czas_w_sek), avgMath = mean(na.omit(oceM)), avgPol = mean(na.omit(oceJP)), avgBiol = mean(na.omit(oceP)), IDCount = n_distinct(ID))
+
+
+sorted <- aspirations[with(aspirations, order(-IDCount)), ][1:15,]
+
+ggplot(data=sorted, aes(x=aspiracje, y=IDCount)) +
+    geom_bar(stat="identity", fill="#DE75FD") +
+    ggtitle("Top 15 most frequent student aspirations")  +
+    xlab("Students aspirations") +
+    ylab("Frequency")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 15)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(data=sorted, aes(x=aspiracje, y=averageDuration)) +
+    geom_bar(stat="identity", fill="#DE75FD") +
+    ggtitle("Top 15 most frequent student aspirations")  +
+    xlab("Students aspirations") +
+    ylab("Average Duration")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 15)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(data=sorted, aes(x=aspiracje, y=avgMath)) +
+    geom_bar(stat="identity", fill="#DE75FD") +
+    ggtitle("Top 15 most frequent student aspirations")  +
+    xlab("Students aspirations") +
+    ylab("Average Mathematics Grade")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 15)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(data=sorted, aes(x=aspiracje, y=avgPol)) +
+    geom_bar(stat="identity", fill="#DE75FD") +
+    ggtitle("Top 15 most frequent student aspirations")  +
+    xlab("Students aspirations") +
+    ylab("Average Polish Language Grade")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 15)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(data=sorted, aes(x=aspiracje, y=avgBiol)) +
+    geom_bar(stat="identity", fill="#DE75FD") +
+    ggtitle("Top 15 most frequent student aspirations")  +
+    xlab("Students aspirations") +
+    ylab("Average Biology Grade")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 15)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))                                                         
+```
+Most of students don't have their dream job specified, but in terms of other ones soccer player and doctor are the most popular choices with 6 and 4 pupils picking them, respectively.
+
+
+Future sportmen and chemists interact with units the longest. Actresses however have the highest proposed grades from both Mathematics and Polish language courses. Cooks score the best in Biology.
+
+
+The subjects and the dream jobs don't seem to overlap in terms of the area of knowledge which probably is the result of the children still being too young.
+
+
+#Parents Analysis
+Another interesting aspect of analysis is finding correlations between the parents' occupation, work status or whether they studied with how their children perform.
+
+The analysis will be split for mothers and fathers.
+
+
+
+##Work status
+Works status answers the question whether a parent currently has a job.
+
+###Mother
+```{r, echo=FALSE, message=TRUE, warning=FALSE, fig.align='center'}
+workM = data %>% group_by(pracaM) %>% summarise(averageDuration = mean(czas_w_sek), avgMath = mean(na.omit(oceM)
+), avgPol = mean(na.omit(oceJP)), avgBiol = mean(na.omit(oceP)))
+
+workM <- workM[complete.cases(workM[, 'pracaM']),]
+
+workM$pracaM <- as.character(workM$pracaM)
+workM$pracaM[workM$pracaM == '1'] <- "Yes"
+workM$pracaM[workM$pracaM == '2'] <- "No"
+workM$pracaM[workM$pracaM == '3'] <- "I do not know"
+
+ggplot(data=workM, aes(x=pracaM, y=averageDuration)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Mother's work status by Average Duration")  +
+    xlab("Mother's work status") +
+    ylab("Average Duration [s]")
+
+
+ggplot(data=workM, aes(x=pracaM, y=avgMath)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Mother's work status by Average Mathematics Grade")  +
+    xlab("Mother's work status") +
+    ylab("Average Mathematics Grade]")
+
+ggplot(data=workM, aes(x=pracaM, y=avgPol)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Mother's work status by Average Polish Language Grade")  +
+    xlab("Mother's work status") +
+    ylab("Average Polish Language Grade")
+
+ggplot(data=workM, aes(x=pracaM, y=avgBiol)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Mother's work status by Average Biology Grade")  +
+    xlab("Mother's work status") +
+    ylab("Average Biology Grade")
+```
+
+In all the cases the pupils that performed the best at school on average also have a working mother. They also took the longest time interacting with exhibits. Children who do not know their parents status seem to have the worst average grade.
+
+This may lead to a conclusion that a working mother is a good influence on a child.
+
+
+
+###Father
+```{r, echo=FALSE, message=TRUE, warning=FALSE, fig.align='center'}
+workF = data %>% group_by(pracaT) %>% summarise(averageDuration = mean(czas_w_sek), avgMath = mean(na.omit(oceM)
+), avgPol = mean(na.omit(oceJP)), avgBiol = mean(na.omit(oceP)))
+workF <- workF[complete.cases(workF[, 'pracaT']),]
+
+workF$pracaT <- as.character(workF$pracaT)
+workF$pracaT[workF$pracaT == '1'] <- "Yes"
+workF$pracaT[workF$pracaT == '2'] <- "No"
+workF$pracaT[workF$pracaT == '3'] <- "I do not know"
+
+ggplot(data=workF, aes(x=pracaT, y=averageDuration)) +
+    geom_bar(stat="identity", fill="#789DFF") +
+    ggtitle("Father's work status by Average Duration")  +
+    xlab("Father's work status") +
+    ylab("Average Duration [s]")
+
+
+ggplot(data=workF, aes(x=pracaT, y=avgMath)) +
+    geom_bar(stat="identity", fill="#789DFF") +
+    ggtitle("Father's work status by Average Mathematics Grade")  +
+    xlab("Father's work status") +
+    ylab("Average Mathematics Grade]")
+
+ggplot(data=workF, aes(x=pracaT, y=avgPol)) +
+    geom_bar(stat="identity", fill="#789DFF") +
+    ggtitle("Father's work status by Average Polish Language Grade")  +
+    xlab("Father's work status") +
+    ylab("Average Polish Language Grade")
+
+ggplot(data=workF, aes(x=pracaT, y=avgBiol)) +
+    geom_bar(stat="identity", fill="#789DFF") +
+    ggtitle("Father's work status by Average Biology Grade")  +
+    xlab("Father's work status") +
+    ylab("Average Biology Grade")
+```
+
+In case of fathers the situation is not clear for the average duration of interactions, but similarly to mothers - the grades are significantly higher for children that know their parents status.
+
+
+
+##Occupation
+We will try to find out if a parent's job has an effect on the child.
+Since there were many occupations in the data, again only the 15 most frequent ones will be analysed.
+
+
+###Mother
+```{r, echo=FALSE, message=TRUE, warning=FALSE, fig.align='center'}
+occM = schoolData %>% group_by(wyk_zawod_M) %>% summarise(avgMath = mean(na.omit(oceM)
+), avgPol = mean(na.omit(oceJP)), avgBiol = mean(na.omit(oceP)), count = n())
+
+sorted <- occM[with(occM, order(-count)), ][2:16,]
+
+ggplot(data=sorted, aes(x=wyk_zawod_M, y=count)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Top 15 most frequent Mother's occupations")  +
+    xlab("Mother's occupation") +
+    ylab("Frequency")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(data=sorted, aes(x=wyk_zawod_M, y=avgMath)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Top 15 most frequent Mother's occupations")  +
+    xlab("Mother's occupation") +
+    ylab("Average Mathematics Grade")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(data=sorted, aes(x=wyk_zawod_M, y=avgPol)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Top 15 most frequent Mother's occupations")  +
+    xlab("Mother's occupation") +
+    ylab("Average Polish Language Grade")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(data=sorted, aes(x=wyk_zawod_M, y=avgBiol)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Top 15 most frequent Mother's occupations")  +
+    xlab("Mother's occupation") +
+    ylab("Average Biology Grade")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+The most popular job is sprzedawca (seller), but their children also obtain one of the lowest average grades.
+In all cases highest grades are predicted for students whose mothers work as electricians. Among other occupations where the average grades are high we can see an adviser, nurse, teacher and dentists.
+
+This leads to a conclusion that students with mothers having white-collar occupations obtain higher grades.
+
+
+
+###Father
+```{r, echo=FALSE, message=TRUE, warning=FALSE, fig.align='center'}
+occF = schoolData %>% group_by(wyk_zawod_T) %>% summarise(avgMath = mean(na.omit(oceM)
+), avgPol = mean(na.omit(oceJP)), avgBiol = mean(na.omit(oceP)), count = n())
+
+sorted <- occF[with(occF, order(-count)), ][2:16,]
+
+ggplot(data=sorted, aes(x=wyk_zawod_T, y=count)) +
+    geom_bar(stat="identity", fill="#789DFF") +
+    ggtitle("Top 15 most frequent Father's occupations")  +
+    xlab("Father's occupation") +
+    ylab("Frequency")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(data=sorted, aes(x=wyk_zawod_T, y=avgMath)) +
+    geom_bar(stat="identity", fill="#789DFF") +
+    ggtitle("Top 15 most frequent Father's occupations")  +
+    xlab("Father's occupation") +
+    ylab("Average Mathematics Grade")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(data=sorted, aes(x=wyk_zawod_T, y=avgPol)) +
+    geom_bar(stat="identity", fill="#789DFF") +
+    ggtitle("Top 15 most frequent Father's occupations")  +
+    xlab("Father's occupation") +
+    ylab("Average Polish Language Grade")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(data=sorted, aes(x=wyk_zawod_T, y=avgBiol)) +
+    geom_bar(stat="identity", fill="#789DFF") +
+    ggtitle("Top 15 most frequent Father's occupations")  +
+    xlab("Father's occupation") +
+    ylab("Average Biology Grade")  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+The most frequent fathers jobs are electrician and driver.
+Among the occupations where the highest average child's grade can be observed are: driver, computer scientist, teacher, mechanic. Surprisingly children with lowest grades have fathers owning a company. 
+
+The reason may be that such parents do not have enough time to help the child with school.
+
+
+##Studies status
+Studies status describes whether a parent has obtained a higher education.
+
+###Mother
+```{r, echo=FALSE, message=TRUE, warning=FALSE, fig.align='center'}
+studyM = data %>% group_by(studiaM) %>% summarise(averageDuration = mean(czas_w_sek), avgMath = mean(na.omit(oceM)
+), avgPol = mean(na.omit(oceJP)), avgBiol = mean(na.omit(oceP)))
+studyM <- studyM[complete.cases(studyM[, 'studiaM']),]
+
+studyM$studiaM <- as.character(studyM$studiaM)
+studyM$studiaM[studyM$studiaM == '1'] <- "Yes"
+studyM$studiaM[studyM$studiaM == '2'] <- "No"
+studyM$studiaM[studyM$studiaM == '3'] <- "I do not know"
+
+ggplot(data=studyM, aes(x=studiaM, y=averageDuration)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Mother's studies status by Average Duration")  +
+    xlab("Mother's studies status") +
+    ylab("Average Duration [s]")
+
+
+ggplot(data=studyM, aes(x=studiaM, y=avgMath)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Mother's studies status by Average Mathematics Grade")  +
+    xlab("Mother's studies status") +
+    ylab("Average Mathematics Grade]")
+
+ggplot(data=studyM, aes(x=studiaM, y=avgPol)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Mother's studies status by Average Polish Language Grad")  +
+    xlab("Mother's studies status") +
+    ylab("Average Polish Language Grade")
+
+ggplot(data=studyM, aes(x=studiaM, y=avgBiol)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Mother's studies status by Average Biology Grad")  +
+    xlab("Mother's studies status") +
+    ylab("Average Biology Grade")
+```
+It is clear that students whose mothers studied have higher average grades and also spend on average 10 seconds more interacting with a unit.
+
+
+###Father
+```{r, echo=FALSE, message=TRUE, warning=FALSE, fig.align='center'}
+studyF = data %>% group_by(studiaT) %>% summarise(averageDuration = mean(czas_w_sek), avgMath = mean(na.omit(oceM)
+), avgPol = mean(na.omit(oceJP)), avgBiol = mean(na.omit(oceP)))
+studyF <- studyF[complete.cases(studyF[, 'studiaT']),]
+
+studyF$studiaT <- as.character(studyF$studiaT)
+studyF$studiaT[studyF$studiaT == '1'] <- "Yes"
+studyF$studiaT[studyF$studiaT == '2'] <- "No"
+studyF$studiaT[studyF$studiaT == '3'] <- "I do not know"
+
+ggplot(data=studyF, aes(x=studiaT, y=averageDuration)) +
+    geom_bar(stat="identity", fill="#789DFF") +
+    ggtitle("Father's studies status by Average Duration")  +
+    xlab("Father's studies status") +
+    ylab("Average Duration [s]")
+
+
+ggplot(data=studyF, aes(x=studiaT, y=avgMath)) +
+    geom_bar(stat="identity", fill="#789DFF") +
+    ggtitle("Father's studies status by Average Mathematics Grade")  +
+    xlab("Father's studies status") +
+    ylab("Average Mathematics Grade]")
+
+ggplot(data=studyF, aes(x=studiaT, y=avgPol)) +
+    geom_bar(stat="identity", fill="#789DFF") +
+    ggtitle("Father's studies status by Average Polish Language Grade")  +
+    xlab("Father's studies status") +
+    ylab("Average Polish Language Grade")
+
+ggplot(data=studyF, aes(x=studiaT, y=avgBiol)) +
+    geom_bar(stat="identity", fill="#789DFF") +
+    ggtitle("Father's studies status by Average Biology Grade")  +
+    xlab("Father's studies status") +
+    ylab("Average Biology Grade")
+```
+In case of fathers there is no significant difference in the average grade of their child for both Yes and No answers, but students that do not know about their parents study status have on average lower grades.
+
+
+#School Analysis
+In this section different schools are the subject of analysis.
+
+```{r, echo=FALSE, message=TRUE, warning=FALSE, fig.align='center'}
+school = data %>% group_by(NR_szkoly) %>% summarise(averageDuration = mean(czas_w_sek), avgMath = mean(na.omit(oceM)
+), avgPol = mean(na.omit(oceJP)), avgBiol = mean(na.omit(oceP)), IDCount = n_distinct(ID))
+school$NR_szkoly <- factor(school$NR_szkoly)
+
+# parentsSchool = schoolData %>% group_by(NR_szkoly, ID) %>% summarise(WorkingM = length(pracaM == 1), WorkingF = length(pracaT == 1), IDCount = n_distinct(ID))
+# parentsSchool$NR_szkoly <- factor(school$NR_szkoly)
+
+ggplot(data=school, aes(x=NR_szkoly, y=IDCount)) +
+    geom_bar(stat="identity", fill="#DE75FD") +
+    ggtitle("School number by students count")  +
+    xlab("School number") +
+    ylab("Students count")
+
+ggplot(data=school, aes(x=NR_szkoly, y=averageDuration)) +
+    geom_bar(stat="identity", fill="#DE75FD") +
+    ggtitle("School number by Average Duration")  +
+    xlab("School number") +
+    ylab("Average Duration [s]")
+
+
+ggplot(data=school, aes(x=NR_szkoly, y=avgMath)) +
+    geom_bar(stat="identity", fill="#DE75FD") +
+    ggtitle("School number by Average Mathematics Grade")  +
+    xlab("School number") +
+    ylab("Average Mathematics Grade]")
+
+ggplot(data=school, aes(x=NR_szkoly, y=avgPol)) +
+    geom_bar(stat="identity", fill="#DE75FD") +
+    ggtitle("School number by Average Polish Language Grade")  +
+    xlab("School number") +
+    ylab("Average Polish Language Grade")
+
+ggplot(data=school, aes(x=NR_szkoly, y=avgBiol)) +
+    geom_bar(stat="identity", fill="#DE75FD") +
+    ggtitle("School number by Average Biology Grade")  +
+    xlab("School number") +
+    ylab("Average Biology Grade")
+
+# ggplot(data=parentsSchool, aes(x=NR_szkoly, y=WorkingM/IDCount)) +
+#     geom_bar(stat="identity", fill="#DE75FD") +
+#     ggtitle("School number by number of working Mothers")  +
+#     xlab("School number") +
+#     ylab("Number of working Mothers [%]")
+# 
+# ggplot(data=parentsSchool, aes(x=NR_szkoly, y=WorkingF/IDCount)) +
+#     geom_bar(stat="identity", fill="#DE75FD") +
+#     ggtitle("School number by number of working Fathers")  +
+#     xlab("School number") +
+#     ylab("Number of working Fathers [%]")
+
+```
+
+There is a relation between the average grades at specific schools and the average time spent on interacting with exhibits. The schools with better results also have a higher average duration.
+
+
+#Conclusions
+Even though the correlation matrix did not reveal associations between analysed variables we can still observe them through data visualisation.
+For example the charts show us that parents working and studying status are reflected in their children's grades and time they spend on exploring exhibits even though their value of statistical correlation is very low. This proves the importance of data exploration as a lot of interesting and meaningful correlations between the variables could be potentially missed if one did not try to extract knowledge from it through data exploration.
