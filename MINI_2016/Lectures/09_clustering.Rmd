@@ -1,6 +1,6 @@
 ---
 title: "Hierarchical Clustering"
-author: "Przemyslaw Biecek"
+author: "Przemyslaw Biecek, Anna Wróblewska"
 date: "Data Mining - Advances"
 output: 
   html_document:
@@ -11,8 +11,14 @@ output:
 
 Clustering is the task of grouping objects in such a way that objects in the same group (called a cluster) are more similar to each other than to those in other groups.
 
-Clustering can be performed with the use of different methods/approaches. Today we are going to discuss hierarchical clustering.
+Clustering is called unsupervised learning because to leaern a model - cluster the input data - we do not use labels e.g. any gold standard. The process of clustering is just finding natural grouping of data. Because we may even do not know what we are looking for while clustering, we use it as a method of knowledge discovery not prediction.
 
+Clustering can be performed with the use of different methods/approaches and using different ways of measuring similarity between data objects. It depends of course on the domain of data to be clustered. 
+
+You can find a lot of usefull packages dealing with clustering tasks in CRAN tasks view: Clustering [https://cran.r-project.org/web/views/Cluster.html].
+
+
+Today we are going to discuss hierarchical clustering.
 
 There are two common approaches to build such hierarchy of clusters (also referred as a dendrogram):
 
@@ -132,6 +138,12 @@ Cars93$labels = factor(cutree(hc, k=4))
 ggplot(Cars93, aes(Length, Weight, label=Make, color=labels)) +
   geom_text(size=3) + 
   theme_bw()
+```
+
+Just to see some relationships between any metric within clusters:
+```{r}
+aggregate(data=Cars93,Price~labels,mean)
+ggplot(Cars93,aes(Price,color=labels,fill=labels)) + geom_density()
 ```
 
 ## p-values for clusters

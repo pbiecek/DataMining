@@ -11,7 +11,7 @@ Show the flow of visitors across different stations.
 
 # The Data
 
-Dataset ia available from yout teeacher. You can copy during classes or write an email: wroblewskaa **at** mini.pw.edu.pl
+Dataset ia available from your teacher. You can copy during classes or write an email: wroblewskaa **at** mini.pw.edu.pl
 
 
 # The Goal
@@ -24,7 +24,7 @@ After each phase you should create a single report (e.g. with the use of knitr).
 
 In the first phase you should characterize types of interactions with different machines (exploratory analysis). Try to answer following questions:
 
-* is there a relation between the duration of an interaction and variables like weekday or hour, or knowledge of the pupil, the occupation of parents etc.
+* is there a relation between the duration of an interaction and variables like knowledge of the pupil, the occupation of parents etc.
 * what is the average (or distribution) time of interaction with a given machine
 * and many other questions: use brainstorming in your team
 
