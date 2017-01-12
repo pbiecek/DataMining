@@ -1,0 +1,341 @@
+---
+title: "Project 2 - Internet of Things"
+author: "Viet Ba Mai, Piotr Kamoda"
+date: "20 grudnia 2016"
+output: 
+  html_document:
+    toc : TRUE
+---
+
+#Introduction
+The goal of this phase of the project is to segment visitors of the Copernicus Center (students) into separate categories. This task will be achieved using clustering.
+
+Given are two datasets:
+
+- dane_obserwacyjne - information about the duration and type of interactions (activities) done by students, potentially with other ones, in relation to exhibitions of Copernicus Center.
+
+- dane_kwestionariuszowe - information about the aforemantioned students covering their aspirations, parents job, school and grades.
+
+
+
+#Clustering
+In order to solve our problem we will implement clustering.
+It is a method used to separates objects that are more similar than others into groups. It is an unsupervised learning model as it does not train on given features and answers, but instead finds patterns which is a discovery rather prediction.
+
+We will implement the following clustering methods:
+
+- K-means
+
+- Hierarchical clustering
+```{r, echo=FALSE, message=TRUE, warning=FALSE, results="hide"}
+Sys.setenv(JAVA_HOME='C:\\Program Files\\Java\\jdk1.7.0_51\\jre')
+
+library(rJava)
+library(xlsx)
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(corrplot)
+library(colorspace)
+library(cluster)
+library(pvclust)
+```
+
+#Data preparation
+We will group data by student IDs and calculate aggregated measures that would help to define similarities between the pupils.
+
+```{r, echo=TRUE, message=TRUE, warning=FALSE, fig.align='center'}
+schoolData <- subset(read.xlsx("dane_kwestionariuszowe.xlsx", sheetName="dane_kwestionariuszowe", encoding="UTF-8"), select = -c(Kolum1, wyk_zawod_M,	wyk_zawod_T, aspiracje))
+exhibitData <- subset(read.csv("dane_obserwacyjne.csv", header=TRUE, sep=";"), select = -c(Kolumna1, lp))
+
+#Group data by student IDs and create aggregates
+exhibitData[is.na(exhibitData)] <- 0
+stdData = exhibitData %>% group_by(ID) %>% summarise(totDur = sum(czas_w_sek), avgDur = mean(czas_w_sek), maxDur = max(czas_w_sek), minDur = min(czas_w_sek), expotCount = n_distinct(ekspot), partnerCount = n_distinct(ILE_OSTOW), avgStartMin = mean(start_min), avgStartSec = mean(start_s), avgStopMin = mean(stop_min), avgStopSec = mean(stop_s))
+stdData$ID <- factor(stdData$ID)
+
+#Scaling data
+data <- transform(stdData,
+                        totDur = as.numeric(totDur),
+                        avgDur = as.numeric(avgDur),
+                        maxDur = as.numeric(maxDur),
+                        minDur = as.numeric(minDur),
+                        expotCount = as.numeric(expotCount),
+                        partnerCount = as.numeric(partnerCount),
+                        avgStartMin = as.numeric(avgStartMin),
+                        avgStartSec = as.numeric(avgStartSec),
+                        avgStopMin = as.numeric(avgStopMin),
+                        avgStopSec = as.numeric(avgStopSec))
+data$totDur <- scale(data$totDur)
+data$avgDur <- scale(data$avgDur)
+data$maxDur <- scale(data$maxDur)
+data$minDur <- scale(data$minDur)
+data$expotCount <- scale(data$expotCount)
+data$partnerCount <- scale(data$partnerCount)
+data$avgStartMin <- scale(data$avgStartMin)
+data$avgStartSec <- scale(data$avgStartSec)
+data$avgStopMin <- scale(data$avgStopMin)
+data$avgStopSec <- scale(data$avgStopSec)
+
+pairs(subset(data, select=-c(ID)), main="Correlations", col = "purple", lower.panel = NULL, cex.labels=1, pch=5, cex = 0.3)
+
+
+pairs(schoolData, main="Correlations", col = "purple", lower.panel = NULL, cex.labels=1, pch=5, cex = 0.3)
+```
+
+The 2nd dataset (schoolData) contains only categorical data, such as flag on parents work/study status or school number and each observation describes a single student so we cannot aggregate the data by student IDs. 
+
+Discrete variables are not recommended for clustering even after scaling. The reason is that they yield too little discrimination of similarities, which is the goal to find in clustering. Hence we decided to exclude this dataset from analysis.
+
+
+School data could be used when clustering for example by school, where we could create aggregates for each.
+
+
+#K-means
+This is the most popular clustering method which is of partitioning nature. One must define the exact number of desired clusters.
+
+At first we find k-centers and then associate points to the nearest center.
+
+
+## Three clusters
+```{r, echo=TRUE, message=TRUE, warning=FALSE, fig.align='center'}
+set.seed(4)
+k = 3
+kmeans <- kmeans(subset(data, select=-c(ID)), k)
+data$cluster <- factor(kmeans$cluster)
+centers <- data.frame(kmeans$centers)
+centers
+
+ggplot(data, aes(minDur, avgStopMin)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+```
+
+Clustering on all variables did not yield good result, hence we tried other combinations.
+```{r, echo=TRUE, message=TRUE, warning=FALSE, fig.align='center'}
+kmeans <- kmeans(data[,c("totDur", "expotCount", "avgStopSec")], k)
+data$cluster <- factor(kmeans$cluster)
+centers <- data.frame(kmeans$centers)
+centers
+
+ggplot(data, aes(totDur, avgStopSec)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+ggplot(data, aes(expotCount, avgStopSec)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+ggplot(data, aes(totDur, expotCount)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+
+
+
+kmeans <- kmeans(data[,c("maxDur", "partnerCount", "avgStartSec")], k)
+data$cluster <- factor(kmeans$cluster)
+centers <- data.frame(kmeans$centers)
+centers
+
+ggplot(data, aes(avgStartSec, maxDur)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+
+
+kmeans <- kmeans(data[,c("maxDur", "minDur", "avgDur", "totDur")], k)
+data$cluster <- factor(kmeans$cluster)
+centers <- data.frame(kmeans$centers)
+centers
+
+ggplot(data, aes(minDur, maxDur)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+
+ggplot(data, aes(totDur, maxDur)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+
+ggplot(data, aes(avgDur, totDur)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+
+ggplot(data, aes(minDur, avgDur)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+
+
+
+kmeans <- kmeans(data[,c("avgDur", "expotCount")], k)
+data$cluster <- factor(kmeans$cluster)
+centers <- data.frame(kmeans$centers)
+centers
+
+ggplot(data, aes(avgDur, expotCount)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+```
+
+
+## Five clusters
+```{r, echo=TRUE, message=TRUE, warning=FALSE, fig.align='center'}
+set.seed(4)
+k = 5
+
+kmeans <- kmeans(data[,c("totDur", "expotCount", "avgStopSec")], k)
+data$cluster <- factor(kmeans$cluster)
+centers <- data.frame(kmeans$centers)
+centers
+
+ggplot(data, aes(totDur, avgStopSec)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+ggplot(data, aes(expotCount, avgStopSec)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+ggplot(data, aes(totDur, expotCount)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+
+
+kmeans <- kmeans(data[,c("avgDur", "expotCount")], k)
+data$cluster <- factor(kmeans$cluster)
+centers <- data.frame(kmeans$centers)
+centers
+
+ggplot(data, aes(avgDur, expotCount)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+```
+
+
+
+#Hierarchical Clustering
+This is a cluster analysis methods which is based on creating a hierarchy of clusters. There are two approaches:
+
+- Bottom Up (Agglomerative) where we begin with clusters for each observation and then merge pairs of clusters and lift it in the hierarchy. We will implement this method.
+
+
+- Top Down (Divisive) where we start with one cluster for all observations and then recursively split them to drop them in hierarchy.
+
+
+We will test several linkage criterias:
+
+- Ward: decreases the total variance within a cluster
+
+
+- Average: distance between two clusters is defined by the mean distance between a pair of observations from each.
+
+
+- Single: distance between two clusters is defined by the minimum distance between a pair of observations from each.
+
+
+## Three Clusters
+```{r, echo=TRUE, message=TRUE, warning=FALSE, fig.align='center'}
+k = 3
+#1st approach
+distances <- dist(scale(data[,c("avgDur", "expotCount")]), method="manhattan")
+as.matrix(distances)[1:10,1:7]
+
+hc <- hclust(distances, method="ward.D")
+
+
+data$labels = factor(cutree(hc, k=k))
+ggplot(data, aes(avgDur, expotCount, label=ID, color=labels)) +
+  geom_text(size=3) + 
+  theme_bw()
+
+
+#2nd approach
+rownames(data) <- data$ID
+dat <- scale(data[,c("avgDur", "expotCount")])
+
+hc <- agnes(dat, method="ward")
+data$labels = factor(cutree(hc, k=k))
+ggplot(data, aes(avgDur, expotCount, label=ID, color=labels)) +
+  geom_text(size=3) + 
+  theme_bw()
+```
+
+We will proceed only with the 2nd approach using different linkage methods.
+
+```{r, echo=TRUE, message=TRUE, warning=FALSE, fig.align='center'}
+hc <- agnes(dat, method="average")
+data$labels = factor(cutree(hc, k=k))
+ggplot(data, aes(avgDur, expotCount, label=ID, color=labels)) +
+  geom_text(size=3) + 
+  theme_bw()
+
+hc <- agnes(dat, method="single")
+data$labels = factor(cutree(hc, k=k))
+ggplot(data, aes(avgDur, expotCount, label=ID, color=labels)) +
+  geom_text(size=3) + 
+  theme_bw()
+
+```
+
+
+## Five clusters
+```{r, echo=TRUE, message=TRUE, warning=FALSE, fig.align='center'}
+k = 5
+
+distances <- dist(scale(data[,c("avgDur", "expotCount")]), method="manhattan")
+as.matrix(distances)[1:10,1:7]
+
+hc <- hclust(distances, method="ward.D")
+
+
+data$labels = factor(cutree(hc, k=k))
+ggplot(data, aes(avgDur, expotCount, label=ID, color=labels)) +
+  geom_text(size=3) + 
+  theme_bw()
+
+
+rownames(data) <- data$ID
+dat <- scale(data[,c("avgDur", "expotCount")])
+
+hc <- agnes(dat, method="ward")
+data$labels = factor(cutree(hc, k=k))
+ggplot(data, aes(avgDur, expotCount, label=ID, color=labels)) +
+  geom_text(size=3) + 
+  theme_bw()
+```
+
+
+Again due to indistinguishable clusters in the 1st approach we will proceeed only with the 2nd.
+
+
+```{r, echo=TRUE, message=TRUE, warning=FALSE, fig.align='center'}
+hc <- agnes(dat, method="average")
+data$labels = factor(cutree(hc, k=k))
+ggplot(data, aes(avgDur, expotCount, label=ID, color=labels)) +
+  geom_text(size=3) + 
+  theme_bw()
+
+hc <- agnes(dat, method="single")
+data$labels = factor(cutree(hc, k=k))
+ggplot(data, aes(avgDur, expotCount, label=ID, color=labels)) +
+  geom_text(size=3) + 
+  theme_bw()
+
+```
+
+#Conclusions
+It is obvious that the population is heterogenous.
+Using both k-means and hierarchical clustering we can clearly distinguish different clusters on plots, which means that points within the same group are similar.
+
+
+In our analysis we could find groups by the number of exhibits interacted with and different aggregates for time and duration of visiting.
+
+
+Even though both methods prove heterogeneity of the data we can observe that the hierarchical clustering performed much better for all linkage methods (even though the group divisions were very different) as in terms of k-means the segmentation is chaotic in the border areas. This is an expected result, as k-means is one of the simplest clustering method.
