@@ -1,0 +1,111 @@
+---
+title: "Linear discriminant analysis (LDA) and Quadratic discriminant analysis (QDA)"
+author: "Przemyslaw Biecek"
+date: "Data Mining - Advances"
+output: 
+  html_document:
+    toc: TRUE
+---
+
+# Linear discriminant analysis (LDA) 
+
+This chapter is based on `An Introduction to Statistical Learning`
+http://www-bcf.usc.edu/~gareth/ISL/ 
+and chapter 4.3 from `The Elements of Statistical Learning` http://statweb.stanford.edu/~tibs/ElemStatLearn/
+
+See also an overview here:
+http://rstudio-pubs-static.s3.amazonaws.com/21386_bcf06f4cb32c4c408e282b906637ccdb.html
+
+## S&P Stock Market Data
+
+Daily percentage returns for the S&P 500 stock index between 2001 and 2005.
+
+```{r}
+library(ISLR)
+head(Smarket)
+
+library(ggplot2)
+ggplot(Smarket, aes(Lag1, Lag2, color=Direction)) +
+  geom_point()
+
+ggplot(Smarket, aes(Lag1, Lag2, color=Direction)) +
+  geom_density2d(h=1)
+
+```
+
+## LDA
+
+Let's try a linear discrimination (https://en.wikipedia.org/wiki/Linear_discriminant_analysis).
+
+Groups follow Gaussian distribution with same variance-covariance structure and different means.
+
+```{r}
+library(MASS)
+
+lda.model <- lda(Direction~Lag1 + Lag2, data=Smarket)
+lda.model
+
+lda.pred <- predict(lda.model, Smarket)
+names(lda.pred)
+
+table(predicted = lda.pred$class, real = Smarket$Direction)
+```
+
+## Iris Data
+
+Originally it was introduced for iris data.
+
+```{r}
+head(iris)
+
+library(ggplot2)
+ggplot(iris, aes(Sepal.Length, Sepal.Width, color=Species)) +
+  geom_point()
+
+ggplot(iris, aes(Sepal.Length, Sepal.Width, color=Species)) +
+  geom_density2d(h=1)
+
+```
+
+# Quadratic discriminant analysis (QDA)
+
+Just relax the assumption that variance-covariance matrix is the same in each group.
+
+```{r}
+qda.model <- qda(Direction ~ Lag1 + Lag2, data = Smarket)
+qda.model
+
+
+qda.class <- predict(qda.model, Smarket)$class
+table(predicted = qda.class, real = Smarket$Direction)
+
+```
+
+# How to do this with caret
+
+Here the pre-processing (scale/center) does not matter. But we show it just as an example how it can be done.
+
+```{r}
+library(caret)
+
+modelFit<- train(Direction~Lag1+Lag2, method='lda',preProcess=c('scale', 'center'), data=Smarket)
+
+confusionMatrix(Smarket$Direction, predict(modelFit, Smarket))
+```
+
+For both functions
+
+```{r}
+
+mat <- sapply(c('lda', 'qda'), function (met) {
+  modelFit<- train(Direction~Lag1+Lag2, method=met,preProcess=c('scale', 'center'), data=Smarket)
+  confusionMatrix(Smarket$Direction, predict(modelFit, Smarket))$overall
+})
+
+round(mat*100,2)
+```
+
+# The Homework
+
+Use the k-fold cross validation to assess the performance of lda/qda on the wines dataset.
+

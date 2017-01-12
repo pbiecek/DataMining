@@ -31,9 +31,6 @@ Advances in Data Mining:
 * MultiDimensional Scaling
 * Association Rules
 
-* Text Mining
-* Big Data Issues 
-
 Meetings
 --------
 mainly Fridays
