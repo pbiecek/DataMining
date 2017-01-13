@@ -47,9 +47,10 @@ mainly Fridays
 * 9.XII - 2 hours
 * 16.XII - [Part 1 - project 2] - 4 hours
 * 21.XII Wednesday - [Part 2 - project 2] - 2 hours
-* 13.I - [Additional projects presentation] - 4 hours
-* 20.I - [Part 3 - project 2] - 2 hours
-* 27.I - [Final test], [Additional projects presentation] - 4 hours
+* 13.I - [Additional projects presentation], [any questions about 2nd project] - 4 hours
+* 20.I - [Final: additional project reports, presentations], [any questions about 2nd project] - 4 hours, lecture: 11_reduction.Rmd
+* 27.I - 12:30-14 [Final meeting at Copernicus Science Center http://www.kopernik.org.pl/en/ - bussiness presentations of 2nd projects] - 2 hours
+* 30.I 4:30-5:30 pm, room 556  - additional questions, grading 
 
 Projects:
 ---------
