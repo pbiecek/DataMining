@@ -112,7 +112,7 @@ library(vcd)
 Kappa(table(real = pima$test, predicted = predicted.pima))
 
 library(irr)
-kappa2(pima$test, predicted.pima)
+kappa2(data.frame(pima$test, predicted.pima))
 ```
 # Other metrics
 Sensitivity of a model measures the proportion of positive examples that were correctly classified to all examples that are positive.

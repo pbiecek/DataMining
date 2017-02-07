@@ -1,0 +1,96 @@
+---
+title: "Emotions"
+author: "Klaudia Magda"
+date: "27 grudnia 2016"
+output: html_document
+---
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+library(xlsx)
+library(openxlsx)
+library(psych)
+library(ggplot2)
+library(caret)
+library(e1071)
+library(corrplot)
+library(party)
+library(rpart)
+library(plyr)
+library(dplyr)
+library(lubridate)
+```
+
+
+#Loading data
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+data<- read.xlsx(file.choose(), 1, colNames=TRUE)
+#"C:/Users/kmagda001/Desktop/EMOCJE - DM/Dane osobowe.xlsx"
+dataRaw<- read.xlsx(file.choose(), 1, colNames=TRUE)
+#"C:/Users/kmagda001/Desktop/EMOCJE - DM/Wyniki surowe bez danych osobowych.xlsx"
+```
+##Preprocessing
+At the beginning I have decided to drop columns:
+near zero variance variables pretrialpause posttrialpause windowcenter trialduration trialtimeout blocktimeout, 
+
+lattency -time of reaction
+subject - misleading. 
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#Removing near zero variance variables
+nzv <- nearZeroVar(dataRaw)
+names(dataRaw)[nzv]
+dataRaw<-subset(dataRaw, select = -c(pretrialpause, posttrialpause, windowcenter, trialduration, trialtimeout, blocktimeout, subject, blocknum))
+
+data$date<-as.POSIXct(data$date, format='%m-%d-%Y')
+dataRaw$date<-as.POSIXct(data$date, format='%m-%d-%Y')
+```
+
+#Extrapolatory Analysis for personal data
+At the beginning we will look through the personal data.
+Here we can notice that we are dealing with young people and the majority is woman.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+barplot(prop.table(table(data$wiek_response)), main="Age")
+barplot(prop.table(table(data$plec_response)), col="blue", main="Gender")
+barplot(prop.table(table(data$eksper_response)), col="green", main="Eksper")
+```
+#Extrapolatory Analysis for raw data
+Blocknum
+2- questions about emotions "esencja"
+3- training through categorizing expressions
+4 - proper categorization of expression
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+barplot(prop.table(table(dataRaw$correct)), col="red", main="Correct answers")
+barplot(prop.table(table(dataRaw$trialcode)), col="green", main="Trialcode")
+barplot(prop.table(table(dataRaw$blockcode)), col="yellow", main="Blockcode")
+barplot(prop.table(table(dataRaw$response)), col="black", main="Response")
+barplot(prop.table(table(dataRaw$stimulusitem1)), col="pink", main="Name of file")
+```
+#Trust 
+Dependency between trust and number of picture with distinction of gender
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+
+```
+
+
+#Esence (blok 2)
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+```
+
+
+
+Krzywych czasu reakcji dla zdj?? o poszczeg?lnej numeracji (1-15)
+- Poprawno?ci oceny dla zdj?? o poszczeg?lnej numeracji (1-15)
+- Oceny zaufania wzgl?dem osoby dla zdj?? o poszczeg?lnej numeracji (1-15)
+- Kluczowy test hipotezy, czy na postawie odpowiedzi na pytania o "esencj?" (rz?dy 1-34 w pliku danych dla ka?dego uczestnika) da si? przewidzie? r??nice w tych krzywych; w szczeg?lno?ci w zakresie zaufania do osoby.
+
+#Plot of reaction for pictures
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+```
+Zrobi?em jeszcze tak? tabel? "prawid?owych" odpowiedzi przy pytaniu o kategoryzacj? emocji, bo tam jest odwr?cona skala i mo?na si? pomyli?.
+
+Krzywych czasu reakcji dla zdj?? o poszczeg?lnej numeracji (1-15)
+- Poprawno?ci oceny dla zdj?? o poszczeg?lnej numeracji (1-15)
+- Oceny zaufania wzgl?dem osoby dla zdj?? o poszczeg?lnej numeracji (1-15)
+- Kluczowy test hipotezy, czy na postawie odpowiedzi na pytania o "esencj?" (rz?dy 1-34 w pliku danych dla ka?dego uczestnika) da si? przewidzie? r??nice w tych krzywych; w szczeg?lno?ci w zakresie zaufania do osoby.
