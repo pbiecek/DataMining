@@ -1,0 +1,361 @@
+---
+title: "Project2_3_SK"
+author: "Shilpa Khichar"
+date: "17 January 2017"
+output: html_document
+---
+```{r lib}
+library(xlsx)
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(corrplot)
+library(colorspace)
+library(cluster)
+library(pvclust)
+library(factoextra)
+library(scatterplot3d)
+library(stringdist)
+```
+
+```{r code}
+rm(list=ls())
+
+questionnaire_data <- read.csv("C:/Users/hp/Documents/dane_kwestionariuszowe_c.csv", header=TRUE, sep=",", encoding="UTF-8")
+str(questionnaire_data)
+# The Questionnaire dataset  contains descriptive information of each student;like  parents working status ,occupation. Which is mostly categorical and connot be aggregated.
+#So that makes it unfit for clusterring task.As Discrete variables are not recommended for clustering even after scaling. The reason is that they yield too little discrimination of similarities, which is the goal to find in clustering. 
+# But we will use this Descriptive information about each student in cluster analysis
+
+observation_data <- read.csv("C:/Users/hp/Documents/dane_obserwacyjne_c.csv", header=TRUE, sep=",", encoding="UTF-8")
+str(observation_data)
+# removing index columns
+ind_col <- names(observation_data) %in% c("Kolumna1", "lp")
+observation_data <-observation_data[!ind_col]
+
+#removing null enteries
+questionnaire_data[is.na(questionnaire_data)]<-0
+observation_data[is.na(observation_data)] <- 0
+
+Obs_Data = observation_data %>% 
+          group_by(ID) %>% 
+          summarise(Total_Duration = sum(czas_w_sek), 
+                    Average_Duration = mean(czas_w_sek), 
+                    Maximum_Duration = max(czas_w_sek), 
+                    Minimum_Duration = min(czas_w_sek), 
+                    Exhibition_Window_Count = n_distinct(ekspot), 
+                    Partner_Count = n_distinct(ILE_OSTOW), 
+                    Average_Start_Min = mean(start_min), 
+                    Average_Start_Sec = mean(start_s), 
+                    Average_Stop_Min = mean(stop_min), 
+                    Average_Stop_Sec = mean(stop_s))
+Obs_Data$ID <- factor(Obs_Data$ID)
+str(Obs_Data)
+
+
+#Scaling our dataset 
+Obs_Data <- transform(Obs_Data,
+                        Total_Duration = as.numeric(Total_Duration),
+                        Average_Duration = as.numeric(Average_Duration),
+                        Maximum_Duration = as.numeric(Maximum_Duration),
+                        Minimum_Duration = as.numeric(Minimum_Duration),
+                        Exhibition_Window_Count = as.numeric(Exhibition_Window_Count),
+                        Partner_Count = as.numeric(Partner_Count),
+                        Average_Start_Min = as.numeric(Average_Start_Min),
+                        Average_Start_Sec = as.numeric(Average_Start_Sec),
+                        Average_Stop_Min = as.numeric(Average_Stop_Min),
+                        Average_Stop_Sec = as.numeric(Average_Stop_Sec)
+                  )
+mydata <- Obs_Data
+# Cluster Analysis
+
+#mydata <- read.csv("~/Dropbox/RFiles/utilities.csv")
+str(mydata)
+head(mydata)
+pairs(mydata)
+
+# Scatter plot between  Minimum_Duration and Average_Stop_Min
+ggplot(mydata, aes(Minimum_Duration,Average_Stop_Min)) +
+  geom_text(size=3, aes(label=ID),check_overlap = TRUE,position = position_dodge(1), vjust = 2) + 
+  geom_point( size=2)+
+  theme_bw()
+
+# Normalizing 
+z = mydata[,-c(1,1)]
+means = apply(z,2,mean)
+sds = apply(z,2,sd)
+nor = scale(z,center=means,scale=sds)
+
+##calculating Euclidean distance matrix 
+distance = dist(nor)
+print(distance , digits = 2)
+min(distance)
+# high value means those students are very show similar behaviour ... they will reside in same clusters
+max(distance)
+# high value means those students are very dissimilar... they will reside in different clusters
+
+# Hierarchical agglomerative clustering using default complete linkage 
+mydata.hclust.complete = hclust(distance)
+plot(mydata.hclust.complete)
+plot(mydata.hclust.complete,labels=mydata$ID,main='Default from hclust')
+plot(mydata.hclust.complete,hang=-1)
+
+# Hierarchical agglomerative clustering using "average" linkage 
+# Agglomerative clustering: Each student is treated as a single cluster and then on the basis of Euclidean distance, how close they are they are merged to form a bigger cluster... as a result we get clusters, on the basis of Euclidean distance which represents the distance between two entities/students on the basis of there behaivour.
+
+
+mydata.hclust.avg<-hclust(distance,method="average")
+plot(mydata.hclust.avg,hang=-1)
+
+# Cluster membership
+member_complete = cutree(mydata.hclust.complete,3)
+member_avg = cutree(mydata.hclust.avg,3)
+table(member_complete,member_avg)
+
+# For average method we see that 110+19 ID's belong to cluster 1
+# For average method we see that 2 ID's belong to cluster 2
+# For average method we see that 1 ID's belong to cluster 3
+
+# For complete method we see that 110 ID's belong to cluster 1
+# For complete method we see that 19 ID's belong to cluster 2
+# For complete method we see that 2+1 ID's belong to cluster 3
+
+
+#Characterizing clusters means
+aggregate(nor,list(member_complete),mean)
+aggregate(mydata[,-c(1,1)],list(member_complete),mean)
+# if there is a significant difference between these three values then that attribute plays a significant role in defining membership for the  clusters
+# So here we can see that Average duration , maximum duration, Average Start Minute have greater difference in there values 
+# So this means students are divided into three clusters on the basis of average time they spent on each exibition window/spot.. so cluster 3 have ID's of students who Viewed the window/stop for longer time.. and cluster 1 have ID's of students who stayed on the windows/spots for very short duration of time
+
+
+#Silhouette Plot
+
+#To find the optimal number of clusters we will use Silhouettes which measure the quality of clustering and then the best option is determined by the highest average silhouette width.
+
+library(cluster)
+plot(silhouette(cutree(mydata.hclust.complete,3),distance))
+
+# If cluster formation was good, or members in the clusters are closer to each other then Si values will be high else Si values will be low..
+# Si value that are negative means they are outlier.. they do not contibute to cluster formation
+
+
+# Scree Plot
+wss <- (nrow(nor)-1)*sum(apply(nor,2,var))
+for (i in 2:20) wss[i] <- sum(kmeans(nor, centers=i)$withinss)
+plot(1:20, wss, type="b", xlab="Number of Clusters", ylab="Within groups sum of squares") 
+# Scree plot shows within group sum of squares
+# It gives us all possible clusters and within group sum of squares i.e. within group variablity
+# We want to Reduce within group variablity
+# So here it shows we should go for lower number of clusters ,beyond that the gains are not very significant
+
+k.max <- 15
+k.min <- 2
+sil <- rep(0, k.max)
+
+for(i in k.min:k.max){
+  km.res <- kmeans(mydata[,c("Average_Start_Min", "Average_Duration", "Exhibition_Window_Count")], centers = i, nstart = 25)
+  ss <- silhouette(km.res$cluster, dist(mydata[,c("Average_Start_Min", "Average_Duration", "Exhibition_Window_Count")]))
+  sil[i] <- mean(ss[, 3])
+}
+
+plot(1:k.max, sil, type = "b", pch = 19, frame = FALSE, xlab = "Number of clusters k")
+abline(v = which.max(sil), lty = 2)
+
+
+k = which.max(sil)
+# so here on the basis of Average Duration and Average Start time, I get two cluster are required for best partitioning of students.. but 2 and 3 doesnt have much variability so lets go for 3 clusters...
+
+
+# K-means clustering
+
+#This clustering method is of partitioning nature. One must define the exact number of desired clusters.
+
+#At first we find k-centers and then associate points to the nearest center, If a new point is introduced to the dataset then it is assigned to the nearest cluster.
+kc<-kmeans(nor,3)
+kc
+kc$size
+# Gives us size of each cluster
+kc$withinss
+# it shows the variablity of clusters within themselves.. how close the members are in terms of distance..So cluster 3 here has minimum memebrs = 36 and has maximum difference 368.5.. should be sparse
+kmeans <- kmeans(mydata[,c("Average_Duration","Average_Start_Min", "Exhibition_Window_Count")], 3)
+mydata$cluster <- factor(kmeans$cluster)
+centers <- data.frame(kmeans$centers)
+centers
+
+cols <- c("#5F9AFB", "#FB5F5F", "#5FFB8B")
+colors <- cols[as.numeric(mydata$cluster)]
+scatterplot3d(mydata[,2:4], pch = 16, color=colors, angle = 30)
+legend("right", legend = levels(mydata$cluster),
+      col =  cols, pch = 16)
+
+
+ggplot(mydata, aes(Average_Start_Min, Exhibition_Window_Count)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+# Here we see the Exibition windows covered by different students grouping
+
+ggplot(mydata, aes(Exhibition_Window_Count, Average_Duration)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+# here we can see clear distinction between student who spent more or less time on each Exibition count...we have very clear boundaries...so here we see that higher interaction and lower exibition window counts group and vice versa.
+
+ggplot(mydata, aes(Average_Start_Min, Average_Duration)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+# so here we see grouping on the basis of average time duration grouping
+
+# Hierarchical Clustering
+#This is a cluster analysis method which is based on creating a hierarchy of clusters. There are two approaches:
+
+#Bottom Up (Agglomerative) where we begin with clusters for each observation and then merge pairs of clusters and lift it in the hierarchy. So the number of cluster at the starting is equal to the number of casses(number of students in our example here) and then at each step two nearest clusters are merger to form one biigger cluster. SO intially we had N number of cluster which are gradually joined/merged to get K(user defined or decriptive) cluster .At each step number of clusters is decreased by one.
+#We will implement this method.
+
+#Top Down (Divisive) where we start with one cluster for all observations and then recursively split them to drop them in hierarchy.
+#So at the starting we have one big cluster which has all the dataset values(full coverage).. and then at each step partition is made between fartest point to get more number of clusters... SO intially we had one big cluster which was gradually partitioned  to get K(user defined or decriptive) cluster .At each step number of clusters is increased by one.
+
+rownames(mydata) <- mydata$ID
+dat <- scale(mydata[,c("Average_Duration", "Average_Start_Min", "Exhibition_Window_Count")])
+
+#Here we are using Wand Linkage criteria
+#Ward: decreases the total variance within a cluster
+
+hc <- agnes(dat, method="ward")
+mydata$labels = factor(cutree(hc, k=3))
+colors <- cols[as.numeric(mydata$labels)]
+
+scatterplot3d(mydata[,2:4], pch = 16, color=colors, angle = 85)
+legend("right", legend = levels(mydata$labels),
+      col =  cols, pch = 16)
+
+scatterplot3d(mydata[,2:4], pch = 16, color=colors, angle = 30)
+legend("right", legend = levels(mydata$labels),
+      col =  cols, pch = 16)
+
+scatterplot3d(mydata[,2:4], pch = 16, color=colors, angle = 5)
+legend("right", legend = levels(mydata$labels),
+      col =  cols, pch = 16)
+
+ggplot(mydata, aes(Average_Duration, Exhibition_Window_Count, label=ID, color=labels)) +
+  geom_text(size=3) + 
+  theme_bw()
+
+#Cluster Analysis
+# we have three cluster here , that we are going to analyse using Questionnaire dataset , in which we have discriptive information for each student..
+
+merged <- merge(mydata, questionnaire_data, by = "ID")
+
+## grouping by gender.. 
+analysisData = merged %>% 
+  group_by(labels, Plec) %>% 
+  summarise(freq = n_distinct(ID))
+
+ggplot(analysisData, aes(x=factor(labels), freq, fill = factor(Plec))) + 
+  geom_bar(stat="identity", position = "dodge") + 
+  scale_fill_brewer(palette = "Set1") +
+    ggtitle("Gender by Clusters")  + 
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Frequency")
+#So here we see the gender distribution in each cluster
+# Red is for girls and blue for boys
+
+## grouping by Mother's study status 
+analysisData = merged %>% 
+  group_by(labels, studiaM) %>% 
+  summarise(freq = n_distinct(ID))
+
+ggplot(analysisData, aes(x=factor(labels), freq, fill = factor(studiaM))) + 
+  geom_bar(stat="identity", position = "dodge") + 
+  scale_fill_brewer(palette = "Set1") +
+    ggtitle("Mother's study status by Clusters")  + 
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Frequency")
+# 0 <- Status not know
+# 1 <- educated
+# 2 <- uneducated
+# 3 <- student dont know study status of their Mother
+
+
+## grouping by Father's study status 
+analysisData = merged %>% 
+  group_by(labels, studiaT) %>% 
+  summarise(freq = n_distinct(ID))
+
+ggplot(analysisData, aes(x=factor(labels), freq, fill = factor(studiaT))) + 
+  geom_bar(stat="identity", position = "dodge") + 
+  scale_fill_brewer(palette = "Set1") +
+    ggtitle("Father's study status by Clusters")  + 
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Frequency")
+#We can see that Cluster 1 - quantity over quality has the smallest ratio between their parents' study status, This may mean that such children have a better attention span.
+
+
+## grouping by Mother's work status 
+analysisData = merged %>% 
+  group_by(labels, pracaM) %>% 
+  summarise(freq = n_distinct(ID))
+
+ggplot(analysisData, aes(x=factor(labels), freq, fill = factor(pracaM))) + 
+  geom_bar(stat="identity", position = "dodge") + 
+  scale_fill_brewer(palette = "Set1") +
+    ggtitle("Mother's work status by Clusters")  + 
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Frequency")
+#In case of Cluster #1, which is the quality over quantity group there is definitely more mothers working than not which seems to influence their attention span and liking in exploring less, but in more detail.
+
+## grouping by Father's work status 
+analysisData = merged %>% 
+  group_by(labels, pracaT) %>% 
+  summarise(freq = n_distinct(ID))
+
+ggplot(analysisData, aes(x=factor(labels), freq, fill = factor(pracaT))) + 
+  geom_bar(stat="identity", position = "dodge") + 
+  scale_fill_brewer(palette = "Set1") +
+    ggtitle("Father's work status by Clusters")  + 
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Frequency")
+#In case of Cluster #1, which is the quality over quantity group there is definitely more fathers working than not which seems to influence their attention span and liking in exploring less, but in more detail.
+
+## Students Marks Analysis
+analysisData = merged %>% 
+  group_by(labels) %>% 
+  summarise(count = n_distinct(ID),
+            avgMath = mean(oceM),
+            avgPol = mean(oceJP),
+            avgBiol = mean(oceP))
+
+ggplot(data=analysisData, aes(x=labels, y=avgMath)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Average Mathematics Grade by Clusters")  +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Average Mathematics Grade]")
+# here we see the anticipated assessment at the end of the year in mathematics for each cluster
+
+ggplot(data=analysisData, aes(x=labels, y=avgPol)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Average Polish Language Grade by Clusters")  +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Average Polish Language Grade")
+# here we see the anticipated assessment at the end of the year in Polish for each cluster
+ggplot(data=analysisData, aes(x=labels, y=avgBiol)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Average Biology Grade by Clusters")  +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Average Biology Grade")
+# here we see the anticipated assessment at the end of the year in Biology for each cluster
+
+#However Cluster #2 wins when it comes to Biology classes.
+
+#Clusters #1 and #3  better perform than the other groups in both Mathematics and Polish language courses.
+```

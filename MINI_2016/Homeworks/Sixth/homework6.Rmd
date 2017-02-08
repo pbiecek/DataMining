@@ -1,0 +1,220 @@
+---
+title: "homework6"
+author: "Klaudia Magda"
+date: "20 listopada 2016"
+output: html_document
+---
+
+
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+
+#Libraries used
+```{r, message=FALSE, warning=FALSE}
+library(e1071)
+library(caret)
+library(magrittr)
+library(plyr)
+library(dplyr)
+library(corrplot)
+library(randomForest)
+library(pROC)
+library(Epi)
+library(nnet)
+library(party)
+library(rpart)
+library(gmum.r)
+library(klaR)
+library(ROCR)
+```
+
+#Introduction
+
+In this homework will be presented 3 methods for multiclass classification.
+One Class vs. All Classes `OVA`
+One Class vs. One Class `OVO`
+Error Correcting Output Codes `ECOC`
+
+#dataIris preparation
+##Target variable
+
+
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+
+setwd("C:/Users/kmagda001/Desktop/DM")
+dataIris<-read.csv(file="iris.csv", sep=",")
+
+
+```
+
+
+##Preprocessing
+In order to make working with the dataIris easier we immediatelly dropped the original target variable `shares` as well as non-predictive columns `url`, `timedelta` and `shares` and then removed near zero variance and highly correlated variables.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+#Removing near zero variance variables
+nzv <- nearZeroVar(dataIris)
+names(dataIris)[nzv]
+#Normalisation
+preProcValues <- preProcess(dataIris, method = c("range"))
+dataIrisNorm <- predict(preProcValues, dataIris)
+#Removing highly correlated variables
+d.num <- dataIrisNorm %>% select(which(sapply(dataIrisNorm, is.numeric)))
+too_high <- findCorrelation(cor(d.num), cutoff = 0.725, verbose = FALSE)
+names(d.num)[too_high]
+dataIris = dataIrisNorm[,-c(too_high)]
+```
+
+#Data splitting
+Having the data prepared for classification we need to divide it into a training and testing set. We chose the size of the training set to be 0.75 of the original data set.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+set.seed(1313)
+size <- floor(0.75 * nrow(dataIris))
+indxTrain <- sample(seq_len(nrow(dataIris)), size = size)
+
+dataTrain <- dataIris[indxTrain, ]
+dataTest <- dataIris[-indxTrain, ]
+```
+
+
+
+#One vs. All OvA
+`One vs All` classification is a technique that is building binary classifiers and each of the class is compared with every another class. It means that if we have 3 classes it will create 3 different binary classifiers. In our example as an effective method for binnary classification will be `SVM`.
+
+Unfortunately, this method is time-consuming and is just a binary classification multiplayed several times.
+
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+# One versus all is solving K subproblems
+sv.ova <- SVM(Species ~ ., data=iris, class.type="one.versus.all", verbosity=0)
+preds <- predict(sv.ova, iris[,1:4])
+acc.ova <- sum(diag(table(preds, iris$Species)))/sum(table(preds, iris$Species))  
+
+
+
+plot(sv.ova)
+
+
+```
+
+
+#One vs. One OvO (All vs. All) Classification
+
+This idea consists building K(K-1)/2 amount of classifiers when K is a number of class.
+
+In this method we can notice that one classifier is to distinguish each pair of classes
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# One versus one is solving K(K-1)/2 subproblems (one for each pair)
+sv.ovo <- SVM(x=iris[,1:4], y=iris[,5], class.type="one.versus.one", verbosity=0)
+preds <- predict(sv.ovo, iris[,1:4])
+acc.ovo <- sum(diag(table(preds, iris$Species)))/sum(table(preds, iris$Species))
+plot(sv.ovo)
+```
+
+
+#Error Correcting Output Codes ECOC
+The basis of the `ECOC` method consists of designing a binary codeword for each
+of the classes.
+In this approach is defined matrix With size K x L where:
+K -is an amount of classes
+L - number of codewords that defined each class
+
+
+When testing an unlabeled pattern, x, each classifier creates a ???? long output code vector. This
+output vector is compared to each codeword in the matrix.
+
+Class whose codeword has the closest distance to the
+output vector is chosen as the predicted class (decoding). The most commonly decoding methods are
+the Hamming distance. This method looks for the minimum
+distance between the prediction vector and codewords.
+
+
+
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+
+svm.model=svm(Species~., data=dataIris, kernel="polynomial",probability=TRUE)
+
+plot(svm.model, dataIris, Petal.Width ~ Petal.Length,
+     slice = list(Sepal.Width = 3, Sepal.Length = 4),
+     svSymbol = "x", dataSymbol = "o", symbolPalette = rainbow(4),
+     color.palette = terrain.colors,fill=TRUE,grid=200)
+
+pred <- predict(svm.model, dataIris, decision.values = TRUE, probability = TRUE)
+attr(pred, "decision.values")[1:4,]
+attr(pred, "probabilities")[1:4,]
+
+# visualize (classes by color, SV by crosses):
+plot(cmdscale(dist(iris[,-5])),
+     col = as.integer(iris[,5]),
+     pch = c("o","+")[1:150 %in% svm.model$index + 1])
+
+
+
+```
+
+
+
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+
+lvls = levels(dataIris$Species)
+testidx = which(1:length(dataIris[, 1]) %% 5 == 0) 
+iris.train = dataIris[testidx, ]
+iris.test = dataIris[-testidx, ]
+
+aucs = c()
+plot(x=NA, y=NA, xlim=c(0,1), ylim=c(0,1),
+     ylab='True Positive Rate',
+     xlab='False Positive Rate',
+     bty='n')
+
+for (type.id in 1:3) {
+  type = as.factor(iris.train$Species == lvls[type.id])
+
+  nbmodel = NaiveBayes(type ~ ., data=iris.train[, -5])
+  nbprediction = predict(nbmodel, iris.test[,-5], type='raw')
+
+  score = nbprediction$posterior[, 'TRUE']
+      actual.class = iris.test$Species == lvls[type.id]
+
+  pred = prediction(score, actual.class)
+  nbperf = performance(pred, "tpr", "fpr")
+
+  roc.x = unlist(nbperf@x.values)
+  roc.y = unlist(nbperf@y.values)
+  lines(roc.y ~ roc.x, col=type.id+1, lwd=2)
+
+  nbauc = performance(pred, "auc")
+  nbauc = unlist(slot(nbauc, "y.values"))
+  aucs[type.id] = nbauc
+}
+
+lines(x=c(0,1), c(0,1))
+
+mean(aucs)
+
+
+```
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+rf = randomForest(Species~., data = dataIris, ntree = 100)
+# predict(.., type = 'prob') returns a probability matrix
+pr = predict(rf, dataIris, type = 'prob')
+myPr <- sapply(1:nrow(dataIris), function(i){
+  pr[i, dataIris$Species[i]]
+})
+multiclass.roc(dataIris$Species, myPr)
+```

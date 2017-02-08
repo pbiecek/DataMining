@@ -1,0 +1,287 @@
+---
+title: "Data_Mining_PROJECT"
+author: "Shilpa Khichar & Elham Shahrour"
+date: "9 January 2017"
+output: html_document
+---
+
+The Dataset is a transaction set, it contains the items that are sets of items belonging to same itemset.
+A-Priori algorithm is a level wise itemset mining technique. 
+
+Fetching data
+```{r read data}
+#rm(list=ls())
+table <- read.csv("F:/B.I.Sem2/data_mining/Project/Transaction_data.csv", header=FALSE)
+tbl <- as.matrix(table)
+colnames(tbl) <- NULL
+itemsets <- tbl
+items <- c(1,2,3,4,5)
+min_sup <- 0.20*nrow(itemsets) 
+```
+We have 5 item in our dataset namely 1,2,3,4,5...we have to check which item are bought in pairs and in what order.
+Defining minimum support as 20% of records in dataset/itemset
+
+A-Priori Algorithm, have 2 subproblems:
+1) Generation Of frequent ItemSets
+2) Rule Generation
+
+The Input item set is binarized, i.e. 1 means item is present in ItemSet else is absent for value =0
+
+
+#	Algorithm: Apriori 
+		generate the frequent itemsets from the input datasets with the specified support
+	Input:
+		data,as a MATRIX
+		base_items,as VECTOR
+		MIN_SUP, FLOATING point value
+		parameter,
+		
+```{r apriorifunction}
+Apriori <- function(data,base_items,MIN_SUP,parameter=NULL){
+#  fetching Intial Candidate set 
+	f <- InitCandidateSet(data,base_items)
+# creating c as an empty list	
+	c <- list()
+# assigning fequent item set to the list c using FindFrequentItemset function	
+	c[[1]] <- FindFrequentItemset(f,base_items,1,MIN_SUP)
+	k <- 2
+#	len4data <- GetDatasetSize(data)
+	while( !IsEmpty(c,k-1) ){
+		f[[k]] <- AprioriGen(c,k-1) 
+		if(length(f)==k){
+# incrementing at each iteration the count of support for each frequent item sets in the list c		  
+			f[[k]] <- IncreaseSupportCount(f[[k]],data) 
+			c[[k]] <- FindFrequentItemset(f,base_items,k,MIN_SUP)		
+		}else{break}
+		k <- k+1
+	}
+	c
+}
+```
+next we define function AprioriGen to get the maximum frequent itemset(MFI)
+F is the Maximum frequent itemset.
+```{r apriprigenfunc}
+AprioriGen <- function(c,k){
+	ck <- c[[k]][,-ncol(c[[k]])]
+	f <- NULL
+	len <- nrow(ck)
+	for(idx in seq(nrow(ck))){
+		jdx <- idx+1
+		while(idx<jdx && jdx<=len){
+			a <- ck[idx,]
+			b <- ck[jdx,]
+			if( k==1 || identical(a[1:(k-1)],b[1:(k-1)]) ){
+					ab <- ifelse(a+b,1,0)
+# calling needPrune function to remove non frequent item set from list ck	and if the item doesnot require pruning then appending it to f.				
+					if( !NeedPrune(ck,ab,k) ){
+						f <- rbind(f,ab)
+					}else{
+						#print("Pruned")
+					}
+			}
+			jdx <- jdx + 1
+		}
+	}
+
+	if(length(f)){
+		 f <- cbind(f,rep(0,dim(f)[1]))
+		 rownames(f) <- NULL
+	}
+	return(f)
+}
+```
+```{r prunefunc}
+#checking if some itemset combination is not frequent then we remove/prune that item from our frequent item set list
+NeedPrune <- function(ck,ab,k){
+	ck <- rbind(ck,ab)
+	len <- dim(ck)[1]
+	for(idx in which(ab>0)){
+		temp <- ab
+		temp[idx] <- 0
+		for(idx in seq(len)){
+			if(identical(temp,ck[idx,]))break
+		}
+		if(idx==len)return(TRUE)
+	}
+	return(FALSE)
+}
+## increasing support count for the item sets that are in the frequency table (fk) calculatted previously
+IncreaseSupportCount <- function(fk,data){
+	w4f <- ncol(fk)
+	len4f <- nrow(fk)
+	len4d <- nrow(data)
+	for(idx in seq(len4d)){
+		for(jdx in seq(len4f)){
+			if(identical(fk[jdx,-w4f],fk[jdx,-w4f]*data[idx,])){
+				fk[jdx,w4f] <- fk[jdx,w4f] + 1
+			}
+		}
+	}
+	return(fk)
+}
+
+IsEmpty <- function(ck,k){
+	return(ifelse(nrow(ck[[k]])>0,FALSE,TRUE))
+}
+
+GetDatasetSize <- function(data){
+	return( nrow(data) )
+}
+
+InitCandidateSet <- function(data,base_items){
+	list(cbind(diag(length(base_items)),apply(data,2,sum)))
+}
+
+FindFrequentItemset <- function(fk,base_items,k,MIN_SUP){
+	data <- fk[[k]]
+	return(data[data[,dim(data)[2]]>MIN_SUP,])
+}
+```
+```{r func call}
+frequent_itemsets <- Apriori(itemsets,items,min_sup)
+print(frequent_itemsets)
+```
+
+LHS function is diving our datset into 2 parts and giving us the items that are bought by Customers after purchase of item number 2
+```{r apriori rules}
+matrix_tbl <- as.matrix(table)
+LHS <- function(lhs, tbl,ans_list){
+matrix_tbl <- as.matrix(tbl)
+new_matrix <- matrix_tbl[matrix_tbl[,lhs] == 1,]
+row <- nrow(new_matrix)
+col <- ncol(new_matrix)
+x <- list()
+for(r in 1:row){
+  itemset = c()
+  i = 1
+  for (c in 1:col){
+    if(new_matrix[r,c] == 1) {
+      itemset[i] = c
+      i = i+1
+      }
+  }
+  x[[r]] <- itemset
+}
+   ans_list =list()
+  idx =1
+  for(i in 1:length(x)){
+     vector_x <- (x[[i]])
+    position <- which(vector_x == lhs)
+    len <- length(vector_x)
+    len
+    if(len > position){
+     ans <- vector_x[c(position:len)]
+     ans_list[[idx]] = ans
+     idx=idx+1
+     }
+  }
+   return(unique(ans_list))
+}
+```
+
+RHS function is diving our datset into 2 parts and giving us the items that are bought by Customers before purchase of item number 2 or what products lead to purchase of item 2(here)
+```{r  rhs }
+RHS <- function(rhs, tbl,ans_list){
+matrix_tbl <- as.matrix(tbl)
+new_matrix <- matrix_tbl[matrix_tbl[,rhs] == 1,]
+row <- nrow(new_matrix)
+col <- ncol(new_matrix)
+x <- list()
+
+for(r in 1:row){
+  itemset = c()
+  i = 1
+  for (c in 1:col){
+    if(new_matrix[r,c] == 1) {
+      itemset[i] = c
+      i = i+1
+      }
+  }
+  
+  x[[r]] <- itemset
+}
+  ans_list =list()
+  idx=1
+    for(i in 1:length(x)){
+    vector_x <- (x[[i]])
+    position <- which(vector_x == rhs)
+    len <- length(vector_x)
+    len
+    if(position > 1){
+     ans <- vector_x[c(1:position)]
+      ans_list[[idx]] = ans
+       idx=idx+1
+     }
+    }
+  return(unique(ans_list))
+}
+
+```
+```{r results_of_lhs_rhs}
+ANSWER_RHS <- RHS(rhs =2 , tbl = table, ans_list)
+ANSWER_RHS
+ANSWER_LHS <- LHS(lhs =2 , tbl = table, ans_list)
+ANSWER_LHS
+```
+In the PROB function we calculate and display the itemsets and there respective frequencies  that the shopkeeper wants to analyse 
+```{r final_output}
+prob <- function(answer,tbl ){
+  
+if(length(answer)>0) { 
+              for(i in 1:length(answer)){
+                    vector_x <- (answer[[i]])
+                    len <- length(vector_x)
+                    new_matrix <- matrix_tbl
+                    for(idx in 1:len){
+                                      item <- vector_x[c(idx)]
+                                      new_matrix <- new_matrix[new_matrix[,item] == 1,]
+                                    }
+                              freq = nrow(new_matrix)
+                              freq
+                              if( is.null(freq)){
+                                  a <- as.data.frame(new_matrix)
+                                  a <- t(a)
+                                  freq <- nrow(a)}
+                              print(c("list ->", vector_x , "frequency->", freq))
+                                   }
+}
+else {print("No frequencies to show  in this case") }  
+}
+
+final_output <- prob(ANSWER_LHS, table)
+
+```
+```{r result}
+table
+ANSWER_RHS <- RHS(rhs =3 , tbl = table, ans_list)
+ANSWER_RHS
+ANSWER_LHS <- LHS(lhs =3 , tbl = table, ans_list)
+ANSWER_LHS
+final_output <- prob(ANSWER_LHS, table)
+final_output <- prob(ANSWER_RHS, table)
+
+ANSWER_RHS <- RHS(rhs =4 , tbl = table, ans_list)
+ANSWER_RHS
+ANSWER_LHS <- LHS(lhs =4 , tbl = table, ans_list)
+ANSWER_LHS
+final_output <- prob(ANSWER_LHS, table)
+final_output <- prob(ANSWER_RHS, table)
+
+ANSWER_RHS <- RHS(rhs =1 , tbl = table, ans_list)
+ANSWER_RHS
+ANSWER_LHS <- LHS(lhs =1 , tbl = table, ans_list)
+ANSWER_LHS
+final_output <- prob(ANSWER_LHS, table)
+final_output <- prob(ANSWER_RHS, table)
+
+ANSWER_RHS <- RHS(rhs =5 , tbl = table, ans_list)
+ANSWER_RHS
+ANSWER_LHS <- LHS(lhs =5 , tbl = table, ans_list)
+ANSWER_LHS
+final_output <- prob(ANSWER_LHS, table)
+final_output <- prob(ANSWER_RHS, table)
+
+
+```
+
+

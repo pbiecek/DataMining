@@ -1,0 +1,545 @@
+---
+title: "CI_Project2_Titanic"
+author: "GV_AS"
+date: "25 December 2015"
+output: html_document
+---
+
+Predicting Survival on the Titanic
+
+The objective of the competition is to predict whether a passenger would survive or not.One of the reasons that the shipwreck led to such loss of life was that there were not enough lifeboats for the passengers and crew. Although there was some element of luck involved in surviving the sinking, some groups of people were more likely to survive than others, such as women, children, and the upper-class.
+
+Setting your working directory:
+
+```{r}
+setwd("C:/Users/shankar/Desktop")
+load('.RData')
+```
+
+Loading Data 
+```{r}
+train<-read.csv('train.csv')
+test<- read.csv('test.csv')
+```
+
+The Training dataset consits of 891 rows and 12 columns.
+
+```{r, echo=FALSE}
+colnames(train)
+```
+Distribution of Sexes among the population
+```{r, echo=FALSE}
+train$Sex <- as.factor(train$Sex)
+table(train$Sex)
+```
+Rate of survival for Males and Females
+```{r, echo=FALSE}
+train$Survived <- as.factor(train$Survived)
+table(train$Sex, train$Survived)
+plot(train$Sex, train$Survived)
+```
+
+Females have a better survival rate. 75% of the women have survived, whereas only 18% of men survived.
+
+Distribution of people across classes
+
+```{r, echo=FALSE}
+table(train$Pclass)
+```
+Does the passenger class have an impact on survival?
+
+```{r, echo=FALSE}
+train$Pclass <- as.factor(train$Pclass)
+table(train$Pclass,train$Survived)
+```
+
+```{r, echo=FALSE, warning=FALSE}
+train$Survived <- as.factor(train$Survived)
+plot(train$Pclass,train$Survived)
+
+total <- train
+total$Pclass <- factor(total$Pclass)
+levels(total$Pclass) <- c("FirstClass", "SecondClass", "ThirdClass")
+total$Survived <- factor(total$Survived)
+
+library(ggplot2)
+ggplot(total, aes(Pclass)) + 
+  geom_bar(aes(fill = Survived )) + 
+  facet_grid(~Sex) + 
+  ggtitle("Pclass and Sex as the Survival Factors")
+
+
+```
+
+Females in the upper classes have a higher rate of survival
+
+```{r, echo=FALSE}
+mosaicplot(train$Embarked ~ train$Survived, 
+           main="Passenger Fate by Port of Embarkation",
+           shade=FALSE, color=TRUE, xlab="Embarked", ylab="Survived")
+```
+
+
+While passenger survival didn't vary as much across the three ports of embarkation as it did between genders and traveling classes, perhaps the Embarked feature will prove useful at some point.
+
+Let's now move on to AGE.
+
+```{r, echo=FALSE}
+summary(train$Age)
+```
+
+There are 177 NA's in AGE.
+
+Let's do a summary of Fare.
+```{r, echo=FALSE}
+summary(train$Fare)
+```
+
+Zero Fare? 
+
+```{r}
+subset(train, Fare < 5, select = c(Age, Fare))
+```
+
+some error here, let's substitute the zero fares with the median values of the fares corresponding to each passenger class.
+
+```{r}
+aggregate(Fare~Pclass,train,median)
+```
+
+Lets combine Train and Test Data , as fix for Age and Fare has to done in both datasets.
+
+```{r}
+#Combining the data 
+test$Survived<-NA
+combi<-rbind(train,test)
+```
+```{r}
+#Extracting the information from Names to predict missing ages
+combi$Name <- as.character(combi$Name)
+strsplit(combi$Name[1], split='[,.]')
+strsplit(combi$Name[1], split='[,.]')[[1]]
+strsplit(combi$Name[1], split='[,.]')[[1]][2]
+combi$Title <- sapply(combi$Name, FUN=function(x) {strsplit(x, split='[,.]')[[1]][2]})
+combi$Title <- sub(' ', '', combi$Title)
+combi$Title[combi$Title %in% c('Capt', 'Don', 'Major', 'Sir')] <- 'Mr'
+combi$Title[combi$Title %in% c('Col','Dr','Jonkheer','Rev')] <- 'Mr'
+combi$Title[combi$Title %in% c('the Countess','Mme','Dona','Lady')] <- 'Mrs'
+combi$Title[combi$Title %in% c('Mlle')] <- 'Miss'
+combi$Fare[is.na(combi$Fare)] <- mean(combi$Fare, na.rm=TRUE)
+combi$FamId<- combi$SibSp+ combi$Parch 
+
+#Predicting NAs of Age
+
+for (i in 1:1309) {
+  if(is.na(combi$Age[i])){
+    if(combi$Title[i]=="Master"){combi$Age[i]<-sample(1:17,1)}
+    else if(combi$Title[i]=="Mr"){combi$Age[i]<-sample(18:50,1)}
+    else if(combi$Title[i]=="Miss"){combi$Age[i]<-sample(18:29,1)}
+    else if(combi$Title[i]=="Mrs"){combi$Age[i]<-sample(30:60,1)}
+    else{combi$Age[i]<-sample(18:60,1)}
+  }
+}
+
+#Predicting the errors in Fares
+for(i in 1:1309){
+  if(combi$Fare[i]<7 && combi$Pclass[i]==1){combi$Fare[i]<-60}
+  else if(combi$Fare[i]<7 && combi$Pclass[i]==2){combi$Fare[i]<-14}
+  else if(combi$Fare[i]<7 && combi$Pclass[i]==3){combi$Fare[i]<-8}
+  else{combi$Fare[i]<-combi$Fare[i]}
+}
+
+#Splitting back the train and test data
+train <- combi[1:891,]
+test <- combi[892:1309,]
+
+```
+summary of Age.
+
+```{r, echo=FALSE}
+summary(train$Age)
+```
+summary of Fare.
+
+```{r, echo=FALSE}
+summary(train$Fare)
+```
+
+
+
+```{r, echo=FALSE}
+library(ggplot2)
+qplot(Age, data=train, geom="density", fill=Pclass, alpha=I(.5),
+          main="Age distribution by class", xlab="Age",
+          ylab="Density")
+```
+
+
+It looks like First class people were generally older than second class and so was the case with second class with third class.
+
+```{r, echo=FALSE}
+
+# Plot Age grouped by Pclass
+par(mfrow=c(1,2))
+Survivors <-train[train$Survived==1,]
+Perished <-train[train$Survived==0,]
+boxplot(Age ~ Pclass, data =
+Survivors, col = "light blue",
+main="Survived", xlab="Passenger
+Class", ylab="Age")
+boxplot(Age ~ Pclass, data =
+Perished, col = "gray",
+main="Perished", xlab="Passenger
+Class", ylab="Age")
+```
+
+The Mean age of the Survived is less than that of those who perished
+
+
+```{r, echo=FALSE, warning=FALSE}
+combi$Parch<-as.factor(combi$Parch) 
+combi$Survived<- as.factor(combi$Survived) 
+levels(combi$Survived) = rev(levels(combi$Survived)) 
+ggplot(data=subset(combi,!is.na(Survived)),aes(x=Parch,fill=Survived))+geom_bar(aes(y = (..count..)/sum(..count..)),position = "fill")+ coord_flip()+ylab("Survival rate")+xlab("Parent children with passenger")
+
+p <-ggplot(data=subset(combi,!is.na(Survived)),aes(x=SibSp,fill=Survived))+geom_bar(aes(y = (..count..)/sum(..count..)),position = "fill")+ylab("Survival rate")+xlab("Nbre of Sibling or spouse")
+suppressMessages(print(p))
+
+```
+
+Survival is Higher for passengers with Parch=3 or SibSp=1
+
+The next step is to split the Train data into a Training Set & a Validation Set
+
+```{r}
+dataTrain<-train[1:700,]
+dataVal<-train[701:nrow(train),]
+```
+What the above code means is that the first 700 rows of Train data are loaded into the data frame object "dataTrain" and the remaining rows are loaded into "dataVal", which is going to be the validation set.
+
+
+
+```{r, warning=FALSE}
+#------------Model fitting Starts here-------------------------------#
+
+library(rpart)
+library(rattle)
+library(rpart.plot)
+library(RColorBrewer)
+library(neuralnet)
+library(nnet)
+library(e1071)
+library(caret)
+library(randomForest)
+library(party)
+library(caret)
+
+
+#Applying Decision trees
+fit <- rpart(Survived ~ Sex + Age + FamId + Pclass + Fare , data = dataTrain, method="class")
+fancyRpartPlot(fit)
+
+dataVal$pred_dt <- predict(fit, dataVal[,-1], type = "class")
+conf_Tree <- confusionMatrix(dataVal$pred_dt, dataVal$Survived)
+#Confusion Matrix
+tab=with(dataVal,table(True=Survived,Predicted=pred_dt))
+print(tab)
+#Accuracy
+sum(diag(tab)) / sum(tab)
+
+
+
+
+
+
+# Random Forests
+set.seed(415)
+fit2<- randomForest(as.factor(Survived) ~ Pclass + Sex + Age + Fare + Embarked + FamId + Parch + SibSp, data=dataTrain,
+                    importance=TRUE, ntree=2000)
+varImpPlot(fit2)
+imp <- importance(fit2, type=1)
+featureImportance <- data.frame(Feature=row.names(imp), Importance=imp[,1])
+
+ ggplot(featureImportance, aes(x=reorder(Feature, Importance), y=Importance)) +
+     geom_bar(stat="identity", fill="#53cfff") +
+     coord_flip() + 
+     theme_light(base_size=20) +
+     xlab("") +
+     ylab("Importance") + 
+     ggtitle("Random Forest Feature Importance\n") +
+     theme(plot.title=element_text(size=18))
+dataVal$Pred_rf <- predict(fit2, dataVal)
+Conf_RForest <- confusionMatrix(dataVal$Pred_rf, dataVal$Survived) 
+
+
+
+#C- forest
+set.seed(415)
+fit <- cforest(as.factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + FamId, data = dataTrain, controls=cforest_unbiased(ntree=2000, mtry=3))
+
+Pred_cf <- predict(fit, dataVal, OOB=TRUE, type = "response")
+Conf_CForest <- confusionMatrix(Pred_cf, dataVal$Survived)
+
+
+
+
+#SVM modelling
+plot(dataTrain$Age, dataTrain$Pclass, xlab="Age", ylab="Pclass", col=ifelse(dataTrain$Survived==1, "red", "blue"))
+pairs(~Age+Sex+Pclass+Fare+SibSp+Parch,data=dataTrain, col=ifelse(dataTrain$Survived==1, "red", "blue"))
+
+train_svm<-dataTrain[,c("Age","Sex","Pclass","SibSp","Parch","Survived")]
+svm.model<-svm(Survived ~ . , data = train_svm, kernel="radial")
+
+dataVal_svm<-dataVal[,c("Age","Sex","Pclass","SibSp","Parch")]
+preds<-predict(svm.model, dataVal_svm)
+
+
+conf_Svm  <- confusionMatrix(preds, dataVal$Survived)
+
+
+#Applying Neural network
+
+nnet1 = nnet(Survived ~ Sex + Pclass + Fare + Age + SibSp, 
+             data=dataTrain, size = 2, rang = 0.1,
+             decay = 5e-4, maxit = 200)
+
+prediction$net.result = predict(nnet1, dataVal)
+
+for(i in 1:length(prediction$net.result)){
+  if(prediction$net.result[i]>0.6){prediction$net.result[i]<-1}
+  else{prediction$net.result[i]<-0}
+}
+conf_Neuralnet <- confusionMatrix(prediction$net.result, dataVal$Survived)
+
+
+# Comparison of predictions from each model
+compare_df <- data.frame(Accuracy = c(conf_Tree$overall[1], 
+                                      Conf_RForest$overall[1], 
+                                      Conf_CForest$overall[1],
+                                      conf_Svm$overall[1],
+                                      conf_Neuralnet$overall[1]),
+                         row.names = c("rpart", "rf", "cforest", "svm", "neuralnet"))
+compare_df
+
+```
+
+
+Now it's time for some "feature engineering"
+```{r}
+train$Child <- ifelse(train$Age<=18,1,0)
+```
+
+So anyone who is less than 18 years are considered to be children. Children are mosty likely to be rescued first - let's check it out.
+
+```{r}
+train$Child <- as.factor(train$Child)
+train$Survived <- as.factor(train$Survived)
+table(train$Child, train$Survived)
+plot(train$Child, train$Survived)
+```
+
+Looks like it doesn't it - there is a ~50% chance that you survive if you are a child.
+
+```{r}
+train$Sex <- as.factor(train$Sex)
+table(train$Child, train$Survived, by=train$Sex)
+ggplot(train, aes(Child)) + 
+  geom_bar(aes(fill = Survived )) + 
+  facet_grid(~Sex) + 
+  ggtitle("Child and Sex as the Survival Factors")
+```
+
+From here, it's also somewhat evident that female children are more likely to survive.
+
+Creating an indicator for Woman
+```{r}
+train$Woman <- ifelse(train$Sex=="female",1,0)
+```
+
+Creating another indicator for Child or Woman
+```{r}
+train$CoW <- ifelse(train$Child==1 | train$Woman==1,1,0) 
+```
+
+NOW COMING TO THE VARIABLES RELATED TO FAMILY.
+```{r}
+train$FamilySize <- train$SibSp + train$Parch + 1
+train$FamilyCat <- cut(train$FamilySize, c(0,1,4,12))
+```
+
+What is the family size of the individual? That's what FamilySize gives you. In the next step, I have split the Family Sizes into 3 groups - those who are travelling alone, those whose family size is 2-4 and the third group of individuals whose family size is greater than 4.
+
+To demonstrate how this works, let's tabulate the FamilyCat and survival
+```{r}
+table(train$FamilyCat, train$Survived)
+```
+
+Individuals travelling alone and those with very high family sizes have a bad survival rate.
+
+Now a variable for tracking down the 3rd class passengers alone - the other two passenger classes had a fairly similar survival rate.
+
+```{r}
+train$PC3 <- ifelse(train$Pclass=="3",1,0)
+```
+
+I have decided to go with the following independent variables:
+
+Pclass # Passenger class - the proxy for socio-economic status
+FamilyCat # Family Category - Family Size=1, Family Size 2-4, Family Size >4
+Sex
+CoW # Is the passenger a Child or a woman?
+Title
+
+I'm loading only these required variables into a new data frame:
+
+```{r}
+df_train <- train[,c("Survived","FamilyCat","Pclass","Sex","CoW","Title")]
+```
+
+The next step is to split the data into a Training Set & a Validation Set
+
+```{r}
+dataTrainfe<-df_train[1:700,]
+dataValfe<-df_train[701:nrow(df_train),]
+```
+
+What the above code means is that the first 700 rows of data are loaded into the data frame object "dataTrainfe" and the remaining rows are loaded into "dataValfe", which is going to be my validation set.
+
+All my variables are categorical, so I'm converting them to factors.
+```{r}
+dataTrainfe$Survived <- as.factor(dataTrainfe$Survived)  
+dataTrainfe$Sex <- as.factor(dataTrainfe$Sex)
+dataTrainfe$Title <- as.factor(dataTrainfe$Title)       
+dataTrainfe$Pclass <- as.factor(dataTrainfe$Pclass)
+dataTrainfe$CoW <- as.factor(dataTrainfe$CoW)   
+dataTrainfe$FamilyCat <- as.factor(dataTrainfe$FamilyCat)
+```
+
+It's time to move to the validation set. It is essential that we ensure that the datatypes of the input variables are the same across the training and validation sets.
+
+```{r}
+dataValfe$Survived <- as.factor(dataValfe$Survived)
+dataValfe$Title <- as.factor(dataValfe$Title)
+dataValfe$Sex <- as.factor(dataValfe$Sex)
+dataValfe$CoW <- as.factor(dataValfe$CoW)
+dataValfe$Pclass <- as.factor(dataValfe$Pclass)
+dataValfe$FamilyCat <- as.factor(dataValfe$FamilyCat)  
+
+levels(dataValfe$Survived) <- levels(dataTrainfe$Survived)
+levels(dataValfe$Title) <- levels(dataTrainfe$Title)
+levels(dataValfe$Sex) <- levels(dataTrainfe$Sex)
+levels(dataValfe$CoW) <- levels(dataTrainfe$CoW)
+levels(dataValfe$Pclass) <- levels(dataTrainfe$Pclass)
+levels(dataValfe$FamilyCat) <- levels(dataTrainfe$FamilyCat)
+```
+
+
+```{r}
+#Applying Decision trees
+fit_fe <- rpart(Survived~Pclass+Sex+CoW+FamilyCat+Title , data = dataTrainfe, method="class")
+fancyRpartPlot(fit_fe)
+
+dataValfe$pred_dt <- predict(fit_fe, dataValfe[,-1], type = "class")
+conf_Treefe <- confusionMatrix(dataValfe$pred_dt, dataValfe$Survived)
+#Confusion Matrix
+tab=with(dataValfe,table(True=Survived,Predicted=pred_dt))
+print(tab)
+#Accuracy
+sum(diag(tab)) / sum(tab)
+
+#Applying Neural network
+
+nnet1 = nnet(Survived~Pclass+Sex+CoW+FamilyCat+Title, 
+             data=dataTrainfe, size = 2, rang = 0.1,
+             decay = 5e-4, maxit = 200)
+
+prediction$net.result = predict(nnet1, dataValfe)
+
+for(i in 1:length(prediction$net.result)){
+  if(prediction$net.result[i]>0.6){prediction$net.result[i]<-1}
+  else{prediction$net.result[i]<-0}
+}
+conf_Neuralnetfe <- confusionMatrix(prediction$net.result, dataValfe$Survived)
+
+# Random Forests
+
+set.seed(415)
+fit2_rf<- randomForest(as.factor(Survived) ~ Pclass+Sex+CoW+FamilyCat+Title, data=dataTrainfe,
+                    importance=TRUE, ntree=2000)
+varImpPlot(fit2_rf)
+
+
+prediction$Pred_rffe <- predict(fit2_rf,type="prob",dataValfe) [,2]
+for(i in 1:length(prediction$Pred_rffe )){
+  if(prediction$Pred_rffe[i]>0.6){prediction$Pred_rffe[i]<-1}
+  else{prediction$Pred_rffe[i]<-0}
+}
+Conf_RForestfe <- confusionMatrix(prediction$Pred_rffe, dataValfe$Survived) 
+
+
+
+#C- forest
+set.seed(415)
+fit_cf <- cforest(Survived~Pclass+Sex+CoW+FamilyCat+Title, data = dataTrainfe, controls=cforest_unbiased(ntree=2000, mtry=3))
+
+Predfe_cf <- predict(fit_cf, dataValfe, OOB=TRUE, type = "response")
+Conf_CForestfe <- confusionMatrix(Predfe_cf, dataValfe$Survived)
+
+
+
+
+#SVM modelling
+
+pairs(~Pclass+Sex+CoW+FamilyCat+Title,data=dataTrainfe, col=ifelse(dataTrainfe$Survived==1, "red", "blue"))
+
+
+svm.model.fe<-svm(Survived~Pclass+Sex+CoW+FamilyCat+Title , data = dataTrainfe, kernel="radial")
+
+preds<-predict(svm.model.fe, dataValfe)
+
+
+conf_Svmfe  <- confusionMatrix(preds, dataValfe$Survived)
+
+
+# Comparison of predictions from each model
+compare_df <- data.frame(Accuracy = c(conf_Treefe$overall[1], 
+                                      Conf_RForestfe$overall[1], 
+                                      Conf_CForestfe$overall[1],
+                                      conf_Svmfe$overall[1],
+                                      conf_Neuralnetfe$overall[1]),
+                         row.names = c("rpart", "rf", "cforest", "svm", "neuralnet"))
+compare_df
+
+```
+
+Preparing the TEST SET
+
+The test set should possess the same variable definitions and data types as the train and validation set.
+
+```{r}
+
+summary(test$Age)
+
+test$Title <- as.factor(test$Title)
+test$Child <- ifelse(test$Age<=18,1,0)
+test$Woman <- ifelse(test$Sex=="female",1,0)
+test$CoW <- ifelse(test$Child==1 | test$Woman==1,1,0) #Child or Woman
+test$CoW <- as.factor(test$CoW)
+test$FamilySize <- test$SibSp + test$Parch + 1
+test$FamilyCat <- cut(test$FamilySize, c(0,1,4,12))
+test$FamilyCat <- as.factor(test$FamilyCat)
+
+levels(test$Age) <- levels(dataTrainfe$Age)
+levels(test$Title) <- levels(dataTrainfe$Title)
+levels(test$Sex) <- levels(dataTrainfe$Sex)
+levels(test$CoW) <- levels(dataTrainfe$CoW)
+levels(test$Pclass) <- levels(dataTrainfe$Pclass)
+levels(test$FamilyCat) <- levels(dataTrainfe$FamilyCat)
+
+
+test$Prob <- predict(fit2_rf,type="prob",newdata=test)[,2]
+test$Survived <- ifelse(test$Prob >= 0.5, 1, 0)
+
+write.csv(test[,c(1,20)],"final_file.csv", row.names=FALSE)
+```
+

@@ -1,0 +1,271 @@
+---
+title: "P21"
+author: "Klaudia Magda"
+date: "9 grudnia 2016"
+output: html_document
+---
+
+#Introduction
+In given data set we will make an Extrapolatory Data Analysis.
+
+We will answer following questions:
+
+What are the values in given dataset? 
+What are the distributions?
+Are there relationships? Where? 
+
+What kind of data types?(continuous/discreet/categorical)
+
+Identify outliers
+Goal of 1st part of project:graphical displays of data and numerical summaries of data
+
+
+
+#Libraries
+```{r, message=FALSE, warning=FALSE}
+library(xlsx)
+library(openxlsx)
+library(psych)
+library(e1071)
+library(caret)
+library(magrittr)
+library(plyr)
+library(dplyr)
+library(party)
+library(rpart)
+```
+
+
+
+#Loading data
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+
+dataForm1 <- read.xlsx("C:/Users/kmagda001/Documents/Data-project2-CNK/dane_kwestionariuszowe.xlsx", 1, colNames=TRUE)
+
+dataForm2 <- read.xlsx("C:/Users/kmagda001/Documents/Data-project2-CNK/dane_kwestionariuszowe.xlsx", 2, colNames=TRUE)
+
+dataObserv1<- read.xlsx("C:/Users/kmagda001/Documents/Data-project2-CNK/dane_obserwacyjne.xlsx", sheet = 1, colNames = TRUE)
+
+#dataObserv2<- read.xlsx("C:/Users/kmagda001/Documents/Data-project2-CNK/dane_obserwacyjne.xlsx", sheet=2, colNames = TRUE)
+
+
+```
+
+
+#Data Preprocessing
+
+First step in data Preprocessing is to drop unnecessary columns that do not have huge impact on our data. 
+
+Predictors that has been dropped:
+`Kolumn1` and `lp` (no information about those predictors)
+Columns that has majority of NA values (more than 85%)
+
+In other columns values NA were replaced with certain value.
+
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+describe(dataObserv1)
+
+dataObs <- subset(dataObserv1, select = -c(Kolumna1, lp, X3_OSTOW, X4_OSTOW, X5_OSTOW, X6_OSTOW, X7_OSTOW, X8_OSTOW, X9_OSTOW, uwagi))
+
+describe(dataObs)
+summary(dataObs)
+ls.str(dataObs)
+
+dataForm<-subset(dataForm1, select = -c(Kolum1))
+
+dataMerge<-merge(dataObs,dataForm)
+
+dataObs$opis[is.na(dataObs$opis)] <- 0
+dataObs$animator[is.na(dataObs$animator)] <- 0
+
+```
+
+
+
+
+#Division on Categorical and Numerical predictors
+Need to assign factor variable to categories, that were mentioned in description
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+colsObs <- c("ID","kategorie", "zach")
+dataObs[,colsObs] <- data.frame(apply(dataObs[colsObs], 2, as.factor))
+
+
+split(names(dataObs),sapply(dataObs, function(x) paste(class(x), collapse=" ")))
+
+
+colsForm <- c("Plec", "studiaM", "studiaT", "pracaM" ,"pracaT","opis","animator", "NR_szkoły","NR_klasy","NR_dziennik")
+dataForm[,c(5:12, 1)] <- data.frame(apply(dataForm[5:12], 2, as.factor))
+
+
+split(names(dataForm),sapply(dataForm, function(x) paste(class(x), collapse=" ")))
+
+
+colsMerge <- c("ID", "kategorie", "zach", "Plec","studiaM", "studiaT", "pracaM" ,"pracaT","opis","animator", "NR_szkoły","NR_klasy","NR_dziennik")
+dataMerge[,colsMerge] <- data.frame(apply(dataMerge[colsMerge], 2, as.factor))
+
+
+split(names(dataMerge),sapply(dataMerge, function(x) paste(class(x), collapse=" ")))
+
+
+```
+
+#Number of features
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+dataForm$oceJP[is.na(dataForm$oceJP)] <- 1
+dataForm$oceM[is.na(dataForm$oceM)] <- 1
+dataForm$oceP[is.na(dataForm$oceP)] <- 1
+
+
+Eksponats<-length(unique(dataMerge$ekspot))
+Eksponats
+People<-length(unique(dataMerge$ID))
+People
+
+Top5People<-tail(names(sort(table(dataObs$ID))), 5)
+Top5People
+
+#aggregate(dataObs[, 1:2], list(dataObs$ekspot), mean)
+
+
+
+#Average of Grades for each school
+aggregate(dataForm[, 13:15], list(dataForm$NR_szkoły), mean)
+
+
+
+aggregate(dataObs$czas_w_sek, list(dataObs$ekspot), mean)
+
+```
+
+
+#Summary Statistics
+##Five number summaries (mean/median, min, max, q1, q3)
+Five number summaries will show distribution of data and define if there are outliers variables
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+summary(dataObs$czas_w_min) # Summary statistics are printed for this variable
+
+
+plot(density(dataObs$czas_w_sek), xlim=c(0,70), col="red", xlab="Time in seconds")
+
+
+```
+
+#Histogram
+Histogram were used to notice if grades can be considered as outliner variables
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+attach(dataObs) 
+attach(dataForm)
+
+grades <- seq(0, 6, 1) 
+
+hist(oceM, breaks=grades, xlab = "Grades", ylab = "Frequency", main = "Histogram of Math Grades", cex=0.1)
+
+hist(oceJP, breaks=grades, xlab = "Grades", ylab = "Frequency", main = "Histogram of Polish Language Grades", cex=0.1)
+
+hist(oceP, breaks=grades, xlab = "Grades", ylab = "Frequency", main = "Histogram of Biology Grades", cex=0.1)
+
+
+
+```
+
+#Boxplots
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+boxplot(oceM, bty="n",xlab = "Math Grades", cex=0.1)
+boxplot(oceJP, bty="n",xlab = "Polish Grades", cex=0.1)
+boxplot(oceP, bty="n",xlab = "Biology Grades", cex=0.1)
+```
+
+
+
+
+
+
+```
+
+#Scatterplots
+Scatterplots are used to visualize data.
+
+Categories of exhibits:
+
+1- breaks
+2 - exhibits
+3 - other atractions
+
+Categories of behavior:
+
+1 - Observation
+2 - Touching
+3 - Using
+4 - Experiments
+
+Categories of Gender:
+
+1 - Girls
+2 - Boys
+
+Parents studies/work:
+1 - Yes 
+2 - No
+3 - I dont know
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+ pairs(dataForm[,10:15], main = "Grades", pch = "+", col = c("red", "green3",  "blue"))
+
+
+pairs(dataObs[,4:9], gap=0, pch=19, cex=0.4, col=c("darkblue","red"))
+
+
+
+
+xyplot(czas_w_sek ~ start_s | kategorie, dataObs, groups = dataObs$kategorie, pch= 20)
+xyplot(start_s ~ stop_s | kategorie, dataObs, groups = dataObs$kategorie, pch= 20)
+xyplot(start_s ~ stop_s | zach, dataObs, groups = dataObs$zach, pch= 20)
+
+xyplot(start_s ~ czas_w_sek | zach, dataObs, groups = dataObs$zach, pch= 20)
+
+
+
+dataMerge$Plec<-as.factor(dataMerge$Plec)
+dataMerge$kategorie<-as.factor(dataMerge$kategorie)
+dataMerge$oceP<-as.factor(dataMerge$oceP)
+dataForm$Plec<-as.factor(dataForm$Plec)
+#dataForm$OceM<-as.factor(dataForm$OceM)
+dataForm$oceJP<-as.factor(dataForm$oceJP)
+#dataForm$OceP<-as.factor(dataForm$OceP)
+
+spineplot(dataMerge$Plec,dataMerge$kategorie, col="green")
+
+spineplot(dataForm$Plec ~ dataForm$oceJP , col="lightblue", main="Polish Grades for Gender")
+spineplot(dataForm$Plec ~ dataForm$oceM , col="red", main="Math Grades for Gender")
+spineplot(dataForm$Plec ~ dataForm$oceP , col="lightgreen", main="Biology Grades for Gender")
+
+spineplot(dataForm$studiaT ~ dataForm$pracaT , col="pink", main="Father studies/work")
+
+spineplot(dataForm$studiaM ~ dataForm$pracaM , col="yellow", main="Mother studies/work")
+
+
+
+#xyplot(start_s ~ czas_w_sek | Plec, data, groups = dataMerge$Plec, pch= 20)
+
+#xyplot(start_s ~ stop_s | Plec, data, groups = dataMerge$Plec, pch= 20)
+```
+#XY plot
+
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+xyplot(czas_w_sek ~ start_s | kategorie, dataObs, groups = dataObs$kategorie, pch= 20)
+xyplot(start_s ~ stop_s | kategorie, dataObs, groups = dataObs$kategorie, pch= 20)
+xyplot(start_s ~ stop_s | zach, dataObs, groups = dataObs$zach, pch= 20)
+
+xyplot(start_s ~ czas_w_sek | zach, dataObs, groups = dataObs$zach, pch= 20)
+```

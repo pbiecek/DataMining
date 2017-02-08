@@ -1,0 +1,98 @@
+---
+title: "homework_2"
+author: "Shilpa Khichar"
+date: "17 October 2016"
+output: html_document
+---
+
+
+```{r, warning=FALSE, message=FALSE}
+## tools->install Packages
+
+#install.packages("caret")
+#install.packages("xlsx")
+#install.packages("plotly")
+
+
+library("caret")
+library("xlsx")
+library("rio")
+library("dplyr")
+library(ggplot2)
+library(plotly)
+library(magrittr)
+```
+ 
+```{r code}
+##importing/reading data set from xlsx file
+
+#student_mat <- read.xlsx("STUDENT_MAT1.XLSX", sheetIndex = 1)
+student_mat <- read.table("student-mat.csv",sep=";",header=TRUE)
+
+
+## converting variables DALC and WALC from num to factor
+names <- c('Dalc' ,'Walc')
+student_mat[,names] <- lapply(student_mat[,names] , factor)
+str(student_mat)
+
+## ploting data 
+ggplot(student_mat, aes(G1, G2, color=Dalc)) +geom_point() + theme_bw() + coord_fixed()
+
+## Classifying G1,G2,G3 based on their classes(Classifier is DALC variable here)
+knnFit <- knn3(Dalc ~ G1+G2+G3, data = student_mat , k=5, prob=TRUE)
+knnFit
+
+##we predict class(from Dalc variable) for different records (G1,G2,G3 variables)
+pred <- predict(knnFit, student_mat, type="class")
+t(pred)
+## we create a cross table to see actual classes and predicted classes
+tab <- table(true = student_mat$Dalc, predicted = pred)
+tab
+## we see that the result is not correct , there are so many wrong predictions:
+## values in the digonal represents correct prediction,whereas values in upper or lower triange represent wrong predictions for each class(in rows).
+sum(diag(tab)) / sum(tab)
+
+## for better performance :
+
+##randomly dividing the dataset into training and test dataset
+set.seed(2211)
+indx_train <-createDataPartition(y = student_mat$Dalc , p = 0.75)
+str(indx_train)
+
+stud_train <- student_mat[indx_train$Resample1,]
+stud_test <- student_mat[-indx_train$Resample1,]
+## Performing KNN on the training data set
+knnfit<-knn3(Dalc ~ G1+G2+G3, data = stud_train, k = 19)
+knnfit
+## Predicting classes for test data set 
+pred <- predict(knnfit, stud_test, type="class")
+## creating cross table to see discrepancy between actual and predicted classes
+tab <- table(true = stud_test$Dalc, predicted = pred)
+tab
+tab2 <- prop.table(tab, 1)
+tab2
+
+sum(diag(tab)) / sum(tab)
+sum(diag(tab2)) / sum(tab2)
+## performing KNN with all possible k values and finding out which K values gives best performance
+tuneK <- 1:395
+performance <- sapply(tuneK, function(k) {
+knnfit<-knn3(Dalc ~ G1+G2+G3, data = student_mat , k=k)
+  tab <- table(true = stud_test$Dalc,
+          predict = predict(knnfit, stud_test, type="class"))
+  sum(diag(tab)) / sum(tab)
+}) 
+## ploting graph between performance and K(all possible k values)
+df <- data.frame(tuneK, performance)
+
+ggplot(df, aes(tuneK, performance)) +
+  geom_point() + 
+  geom_smooth(se=FALSE, span=0.1, size=2) +
+  theme_bw()
+## we see that for k = 10 to 395 , performance is highest and same
+## we can check performance for k = 0 to sqrt(no of observation), to find best k.
+summary(student_mat[,c("G1","G2","G3")])
+
+## here we can see that the data is not linearly seperable
+plot_ly(student_mat, x = ~G1, y = ~G2, z = ~G3, color=~Dalc) %>% add_markers()
+```

@@ -1,0 +1,120 @@
+---
+title: 'Homework #7'
+author: "Viet Ba Mai"
+date: "29 listopada 2016"
+output: 
+  html_document:
+    toc : TRUE
+---
+
+
+#Description
+The goal of this homework is to compare the performance of Naive Bayes classifier on a data with categorized variables of similar intervals (lengths) versus similar number of observations (size) for each subgroup. In both cases the variables will be divided into 3 ranges.
+
+The first categorisation will be done with `cut()` while the latter with `cut2()` from `Hmisc` library.
+
+The dataset used for this project is `Wine Quality` from UCI (http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality.names).
+
+
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+library(caret)
+library(Hmisc)
+library(randomForest)
+
+wines <- read.csv(file.path(getwd(), "wines.csv"), header=TRUE, sep=",", encoding="UTF-8")
+table(wines$quality)
+wines$quality <- factor(ifelse(wines$quality > 5, "good", "bad")) 
+table(wines$quality)
+summary(wines)
+```
+
+#Creating subranges
+Firstly we create copies of the original dataset. In the next steps we will categorise features into 3 sub-ranges.
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+wines_eq_length <- wines
+wines_eq_size <- wines
+```
+
+##Similar intervals
+Dividing into sub-ranges of similar length of the range using `cut()` function.
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+for (i in 1:11) {
+  wines_eq_length[,i] <- cut(wines[,i], 3)
+}
+summary(wines_eq_length)
+```
+
+##Similar sizes
+Dividing into sub-ranges of similar size (number of observations) using `cut()2` function.
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+for (i in 1:11) {
+  wines_eq_size[,i] <- cut2(wines[,i], g=3)
+}
+summary(wines_eq_size)
+```
+
+
+#Naive Bayes
+Having two types of data prepared we will create Naive Bayes classifiers for each to check which will give a better performance.
+
+##Similar intervals
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+bayes_length <- train(quality ~ ., data=wines_eq_length, trControl=trainControl(method="boot", number=10), method="nb")
+pred <- predict(bayes_length, wines_eq_length)
+confusionMatrix(pred, wines_eq_length$quality)
+```
+
+##Similar sizes
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+bayes_sizes <- train(quality ~ ., data=wines_eq_size, trControl=trainControl(method="boot", number=10), method="nb")
+pred <- predict(bayes_sizes, wines_eq_size)
+confusionMatrix(pred, wines_eq_size$quality)
+```
+
+#Importance
+Now we will experiment with feature importance. Using Random Forest we find the top 3 most important predictors and then train with Naive Bayes using only them.
+
+##Similar intervals
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+set.seed(1313)
+indxTrain <- createDataPartition(y = wines_eq_length$quality, p = 0.75)
+train <- wines_eq_length[indxTrain$Resample1,]
+
+forest <- randomForest(quality ~ ., data = train, importance = TRUE, na.action = na.omit)
+varImpPlot(forest)
+importance(forest)
+sortedImportance = order(-forest$importance[,3])
+tops = rownames(forest$importance)[sortedImportance][1:3][1:3]
+tops
+tops <- append(tops, "quality")
+wines_eq_length <- wines_eq_length[tops]
+
+bayes_length <- train(quality ~ ., data=wines_eq_length, trControl=trainControl(method="boot", number=10), method="nb")
+pred <- predict(bayes_length, wines_eq_length)
+confusionMatrix(pred, wines_eq_length$quality)
+```
+
+##Similar sizes
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
+set.seed(1313)
+indxTrain <- createDataPartition(y = wines_eq_size$quality, p = 0.75)
+train <- wines_eq_size[indxTrain$Resample1,]
+
+forest <- randomForest(quality ~ ., data = train, importance = TRUE, na.action = na.omit)
+varImpPlot(forest)
+importance(forest)
+sortedImportance = order(-forest$importance[,3])
+tops = rownames(forest$importance)[sortedImportance][1:3][1:3]
+tops
+tops <- append(tops, "quality")
+wines_eq_size <- wines_eq_size[tops]
+
+bayes_sizes <- train(quality~., data=wines_eq_size, trControl=trainControl(method="boot", number=10), method="nb")
+pred <- predict(bayes_sizes, wines_eq_size)
+confusionMatrix(pred, wines_eq_size$quality)
+```
+
+#Conclusions
+The best result with the accuracy above `70%` was obtained when we divided features into categories of similar size. Classification only on the top 3 variables by importance yield less than `1%` lower results for the similar size categories, but in case of similar intervals division the result using only 3 features was `3%` higher (~`68%`).
+
+We can conclude that in general it is a better idea to have the same amount of observations in each range rather than the same length of ranges.

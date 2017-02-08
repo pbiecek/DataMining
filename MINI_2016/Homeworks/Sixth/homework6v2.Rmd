@@ -1,0 +1,158 @@
+---
+title: "homework6"
+author: "Klaudia Magda"
+date: "20 listopada 2016"
+output: html_document
+---
+
+
+
+## R Markdown
+
+
+
+
+#Libraries used
+```{r, message=FALSE, warning=FALSE}
+library(e1071)
+library(caret)
+library(magrittr)
+library(plyr)
+library(dplyr)
+library(corrplot)
+library(randomForest)
+library(pROC)
+library(Epi)
+library(nnet)
+library(party)
+library(rpart)
+library(gmum.r)
+```
+
+
+
+#dataCar preparation
+##Target variable
+
+Target Variable `unacc` has 4 values:
+1.unacc
+2.acc
+3.good
+4.vgood
+
+
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+
+dataCar <- read.csv(url("https://archive.ics.uci.edu/ml/machine-learning-databases/car/car.data"))
+
+
+```
+
+
+##Preprocessing
+In order to make working with the dataCar easier we remove near zero variance variables and making a normalisation.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+#Removing near zero variance variables
+nzv <- nearZeroVar(dataCar)
+names(dataCar)[nzv]
+#Normalisation
+preProcValues <- preProcess(dataCar, method = c("range"))
+dataCar <- predict(preProcValues, dataCar)
+
+```
+
+#Data splitting
+Having the data prepared for classification we need to divide it into a training and testing set. We chose the size of the training set to be 0.75 of the original data set.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+set.seed(1313)
+size <- floor(0.75 * nrow(dataCar))
+indxTrain <- sample(seq_len(nrow(dataCar)), size = size)
+
+dataTrain <- dataCar[indxTrain, ]
+dataTest <- dataCar[-indxTrain, ]
+```
+
+
+
+#One vs. All OvA
+
+`One vs All` classification is a technique that is building binary classifiers and each of the class is compared with every another class. It means that if we have 3 classes it will create 3 different binary classifiers. In our example as an effective method for binnary classification will be `SVM`.
+
+Unfortunately, this method is time-consuming and is just a binary classification multiplayed several times.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+# One versus all is solving K subproblems
+sv.ova <- SVM(unacc ~ ., data=dataCar, class.type="one.versus.all", verbosity=0)
+preds <- predict(sv.ova, dataCar[,1:6])
+acc.ova <- sum(diag(table(preds, dataCar$unacc)))/sum(table(preds, dataCar$unacc))  
+
+acc.ova
+
+
+cmOVA <- confusionMatrix(preds, dataCar$unacc)
+cmOVA
+plot(sv.ova)
+#accuracy 70,3%
+
+```
+
+
+#One vs. One OvO
+This idea consists building K(K-1)/2 amount of classifiers when K is a number of class.
+
+In this method we can notice that one classifier is to distinguish each pair of classes
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# One versus one is solving K(K-1)/2 subproblems (one for each pair)
+sv.ovo <- SVM(x=dataCar[,1:6], y=dataCar[,7], class.type="one.versus.one", verbosity=0)
+predsOVO <- predict(sv.ovo, dataCar[,1:6])
+acc.ovo <- sum(diag(table(preds, dataCar$unacc)))/sum(table(preds, dataCar$unacc))
+acc.ovo
+cmOVO <- confusionMatrix(predsOVO, dataCar$unacc)
+cmOVO
+plot(sv.ovo)
+#accuracy 72,6%
+```
+
+
+#Error Correcting Output Codes ECOC
+
+The basis of the `ECOC` method consists of designing a binary codeword for each
+of the classes.
+In this approach is defined matrix With size K x L where:
+K -is an amount of classes
+L - number of codewords that defined each class
+
+
+When testing an unlabeled pattern, x, each classifier creates a ???? long output code vector. This
+output vector is compared to each codeword in the matrix.
+
+Class whose codeword has the closest distance to the
+output vector is chosen as the predicted class (decoding). The most commonly decoding methods are
+the Hamming distance. This method looks for the minimum
+distance between the prediction vector and codewords.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+svm.model=svm(unacc~., data=dataCar, kernel="polynomial",probability=TRUE)
+
+plot(svm.model, dataCar, vhigh ~ vhigh.1,
+     slice = list(X2 = 3, X2.1 = 4),
+     svSymbol = "x", dataSymbol = "o", symbolPalette = rainbow(4),
+     color.palette = terrain.colors,fill=TRUE,grid=200)
+
+pred <- predict(svm.model, dataCar, decision.values = TRUE, probability = TRUE)
+attr(pred, "decision.values")[1:4,]
+attr(pred, "probabilities")[1:4,]
+
+# visualize (classes by color, SV by crosses):
+plot(cmdscale(dist(dataCar[,-5])),
+     col = as.integer(dataCar[,5]),
+     pch = c("o","+")[1:150 %in% svm.model$index + 1])
+
+```
+
+#Conclusion
+
+Comparision of methods OVA and OVO.
+Moreover in this dataset we can notice (based on plots) that we have

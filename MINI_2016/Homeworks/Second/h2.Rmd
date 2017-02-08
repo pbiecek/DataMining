@@ -1,0 +1,262 @@
+---
+title: "DMA - Homework 2"
+author: "Viet Ba Mai"
+<<<<<<< HEAD
+date: "20 pazdziernika 2016"
+=======
+<<<<<<< HEAD
+date: "14 pazdziernika 2016"
+=======
+date: "20 pazdziernika 2016"
+>>>>>>> cbbe1b4cb6df69b7b6f59c23111d5fc46e5a7de2
+>>>>>>> 608a62a4260521e4d046e514b9e23a8c3394fc0f
+output: 
+  html_document:
+  toc: TRUE
+---
+
+#Loading data
+Firstly we need to load the data from a given .csv file `student-mat`.
+```{r, cache=TRUE}
+student_mat <- read.csv(file="C:/Users/vietba/Downloads/student-mat.csv", header=TRUE, sep=";", encoding="UTF-8")
+
+```
+
+
+#Input data
+Below 10 first observations of the imported table are presented.
+
+```{r, echo=FALSE, cache=TRUE}
+head(student_mat, 10)
+```
+
+I chose the `Dalc` column as the target class. This column stands for workday alcohol consumption.
+However factor needs to be applied on the `Dalc` variable in order to use it as the ideal value.
+
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+Below are 10 first observations of columns selected for the classifier and the factored response variable:
+
+=======
+>>>>>>> 608a62a4260521e4d046e514b9e23a8c3394fc0f
+
+##Summaries of chosen variables
+```{r, cache=TRUE}
+t1 <- table(student_mat$Dalc, student_mat$studytime)
+t1
+
+t2 <- table(student_mat$Dalc, student_mat$age)
+t2
+
+t3 <- table(student_mat$Dalc, student_mat$absences)
+t3
+
+t4 <- table(student_mat$Dalc, student_mat$failures)
+t4
+
+t5 <- table(student_mat$Dalc, student_mat$freetime)
+t5
+
+t6 <- table(student_mat$Dalc, student_mat$goout)
+t6
+
+```
+
+
+##Selected variables
+Below are 10 first observations of columns selected for the classifier and the factored response variable:
+<<<<<<< HEAD
+=======
+>>>>>>> cbbe1b4cb6df69b7b6f59c23111d5fc46e5a7de2
+>>>>>>> 608a62a4260521e4d046e514b9e23a8c3394fc0f
+```{r, cache=TRUE}
+#install.packages("caret")
+library(caret)
+studentnew <- within(student_mat, Dalc <- factor(Dalc))
+head(studentnew[, c("Dalc", "studytime", "age", "absences", "failures", "freetime", "goout")], 10)
+```
+
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+I chose these particular variables, because after observing the table it seems that they affect the value of `Dalc`. In other words they change with that value fairly proportionally.
+=======
+>>>>>>> 608a62a4260521e4d046e514b9e23a8c3394fc0f
+I chose these particular variables, because after observing the table and summaries shown in the previous section it can be observed that they are correlated with the value of `Dalc`, so in other words change fairly proportionally with the class variable.
+
+#Distribution of the class variable
+```{r, cache=TRUE}
+dalc_tab <- table(studentnew$Dalc)
+barplot(dalc_tab, col="lightblue")
+```
+
+From the barplot we can see that the number of alcohol consumption days in working days is proportional to its frequency in the table, so the most commonly occuring class is 1 and the least is 5.
+<<<<<<< HEAD
+=======
+>>>>>>> cbbe1b4cb6df69b7b6f59c23111d5fc46e5a7de2
+>>>>>>> 608a62a4260521e4d046e514b9e23a8c3394fc0f
+
+
+#Preparing training and testing set
+We divide the `student_mat` set into training and testing set with their ratio being 3:1 respectively.
+```{r, cache=TRUE}
+set.seed(1313)
+indxTrain <- createDataPartition(y = studentnew$Dalc, p = 0.75)
+str(indxTrain)
+
+stdntmatTrain <- studentnew[indxTrain$Resample1,]
+stdntmatTest <- studentnew[-indxTrain$Resample1,]
+```
+
+
+#Train and test
+We build the classifier for selected variables and then train it on the training set `stdntmatTrain`.
+```{r, cache=TRUE}
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+knnFit <- knn3(Dalc ~ studytime + age + absences + failures + freetime + goout, data = stdntmatTrain, k=20, prob=TRUE)
+```
+Above I performed training on 20 nearest neighbours model.
+=======
+>>>>>>> 608a62a4260521e4d046e514b9e23a8c3394fc0f
+knnFit <- knn3(Dalc ~ studytime + age + absences + failures + freetime + goout, data = stdntmatTrain, k=50, prob=TRUE)
+knnFit
+```
+Above I performed training on 50 nearest neighbours model.
+<<<<<<< HEAD
+=======
+>>>>>>> cbbe1b4cb6df69b7b6f59c23111d5fc46e5a7de2
+>>>>>>> 608a62a4260521e4d046e514b9e23a8c3394fc0f
+
+
+Testing on the testing set `stdntmatTest`.
+```{r, cache=TRUE}
+pred <- predict(knnFit, stdntmatTest, type="class")
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+tab <- table(true = stdntmatTest$Dalc, predicted = pred)
+=======
+>>>>>>> 608a62a4260521e4d046e514b9e23a8c3394fc0f
+pred
+pred_tab <- table(pred)
+barplot(pred_tab, col="lightgreen")
+tab <- table(true = stdntmatTest$Dalc, predicted = pred)
+tab
+<<<<<<< HEAD
+=======
+>>>>>>> cbbe1b4cb6df69b7b6f59c23111d5fc46e5a7de2
+>>>>>>> 608a62a4260521e4d046e514b9e23a8c3394fc0f
+```
+
+
+Calculating accuracy:
+```{r, cache=TRUE}
+<<<<<<< HEAD
+accuracy = sum(diag(tab)) / sum(tab)
+accuracy
+=======
+<<<<<<< HEAD
+sum(diag(tab)) / sum(tab)
+=======
+accuracy = sum(diag(tab)) / sum(tab)
+accuracy
+>>>>>>> cbbe1b4cb6df69b7b6f59c23111d5fc46e5a7de2
+>>>>>>> 608a62a4260521e4d046e514b9e23a8c3394fc0f
+```
+
+
+#Optimal k and performance
+Now we can find the opitmal value of `k` in the k-means algorithm.
+For this task we can assume that the best value would be the one which yields the highest value for performance.
+```{r, cache=TRUE}
+tuneK <- 1:100
+performance <- sapply(tuneK, function(k) {
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+  knnFit <- knn3(Dalc ~ studytime + age + absences + failures + freetime + goout, data = stdntmatTrain, k=k)
+  tab <- table(true = stdntmatTest$Dalc,
+          predict = predict(knnFit, stdntmatTest, type="class"))
+  tab2 <- prop.table(tab, 1)
+  tab2
+  sum(diag(tab)) / sum(tab)
+=======
+>>>>>>> 608a62a4260521e4d046e514b9e23a8c3394fc0f
+  knnFit_perf <- knn3(Dalc ~ studytime + age + absences + failures + freetime + goout, data = stdntmatTrain, k=k)
+  tab_perf <- table(true = stdntmatTest$Dalc,
+          predict = predict(knnFit_perf, stdntmatTest, type="class"))
+  sum(diag(tab_perf)) / sum(tab_perf)
+<<<<<<< HEAD
+=======
+>>>>>>> cbbe1b4cb6df69b7b6f59c23111d5fc46e5a7de2
+>>>>>>> 608a62a4260521e4d046e514b9e23a8c3394fc0f
+}) 
+```
+
+
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+Optimal k and its performance:
+```{r, cache=TRUE}
+optimal_k = which.max(performance)
+optimal_k
+performance[optimal_k]
+=======
+>>>>>>> 608a62a4260521e4d046e514b9e23a8c3394fc0f
+Optimal `k` and its performance:
+```{r, cache=TRUE}
+optimal_k = which.max(performance)
+optimal_k
+<<<<<<< HEAD
+=======
+>>>>>>> cbbe1b4cb6df69b7b6f59c23111d5fc46e5a7de2
+>>>>>>> 608a62a4260521e4d046e514b9e23a8c3394fc0f
+```
+
+
+#Performance plot
+```{r, warning=FALSE, cache=TRUE}
+df <- data.frame(tuneK, performance)
+
+ggplot(df, aes(tuneK, performance)) +
+  geom_point() + 
+  geom_smooth(se=FALSE, span=0.1, size=2) +
+  theme_bw()
+
+```
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+>>>>>>> 608a62a4260521e4d046e514b9e23a8c3394fc0f
+
+#Testing the optimal k
+```{r, cache=TRUE}
+knnFit_optimal <- knn3(Dalc ~ studytime + age + absences + failures + freetime + goout, data = stdntmatTrain, k=optimal_k, prob=TRUE)
+
+pred_optimal <- predict(knnFit_optimal, stdntmatTest, type="class")
+pred_optimal
+pred_optimal_tab <- table(pred_optimal)
+barplot(pred_optimal_tab, col="lightgreen")
+tab_optimal <- table(true = stdntmatTest$Dalc, predicted = pred_optimal)
+tab_optimal
+```
+
+With  `k=oprtimal_k` the accuracy is:
+```{r, cache=TRUE}
+optimal_accuracy = sum(diag(tab_optimal)) / sum(tab_optimal)
+optimal_accuracy
+```
+
+#Conclusions
+The classification accuracy with the initially chosen `k=50` is slightly lower (around 1%) than the one given with the optimal `k`. Hence in the future we can firstly find the optimal k by comparing performances and then use the one with the highest performance.
+Nevertheless the accuracy in both cases is acceptable (above 70%) and when comparing barplots of predictions and the actual class variable we can see that the distribution of classes is similar with the class 1 still being the leading one.
+Considering aforementioned factors we may assume that the classification with training done using the `knn3()` function provided by the `caret` library was successful.
+<<<<<<< HEAD
+=======
+>>>>>>> cbbe1b4cb6df69b7b6f59c23111d5fc46e5a7de2
+>>>>>>> 608a62a4260521e4d046e514b9e23a8c3394fc0f

@@ -1,0 +1,208 @@
+---
+title: "P22"
+author: "Klaudia Magda"
+date: "9 grudnia 2016"
+output: html_document
+---
+
+#Introduction
+In 2nd part of the project I will focus on a division of data into groups of similar objects that are similar between themselves and dissimilar to objects of other groups (Clustering). 
+
+#Libraries
+```{r, message=FALSE, warning=FALSE}
+library(xlsx)
+library(openxlsx)
+library(psych)
+library(e1071)
+library(caret)
+library(magrittr)
+library(plyr)
+library(dplyr)
+library(party)
+library(rpart)
+library(psych)
+library(ggplot2)
+library(NbClust)
+library(pvclust)
+library(MASS)
+library(bclust)
+```
+
+
+
+#Loading data
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+dataForm1 <- read.xlsx("C:/Users/kmagda001/Documents/Data-project2-CNK/dane_kwestionariuszowe.xlsx", 1, colNames=TRUE)
+
+dataForm2 <- read.xlsx("C:/Users/kmagda001/Documents/Data-project2-CNK/dane_kwestionariuszowe.xlsx", 2, colNames=TRUE)
+
+dataObserv1<- read.xlsx("C:/Users/kmagda001/Documents/Data-project2-CNK/dane_obserwacyjne.xlsx", sheet = 1, colNames = TRUE)
+```
+
+
+#Data Preprocessing
+
+First step in data Preprocessing is to drop unnecessary columns that do not have huge impact on our data. 
+
+Predictors that has been dropped:
+`Kolumn1` and `lp` (no information about those predictors)
+Columns that has majority of NA values (more than 85%)
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+describe(dataObserv1)
+
+dataObs <- subset(dataObserv1, select = -c(Kolumna1, lp, X3_OSTOW, X4_OSTOW, X5_OSTOW, X6_OSTOW, X7_OSTOW, X8_OSTOW, X9_OSTOW, uwagi))
+
+describe(dataObs)
+summary(dataObs)
+ls.str(dataObs)
+
+dataForm<-subset(dataForm1, select = -c(Kolum1, wyk_zawod_M, wyk_zawod_T, aspiracje))
+
+colsObs <- c("ID","kategorie", "zach")
+dataObs[,colsObs] <- data.frame(apply(dataObs[colsObs], 2, as.factor))
+
+colsForm <- c("Plec", "studiaM", "studiaT", "pracaM" ,"pracaT","opis","animator", "NR_szkoły","NR_klasy","NR_dziennik")
+dataForm[,c(5:12)] <- data.frame(apply(dataForm[5:12], 2, as.factor))
+
+
+split(names(dataForm),sapply(dataForm, function(x) paste(class(x), collapse=" ")))
+```
+
+#NA values
+To deal with NA values I have decided to drop those variables, where it is hard to predict NA value and in other cases assign most frequent value for categorical variables and average for numerical.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+dataObs <- subset(dataObs, select = -c(Z_KIM, X1_OSTOW, X2_OSTOW))
+
+
+for(i in 1:ncol(dataObs)){
+  dataObs[is.na(dataObs$start_min), i] <- mean(dataObs[,i], na.rm = TRUE)
+}
+
+for(i in 1:ncol(dataObs)){
+  dataObs[is.na(dataObs$start_s), i] <- mean(dataObs[,i], na.rm = TRUE)
+}
+
+for(i in 1:ncol(dataObs)){
+  dataObs[is.na(dataObs$stop_min), i] <- mean(dataObs[,i], na.rm = TRUE)
+}
+
+for(i in 1:ncol(dataObs)){
+  dataObs[is.na(dataObs$stop_s), i] <- mean(dataObs[,i], na.rm = TRUE)
+}
+
+
+dataObs$zach[is.na(dataObs$zach)]
+dataObs$opis[is.na(dataObs$opis)] <- 0
+dataObs$animator[is.na(dataObs$animator)] <- 0
+dataObs$kategorie[is.na(dataObs$kategorie)] <- 2
+dataObs$zach[is.na(dataObs$zach)] <- 3
+
+dataForm$studiaM[is.na(dataForm$studiaM)] <- 3
+dataForm$studiaT[is.na(dataForm$studiaT)] <- 3
+dataForm$pracaM[is.na(dataForm$pracaM)] <- 3
+dataForm$pracaT[is.na(dataForm$pracaT)] <- 3
+dataForm$oceM[is.na(dataForm$oceM)] <- 1
+dataForm$oceJP[is.na(dataForm$oceJP)] <- 1
+dataForm$oceP[is.na(dataForm$oceP)] <- 1
+
+colnames(dataObs)[colSums(is.na(dataObs)) > 0]
+colnames(dataForm)[colSums(is.na(dataForm)) > 0]
+
+
+dataForm<-na.omit(dataForm)
+dataObs<-na.omit(dataObs)
+
+
+#split(names(dataMerge),sapply(dataMerge, function(x) paste(class(x), collapse=" ")))
+```
+
+
+#Kmeans
+Kmeans has been implemented for 3 and 5 clusters. Moreover, I have decided to make a clustering for time in seconds (start time, stop time and duration) and from grades in dataForm.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+library(cluster)
+
+time <- c("start_s","stop_s", "czas_w_sek")
+grades <- c("oceM","oceJP", "oceP")
+
+
+clusGap(dataObs[,time], kmeans, 10, B = 100, verbose = interactive())
+clusGap(dataForm[,grades], kmeans, 10, B = 100, verbose = interactive())
+
+
+means <- kmeans(dataObs[,time], 3)
+dataObs$cluster <- factor(kmeans$cluster)
+
+ggplot(dataObs, aes(start_s, stop_s, czas_w_sek)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=dataObs, size=3)+
+  theme_bw()
+
+
+means1 <- kmeans(dataObs[,time], 5)
+dataObs$cluster <- factor(kmeans$cluster)
+
+ggplot(dataObs, aes(start_s, stop_s, czas_w_sek)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=dataObs, size=5)+
+  theme_bw()
+
+
+
+means2 <- kmeans(dataForm[,grades], 3)
+dataForm$cluster <- factor(kmeans$cluster)
+
+ggplot(dataForm, aes(start_s, stop_s, czas_w_sek)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=dataForm, size=3)+
+  theme_bw()
+
+
+
+means3 <- kmeans(dataForm[,grades], 5)
+dataForm$cluster <- factor(kmeans$cluster)
+
+ggplot(dataForm, aes(start_s, stop_s, czas_w_sek)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=dataForm, size=5)+
+  theme_bw()
+
+
+```
+
+
+
+#Distance partitioning
+Distance 
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+d1<-dist(dataForm[,grades], method="euclidean")
+fit1<-hclust(d1, method="ward")
+plot(fit1)
+groups <-cutree(fit2, k=3)
+rect.hclust(fit2, k=3, border="red")
+
+
+d2<-dist(dataForm[,grades], method="euclidean")
+fit2<-hclust(d2, method="ward")
+plot(fit2)
+groups <-cutree(fit2, k=5)
+rect.hclust(fit2, k=5, border="blue")
+
+
+d3<-dist(dataObs[,time], method="euclidean")
+fit1<-hclust(d3, method="ward")
+plot(fit3)
+groups <-cutree(fit3, k=3)
+rect.hclust(fit3, k=3, border="green")
+
+
+d4<-dist(dataForm[,time], method="euclidean")
+fit4<-hclust(d4, method="ward")
+plot(fit4)
+groups <-cutree(fit4, k=5)
+rect.hclust(fit4, k=5, border="orange")
+
+
+```
+

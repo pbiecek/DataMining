@@ -1,0 +1,524 @@
+---
+title: "Project 2 - Internet of Things"
+author: "Viet Ba Mai, Piotr Kamoda"
+date: "20 grudnia 2016"
+output: 
+  html_document:
+    toc : TRUE
+---
+
+#Introduction
+
+Given are two datasets:
+
+- dane_obserwacyjne - information about the duration and type of interactions (activities) done by students, potentially with other ones, in relation to exhibitions of Copernicus Center.
+
+- dane_kwestionariuszowe - information about the aforemantioned students covering their aspirations, parents job, school and grades.
+
+
+The goal of this project is to segment visitors of the Copernicus Center (students) into separate categories. This task was achieved using clustering.
+In the previous phases we have deepen our knowledge about the data through explorations and learnt to create clustering. In this phase we will apply more advanced techniques in order to find the most relevant inputs for cluster calculations. We will also define clusters based on visiting paths.
+
+
+
+#Clustering
+In order to solve our problem we implemented clustering.
+It is a method used to separates objects that are more similar than others into groups. It is an unsupervised learning model as it does not train on given features and answers, but instead finds patterns which is a discovery rather prediction.
+
+The methods we implemented are:
+
+- K-means
+
+- Hierarchical clustering
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results="hide"}
+Sys.setenv(JAVA_HOME='C:\\Program Files\\Java\\jdk1.7.0_51\\jre')
+library(xlsx)
+library(ggbiplot)
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(corrplot)
+library(colorspace)
+library(cluster)
+library(pvclust)
+library(factoextra)
+library(scatterplot3d)
+library(stringdist)
+```
+
+#Data preparation
+We group data by student IDs and calculate aggregated measures that would help to define similarities between the pupils.
+
+```{r, echo=TRUE, message=TRUE, warning=FALSE, fig.align='center'}
+setwd("~/Computer Science/Masters/II/DMA/Projects/2/data")
+schoolData <- subset(read.xlsx("dane_kwestionariuszowe.xlsx", sheetName="dane_kwestionariuszowe", encoding="UTF-8"), select = -c(Kolum1))
+exhibitData <- subset(read.csv("dane_obserwacyjne.csv", header=TRUE, sep=";"), select = -c(Kolumna1, lp))
+
+#Group data by student IDs and create aggregates
+exhibitData[is.na(exhibitData)] <- 0
+schoolData[is.na(schoolData)] <- 0
+stdData = exhibitData %>% group_by(ID) %>% 
+  summarise(totDur = sum(czas_w_sek), 
+            avgDur = mean(czas_w_sek), 
+            maxDur = max(czas_w_sek), 
+            minDur = min(czas_w_sek), 
+            expotCount = n_distinct(ekspot), 
+            partnerCount = n_distinct(ILE_OSTOW), 
+            avgStartMin = mean(start_min), 
+            avgStartSec = mean(start_s), 
+            avgStopMin = mean(stop_min), 
+            avgStopSec = mean(stop_s))
+stdData$ID <- factor(stdData$ID)
+
+#Scaling data
+data <- transform(stdData,
+                        totDur = as.numeric(totDur),
+                        avgDur = as.numeric(avgDur),
+                        maxDur = as.numeric(maxDur),
+                        minDur = as.numeric(minDur),
+                        expotCount = as.numeric(expotCount),
+                        partnerCount = as.numeric(partnerCount),
+                        avgStartMin = as.numeric(avgStartMin),
+                        avgStartSec = as.numeric(avgStartSec),
+                        avgStopMin = as.numeric(avgStopMin),
+                        avgStopSec = as.numeric(avgStopSec))
+data$totDur <- scale(data$totDur)
+data$avgDur <- scale(data$avgDur)
+data$maxDur <- scale(data$maxDur)
+data$minDur <- scale(data$minDur)
+data$expotCount <- scale(data$expotCount)
+data$partnerCount <- scale(data$partnerCount)
+data$avgStartMin <- scale(data$avgStartMin)
+data$avgStartSec <- scale(data$avgStartSec)
+data$avgStopMin <- scale(data$avgStopMin)
+data$avgStopSec <- scale(data$avgStopSec)
+
+pairs(subset(data, select=-c(ID)), main="Correlations", col = "purple", lower.panel = NULL, cex.labels=1, pch=5, cex = 0.3)
+
+
+pairs(schoolData, main="Correlations", col = "purple", lower.panel = NULL, cex.labels=1, pch=5, cex = 0.3)
+```
+
+The 2nd dataset (schoolData) contains only categorical data, such as flag on parents work/study status or school number and each observation describes a single student so we cannot aggregate the data by student IDs. 
+
+Discrete variables are not recommended for clustering even after scaling. The reason is that they yield too little discrimination of similarities, which is the goal to find in clustering. Hence we decided to exclude this dataset from analysis.
+
+
+In this phase we will use school data to describe clusters and analyse the relation between segments of visitors and their grades, parents' occupations etc.
+
+
+#PCA
+Using Principal Component Analysis (PCA) we can reduce the dimensionality of data, so in other words find the features that are of the highest variance hence most useful in our data analysis. We will calculate it using the `prcomp` function from the `stats` library.
+
+We will visualise PCA with `ggbiplot` and the contributions with `fviz_pca_contrib` from the `factoextra` library.
+
+```{r, echo=TRUE, message=TRUE, warning=FALSE, fig.align='center'}
+pca <- prcomp(subset(data, select=-c(ID)), scale. = TRUE)
+summary(pca)
+plot(pca, type = "l")
+
+ggbiplot(pca, obs.scale = 1, var.scale = 1, groups = data$ID) +
+                   scale_color_discrete(name = '', guide=FALSE)
+
+fviz_pca_contrib(pca, choice = "var", axes = 1:2)
+
+data <- data[,c("ID", "avgStartMin", "avgDur", "expotCount")]
+```
+We can see that 2 first components cover most of the variability of the data which means that using 2 dimensions is relevant.
+Features highly correlated with them are considered the most important in explaining the variability of data. Such variables also have the highest contributions.
+
+The highest contributions are given by avgStartMin, avgStopMin, avgDur and expotCount, but from the biplot we can see that some of them are similar so finally we decided to use fo further calculations the following three: avgStartMin, avgDur and expotCount.
+
+
+##Silhouettes
+To find the optimal number of clusters we will use Silhouettes which measure the quality of clustering and then the best option is determined by the highest average silhouette width.
+
+```{r, echo=TRUE, message=TRUE, warning=FALSE, fig.align='center'}
+k.max <- 15
+k.min <- 2
+sil <- rep(0, k.max)
+
+for(i in k.min:k.max){
+  km.res <- kmeans(data[,c("avgStartMin", "avgDur", "expotCount")], centers = i, nstart = 25)
+  ss <- silhouette(km.res$cluster, dist(data[,c("avgStartMin", "avgDur", "expotCount")]))
+  sil[i] <- mean(ss[, 3])
+}
+
+plot(1:k.max, sil, type = "b", pch = 19, frame = FALSE, xlab = "Number of clusters k")
+abline(v = which.max(sil), lty = 2)
+
+
+k = which.max(sil)
+```
+We can see that the highest average sillhouette is at k = 4 hence from now on we will be segmenting students into 4 groups.
+
+
+#K-means
+This is the most popular clustering method which is of partitioning nature. One must define the exact number of desired clusters.
+
+At first we find k-centers and then associate points to the nearest center.
+```{r, echo=TRUE, message=TRUE, warning=FALSE, fig.align='center'}
+set.seed(4)
+
+kmeans <- kmeans(data[,c("avgStartMin", "avgDur", "expotCount")], k)
+data$cluster <- factor(kmeans$cluster)
+centers <- data.frame(kmeans$centers)
+centers
+
+cols <- c("#5F9AFB", "#FB5F5F", "#5FFB8B", "#B45FFB")
+colors <- cols[as.numeric(data$cluster)]
+scatterplot3d(data[,2:4], pch = 16, color=colors, angle = 30)
+legend("right", legend = levels(data$cluster),
+      col =  cols, pch = 16)
+
+
+ggplot(data, aes(avgStartMin, expotCount)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+ggplot(data, aes(expotCount, avgDur)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+ggplot(data, aes(avgStartMin, avgDur)) +
+  geom_text(size=3, aes(label=ID, color=cluster)) + 
+  geom_point(data=centers, size=3)+
+  theme_bw()
+```
+
+
+#Hierarchical Clustering
+This is a cluster analysis method which is based on creating a hierarchy of clusters. There are two approaches:
+
+- Bottom Up (Agglomerative) where we begin with clusters for each observation and then merge pairs of clusters and lift it in the hierarchy. We will implement this method.
+
+
+- Top Down (Divisive) where we start with one cluster for all observations and then recursively split them to drop them in hierarchy.
+
+
+In the previous phase we tested the following linkage criterias:
+
+- Ward: decreases the total variance within a cluster
+
+
+- Average: distance between two clusters is defined by the mean distance between a pair of observations from each.
+
+
+- Single: distance between two clusters is defined by the minimum distance between a pair of observations from each.
+
+The best results were obtained with Ward hence in this phase we decided to use only it.
+
+
+```{r, echo=TRUE, message=TRUE, warning=FALSE, fig.align='center'}
+rownames(data) <- data$ID
+dat <- scale(data[,c("avgDur", "avgStartMin", "expotCount")])
+
+hc <- agnes(dat, method="ward")
+data$labels = factor(cutree(hc, k=k))
+colors <- cols[as.numeric(data$labels)]
+
+scatterplot3d(data[,2:4], pch = 16, color=colors, angle = 85)
+legend("right", legend = levels(data$labels),
+      col =  cols, pch = 16)
+
+scatterplot3d(data[,2:4], pch = 16, color=colors, angle = 30)
+legend("right", legend = levels(data$labels),
+      col =  cols, pch = 16)
+
+scatterplot3d(data[,2:4], pch = 16, color=colors, angle = 5)
+legend("right", legend = levels(data$labels),
+      col =  cols, pch = 16)
+
+ggplot(data, aes(avgDur, expotCount, label=ID, color=labels)) +
+  geom_text(size=3) + 
+  theme_bw()
+```
+
+
+#Cluster Analysis
+
+We can distinguish 4 types of student based on which cluster they belong to:
+
+
+- Cluster #1: The biggest group, which spends a medium amount of time on each exhibit and interacts with a medium number of exhibits, but also have a lower average start minute.
+
+
+- Cluster #2: quantity over quality group where the time spent with each exhibit is very short, but the number of exhibits interacted with is high.
+
+
+- Cluster #3: similarily to Cluster #1, both time and amount of exhibits is medium, but they have a higher average start minute.
+
+
+- Cluster #4: quality over quantity group where the number of visited exhibits is low, but the time spent at each is longer.
+
+
+
+```{r, echo=TRUE, message=TRUE, warning=FALSE, fig.align='center'}
+merged <- merge(data, schoolData, by = "ID")
+
+
+analysisData = merged %>% 
+  group_by(labels, Plec) %>% 
+  summarise(freq = n_distinct(ID))
+
+ggplot(analysisData, aes(x=factor(labels), freq, fill = factor(Plec))) + 
+  geom_bar(stat="identity", position = "dodge") + 
+  scale_fill_brewer(palette = "Set1") +
+    ggtitle("Gender by Clusters")  + 
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Frequency")
+    
+
+analysisData = merged %>% 
+  group_by(labels, studiaM) %>% 
+  summarise(freq = n_distinct(ID))
+
+ggplot(analysisData, aes(x=factor(labels), freq, fill = factor(studiaM))) + 
+  geom_bar(stat="identity", position = "dodge") + 
+  scale_fill_brewer(palette = "Set1") +
+    ggtitle("Mother's study status by Clusters")  + 
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Frequency")
+
+analysisData = merged %>% 
+  group_by(labels, studiaT) %>% 
+  summarise(freq = n_distinct(ID))
+
+ggplot(analysisData, aes(x=factor(labels), freq, fill = factor(studiaT))) + 
+  geom_bar(stat="identity", position = "dodge") + 
+  scale_fill_brewer(palette = "Set1") +
+    ggtitle("Father's study status by Clusters")  + 
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Frequency")
+
+analysisData = merged %>% 
+  group_by(labels, pracaM) %>% 
+  summarise(freq = n_distinct(ID))
+
+ggplot(analysisData, aes(x=factor(labels), freq, fill = factor(pracaM))) + 
+  geom_bar(stat="identity", position = "dodge") + 
+  scale_fill_brewer(palette = "Set1") +
+    ggtitle("Mother's work status by Clusters")  + 
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Frequency")
+
+analysisData = merged %>% 
+  group_by(labels, pracaT) %>% 
+  summarise(freq = n_distinct(ID))
+
+ggplot(analysisData, aes(x=factor(labels), freq, fill = factor(pracaT))) + 
+  geom_bar(stat="identity", position = "dodge") + 
+  scale_fill_brewer(palette = "Set1") +
+    ggtitle("Father's work status by Clusters")  + 
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Frequency")
+
+analysisData = merged %>% 
+  group_by(labels) %>% 
+  summarise(count = n_distinct(ID),
+            avgMath = mean(oceM),
+            avgPol = mean(oceJP),
+            avgBiol = mean(oceP)
+            )
+
+ggplot(data=analysisData, aes(x=labels, y=avgMath)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Average Mathematics Grade by Clusters")  +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Average Mathematics Grade]")
+
+ggplot(data=analysisData, aes(x=labels, y=avgPol)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Average Polish Language Grade by Clusters")  +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Average Polish Language Grade")
+
+ggplot(data=analysisData, aes(x=labels, y=avgBiol)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Average Biology Grade by Clusters")  +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Average Biology Grade")
+```
+
+We can see that Cluster #2 - quantity over quality has the smallest ratio between their parents' study status, while in other groups definitely more mothers work than do not. This may mean that such children have a shorter attention span.
+
+In case of Cluster #4, which is the quality over quantity group there is definitely more parents working than not which seems to influence their attention span and liking in exploring less, but in more detail.
+
+This can be also observed in students' grades as the ones in Cluster #4 tend to have higher ones than the other groups in both Mathematics and Polish language courses.
+
+However Cluster #2 wins when it comes to Biology classes.
+
+Clusters #1 and #3 do not stand out in any factor, except of the #1 being the largest group.
+
+
+
+#Path Analysis
+In order to analyse the path of exhibits for each student we will use string metrics. The method we will use is the Generalised Levenshtein Distance, also called Restricted Damerau-Levenshtein distance which counts the weighted number of changes in a string.
+To calculate the distance we will use `stringdistmatrix` which computes the full distance matrix.
+
+```{r, echo=TRUE, message=TRUE, warning=FALSE, fig.align='center'}
+pathData = exhibitData %>%
+  arrange(start_min, start_s) %>%
+  group_by(ID) %>%
+  summarise(totDurSec = sum(czas_w_sek),
+            avgDur = mean(czas_w_sek),
+            expotCount = n_distinct(ekspot), 
+            avgStartMin = mean(start_min),
+            path = paste(paste(ekspot, collapse="_"), totDurSec, collapse=",")
+  )
+
+print(pathData$path[1])
+
+dist <- stringdistmatrix(pathData$path,pathData$path)
+hc <- hclust(as.dist(dist), method="ward.D")
+
+plot(hc)
+
+pathData$labels = factor(cutree(hc, k=k))
+colors <- cols[as.numeric(pathData$labels)]
+
+scatterplot3d(pathData[,2:4], pch = 16, color=colors, angle = 85)
+legend("right", legend = levels(pathData$labels),
+      col =  cols, pch = 16)
+
+scatterplot3d(pathData[,2:4], pch = 16, color=colors, angle = 30)
+legend("right", legend = levels(pathData$labels),
+      col =  cols, pch = 16)
+
+scatterplot3d(pathData[,2:4], pch = 16, color=colors, angle = 5)
+legend("right", legend = levels(pathData$labels),
+      col =  cols, pch = 16)
+
+
+ggplot(pathData, aes(avgDur, expotCount, label=ID, color=labels)) +
+  geom_text(size=3) + 
+  theme_bw()
+```
+
+
+##Cluster Analysis
+
+```{r, echo=TRUE, message=TRUE, warning=FALSE, fig.align='center'}
+merged <- merge(pathData, schoolData, by = "ID")
+
+
+analysisData = merged %>% 
+  group_by(labels, Plec) %>% 
+  summarise(freq = n_distinct(ID))
+
+ggplot(analysisData, aes(x=factor(labels), freq, fill = factor(Plec))) + 
+  geom_bar(stat="identity", position = "dodge") + 
+  scale_fill_brewer(palette = "Set1") +
+    ggtitle("Gender by Clusters")  + 
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Frequency")
+    
+
+analysisData = merged %>% 
+  group_by(labels, studiaM) %>% 
+  summarise(freq = n_distinct(ID))
+
+ggplot(analysisData, aes(x=factor(labels), freq, fill = factor(studiaM))) + 
+  geom_bar(stat="identity", position = "dodge") + 
+  scale_fill_brewer(palette = "Set1") +
+    ggtitle("Mother's study status by Clusters")  + 
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Frequency")
+
+analysisData = merged %>% 
+  group_by(labels, studiaT) %>% 
+  summarise(freq = n_distinct(ID))
+
+ggplot(analysisData, aes(x=factor(labels), freq, fill = factor(studiaT))) + 
+  geom_bar(stat="identity", position = "dodge") + 
+  scale_fill_brewer(palette = "Set1") +
+    ggtitle("Father's study status by Clusters")  + 
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Frequency")
+
+analysisData = merged %>% 
+  group_by(labels, pracaM) %>% 
+  summarise(freq = n_distinct(ID))
+
+ggplot(analysisData, aes(x=factor(labels), freq, fill = factor(pracaM))) + 
+  geom_bar(stat="identity", position = "dodge") + 
+  scale_fill_brewer(palette = "Set1") +
+    ggtitle("Mother's work status by Clusters")  + 
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Frequency")
+
+analysisData = merged %>% 
+  group_by(labels, pracaT) %>% 
+  summarise(freq = n_distinct(ID))
+
+ggplot(analysisData, aes(x=factor(labels), freq, fill = factor(pracaT))) + 
+  geom_bar(stat="identity", position = "dodge") + 
+  scale_fill_brewer(palette = "Set1") +
+    ggtitle("Father's work status by Clusters")  + 
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Frequency")
+
+analysisData = merged %>% 
+  group_by(labels) %>% 
+  summarise(count = n_distinct(ID),
+            avgMath = mean(oceM),
+            avgPol = mean(oceJP),
+            avgBiol = mean(oceP)
+            )
+
+ggplot(data=analysisData, aes(x=labels, y=avgMath)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Average Mathematics Grade by Clusters")  +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Average Mathematics Grade]")
+
+ggplot(data=analysisData, aes(x=labels, y=avgPol)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Average Polish Language Grade by Clusters")  +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Average Polish Language Grade")
+
+ggplot(data=analysisData, aes(x=labels, y=avgBiol)) +
+    geom_bar(stat="identity", fill="#A8EF62") +
+    ggtitle("Average Biology Grade by Clusters")  +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Cluster") +
+    ylab("Average Biology Grade")
+```
+
+We can see that in case of Cluster #3 which represents the students preferring quality over quantity most of parents both work and have a better educational backgrouond.
+
+Cluster #2 with 'quantity over quality' students obtain definitely lower results as school than any other group. This seems to be in agreement with the previous clustering method.
+
+
+
+#Conclusions
+It is obvious that the population is heterogenous.
+Using both k-means and hierarchical clustering we can clearly distinguish different clusters on plots, which means that points within the same group are similar.
+
+
+In our analysis we could find groups by the number of exhibits interacted with and different aggregates for time and duration of visiting.
+
+
+We could also see relations between students' exhibit behaviour and their parents' occupation and educational background.
+
+Out of 4 groups there were two with a medium number of exhibits visited and a medium amount of time spent with each and then the students who clearly either prefer to see more or to see in more detail.
+
+Through analysis school data we could observe that students exhibiting short attention span also obtain worse grades as well as have a smaller ration between the number of working and non-working parents, while the students with longer attention show the exact opposite.
+
+It is interesting to learn that students' behaviour at Copernicus Center is also reflected in their family background and grades.

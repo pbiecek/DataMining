@@ -1,0 +1,603 @@
+---
+title: |
+    | Poject #1 - Classification 
+    | Class in social networks
+author: "Viet Ba Mai, Klaudia Magda"
+date: "November 25th, 2016"
+output: 
+  html_document:
+    toc : TRUE
+---
+
+#Introduction
+The goal of this project is to predict the number of shares in social networks using the *Online News Popularity* dataset from UCI.
+This report is to finalise our project by trying different samplings and shares' divisions to see which works the best for ths problem.
+
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+library(caret)
+library(magrittr)
+library(plyr)
+library(dplyr)
+library(corrplot)
+library(randomForest)
+library(pROC)
+library(Epi)
+library(party)
+library(rpart)
+library(png)
+```
+
+#Previous Phases
+##Binary results
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align='center'}
+
+img_bin <- readPNG(file.path(file.path(getwd(),"figures"), "2class_barplot.png"))
+
+grid::grid.raster(img_bin)
+
+```
+
+
+
+In first phase of our project we used binary classification: if the value of shares was greater than 1400 then we assigned value 1, 0 otherwise. Such division gives us a uniform distribution.
+Furthermore, we chose 2 classifiers `KNN` and `Random Forest`, where the last one was used twice (for every predictor and for 3 top based on importance).
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align='center'}
+
+img_forest <- readPNG(file.path(file.path(getwd(),"figures"), "r_forest.png"))
+grid::grid.raster(img_forest)
+
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align='center'}
+sum_table <- matrix(c(0.5761949, 0.5768072, 0.6181158, 0.5330287,
+  0.5865316, 0.5850807, 0.6360702,0.5355214,
+  0.5745574, 0.5499750, 0.8880371, 0.2517657), ncol=4, nrow = 3, byrow = TRUE)
+colnames(sum_table) <- c("Accuracy", "Precision", "Sensitivity", "Specificity")
+rownames(sum_table) <- c("KNN", "RF", "RF3")
+sum_table
+```
+
+##Multi-class results
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align='center'}
+
+
+img_multi <- readPNG(file.path(file.path(getwd(),"figures"), "3Class_barplot.png"))
+grid::grid.raster(img_multi)
+
+
+```
+
+
+
+In the second phase the goal was to find the best classifier. We chose to divide the target variable `shares` into 3 classes. The classifiers we used were:
+
+
+- Random Forest
+
+
+- Tree
+
+
+- Nearest Neighbours (KNN)
+
+
+- Super Vector Machines
+
+
+- Multinomial Logistic Regression
+
+
+- Naive Bayes
+
+ 
+ Additionally we used more techniques of checking performance:
+ 
+
+- Confusion Matrix
+
+
+- Area Under Curve
+
+
+- Macro-Averaged Metrics (Precision, Recall, F1)
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align='center'}
+
+img_roc <- readPNG(file.path(file.path(getwd(),"figures"), "roc.png"))
+grid::grid.raster(img_roc)
+
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align='center'}
+
+sum_table <- matrix(c(0.4859277, 0.6229207, 0.4804962, 0.4862377, 0.4819532,
+                      0.4754590, 0.6100289, 0.4616056, 0.4650128, 0.4621302,
+                      0.4375192, 0.5725785, 0.4275352, 0.4373422, 0.4227565,
+                      0.4298434, 0.6229207, 0.4257956, 0.4299119, 0.4266031,
+                      0.4307645, 0.5746175, 0.4263899, 0.4313335, 0.4276088,
+                      0.4300481, 0.5743767, 0.4229383, 0.4301481, 0.4222412,
+                      0.3931020, 0.6275691, 0.3926283, 0.3999613, 0.3604131
+                      ), ncol=5, nrow = 7 , byrow = TRUE)
+colnames(sum_table) <- c("Accuracy", "AUC","Precision","Recall","F1")
+rownames(sum_table) <- c("RF", "TOPRF", "TREE", "KNN", "SVM", "MLR", "BAYES")
+sum_table
+
+```
+
+
+#Summary of previous phases
+
+We can notice that the results of the first phase are satisfying and very close to the one obtained by the authors of the `Predicting and Evaluating the Popularity of Online News` report, so we may assume that the predictors were chosen correctly.
+
+Moreover, we can observe from the summary results table that the best predictions were obtained by Random Forest, with the accuracy of `58%`.
+
+
+Nevertheless, KNN, being a simpler method, still yields results very close to it. In case of the Random Forest trained with the top 3 variables taken from the importance plot (RF3) the true positive rate (sensitivity) is almost `90%`, but the true negative rate (specificity) is only `25%`. In model fit plots, both the OOB error and in-class OBB error were higher for RF3 than RF, so it was not the best approach to choose only that three predictors.
+
+
+
+In the second phase of the project, our goal was to find the best classification model for a multi-class task and compare their performance with various methods hence we implemented 6 distinct classifiers and more approaches to calculate the performance of our methods.
+
+
+The results vary by few percent between the models, but the one that yields the highest ones for every performance validation method is, similarily to the previous phase, Random Forest with `48%` of accuracy for all variables chosen using `sbf` and `46%` for the top variables. Moreover, Random Forest has the highest level of Precision, Recall and F1 (`47%`). `Area Under Curve` also confirms that it is the most effective classifier in our project, as it has the value closest to 1 comparing to other models. Accuracies of the remaining methods was only few percent lower, around `42-43%`.
+
+
+To sum up, in both phases (binary and multi-class) classification experiments showed that Random Forest is the winner, thus we will examine it in more details in this report.
+
+
+
+
+#Shares
+The target variable of the set is `shares`. The first thing one can notice is that it contains almost 1500 distinct values, where more of them occur only once. This means that this variable has a very high variance and trying to train the classifiers with it would yield very inaccurate result. More than that the feature selection function we will use in the next sections are unable to handle such a big number of classes.
+
+Our solution to this problem was to create a new target variable with only a few classes representing the ranges of shares.
+
+In the following sections we will divide shares into 3 and 5 classes, each both evenly and not.
+
+For different sampling methods we will use:
+
+- `k-fold` cross validation - divides a set into k-subsets and trains one against all other for each subset. Test is done on a selected subset.
+
+- `bootstrap` - each iteration uses a random sample of the same size.
+
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+
+newsPopularity <- read.csv(file.path(file.path(getwd(), "OnlineNewsPopularity"), "OnlineNewsPopularity.csv"), header=TRUE, sep=",", encoding="UTF-8")
+
+newsPopularity <- newsPopularity[complete.cases(newsPopularity),]
+newsPopularity <- subset(newsPopularity, select = -c(url, timedelta))
+plot(density(newsPopularity$shares), xlim=c(0,10000), col="green")
+```
+
+#3 classes
+##Even class distribution
+###Data Preparation
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+#Create a copy
+data = newsPopularity
+
+#Divide shares into classes
+categories = cut(data$shares, c(0, 1000, 2000, Inf))
+data$Class = as.numeric(categories)
+data$Class = factor(data$Class)
+
+set.seed(1313)
+indx <- createDataPartition(y = data$Class, p = 0.2)
+
+data <- data[indx$Resample1,]
+length(levels(data$Class))
+
+par(mar = rep(2, 4))
+barplot(table(data$Class), col="lightgreen", main="Distribution of Class variable")
+summary(data$Class)
+prop.table(table(data$Class))
+
+data <- subset(data, select = -c(shares))
+
+#Removing near zero variance variables
+nzv <- nearZeroVar(data)
+names(data)[nzv]
+data <- data[, -nzv]
+
+#Normalisation
+preProcValues <- preProcess(data, method = c("range"))
+data <- predict(preProcValues, data)
+
+#Removing highly correlated variables
+d.num <- data %>% select(which(sapply(data, is.numeric)))
+too_high <- findCorrelation(cor(d.num), cutoff = 0.725, verbose = FALSE)
+names(d.num)[too_high]
+data = data[,-c(too_high)]
+
+#SBF
+set.seed(1313)
+indx <- createDataPartition(y = data$Class, p = 0.15)
+sample <- data[indx$Resample1,]
+filterCtrl <- sbfControl(functions = rfSBF, method = "cv", verbose = FALSE)
+rfWithFilter <- sbf(form = Class ~ ., data = sample, sbfControl = filterCtrl, allowParallel = TRUE, variables=TRUE)
+rfWithFilter
+selections <- rfWithFilter$variables$selectedVars
+selections
+selections <- append(selections, "Class")
+
+subdata <- data[selections]
+
+#Data splitting
+set.seed(1313)
+indxTrain <- createDataPartition(y = subdata$Class, p = 0.75)
+str(indxTrain)
+
+dataTrain <- subdata[indxTrain$Resample1,]
+dataTest <- subdata[-indxTrain$Resample1,]
+```
+
+###Random Forest
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+forest <- randomForest(Class ~ ., data = dataTrain, importance = TRUE, na.action = na.omit)
+varImpPlot(forest)
+importance(forest)
+predForest = predict(forest, dataTest, type="class")
+plot(forest, main="Model Fit for Random Forest")
+
+confusionMatrix(predForest, dataTest$Class)
+
+tab <- table(true = dataTest$Class, predicted = predForest)
+rf3eAcc <- sum(diag(tab)) / sum(tab)
+rf3eAcc
+```
+
+###K-fold cross validation
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+kfold <- train(Class ~ ., data = subdata, trControl=trainControl(method="cv", number=3), method="rf")
+kfpred <- predict(kfold, subdata)
+
+confusionMatrix(kfpred, subdata$Class)
+
+tab <- table(true = subdata$Class, predicted = kfpred)
+kf3eAcc <- sum(diag(tab)) / sum(tab)
+kf3eAcc
+```
+
+###Bootstrap
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+bstrap <- train(Class ~ ., data = subdata, trControl=trainControl(method="boot", number=3), method="rf")
+bspred <- predict(bstrap, subdata)
+
+confusionMatrix(bspred, subdata$Class)
+
+tab <- table(true = subdata$Class, predicted = bspred)
+bs3eAcc <- sum(diag(tab)) / sum(tab)
+bs3eAcc
+```
+
+
+##Uneven class distribution
+###Data Preparation
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+#Create a copy
+data = newsPopularity
+
+#Divide shares into classes
+categories = cut(data$shares, c(0, 1500, 4000, Inf))
+data$Class = as.numeric(categories)
+data$Class = factor(data$Class)
+
+set.seed(1313)
+indx <- createDataPartition(y = data$Class, p = 0.2)
+
+data <- data[indx$Resample1,]
+length(levels(data$Class))
+
+par(mar = rep(2, 4))
+barplot(table(data$Class), col="lightgreen", main="Distribution of Class variable")
+summary(data$Class)
+prop.table(table(data$Class))
+
+data <- subset(data, select = -c(shares))
+
+#Removing near zero variance variables
+nzv <- nearZeroVar(data)
+names(data)[nzv]
+data <- data[, -nzv]
+
+#Normalisation
+preProcValues <- preProcess(data, method = c("range"))
+data <- predict(preProcValues, data)
+
+#Removing highly correlated variables
+d.num <- data %>% select(which(sapply(data, is.numeric)))
+too_high <- findCorrelation(cor(d.num), cutoff = 0.725, verbose = FALSE)
+names(d.num)[too_high]
+data = data[,-c(too_high)]
+
+#SBF
+set.seed(1313)
+indx <- createDataPartition(y = data$Class, p = 0.15)
+sample <- data[indx$Resample1,]
+filterCtrl <- sbfControl(functions = rfSBF, method = "cv", verbose = FALSE)
+rfWithFilter <- sbf(form = Class ~ ., data = sample, sbfControl = filterCtrl, allowParallel = TRUE, variables=TRUE)
+rfWithFilter
+selections <- rfWithFilter$variables$selectedVars
+selections
+selections <- append(selections, "Class")
+
+subdata <- data[selections]
+
+#Data splitting
+set.seed(1313)
+indxTrain <- createDataPartition(y = subdata$Class, p = 0.75)
+str(indxTrain)
+
+dataTrain <- subdata[indxTrain$Resample1,]
+dataTest <- subdata[-indxTrain$Resample1,]
+```
+
+###Random Forest
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+forest <- randomForest(Class ~ ., data = dataTrain, importance = TRUE, na.action = na.omit)
+varImpPlot(forest)
+importance(forest)
+predForest = predict(forest, dataTest, type="class")
+plot(forest, main="Model Fit for Random Forest")
+
+confusionMatrix(predForest, dataTest$Class)
+
+tab <- table(true = dataTest$Class, predicted = predForest)
+rf3unAcc <- sum(diag(tab)) / sum(tab)
+rf3unAcc
+```
+
+###K-fold cross validation
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+kfold <- train(Class ~ ., data = subdata, trControl=trainControl(method="cv", number=3), method="rf")
+kfpred <- predict(kfold, subdata)
+
+confusionMatrix(kfpred, subdata$Class)
+
+tab <- table(true = subdata$Class, predicted = kfpred)
+kf3unAcc <- sum(diag(tab)) / sum(tab)
+kf3unAcc
+```
+
+###Bootstrap
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+bstrap <- train(Class ~ ., data = subdata, trControl=trainControl(method="boot", number=3), method="rf")
+bspred <- predict(bstrap, subdata)
+
+confusionMatrix(bspred, subdata$Class)
+
+tab <- table(true = subdata$Class, predicted = bspred)
+bs3unAcc <- sum(diag(tab)) / sum(tab)
+bs3unAcc
+```
+
+
+#5 classes
+##Even class distribution
+###Data Preparation
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+#Create a copy
+data = newsPopularity
+
+#Divide shares into classes
+categories = cut(data$shares, c(0, 900, 1200, 1800, 3500, Inf))
+data$Class = as.numeric(categories)
+data$Class = factor(data$Class)
+
+set.seed(1313)
+indx <- createDataPartition(y = data$Class, p = 0.2)
+
+data <- data[indx$Resample1,]
+length(levels(data$Class))
+
+par(mar = rep(2, 4))
+barplot(table(data$Class), col="lightgreen", main="Distribution of Class variable")
+summary(data$Class)
+prop.table(table(data$Class))
+
+data <- subset(data, select = -c(shares))
+
+#Removing near zero variance variables
+nzv <- nearZeroVar(data)
+names(data)[nzv]
+data <- data[, -nzv]
+
+#Normalisation
+preProcValues <- preProcess(data, method = c("range"))
+data <- predict(preProcValues, data)
+
+#Removing highly correlated variables
+d.num <- data %>% select(which(sapply(data, is.numeric)))
+too_high <- findCorrelation(cor(d.num), cutoff = 0.725, verbose = FALSE)
+names(d.num)[too_high]
+data = data[,-c(too_high)]
+
+#SBF
+set.seed(1313)
+indx <- createDataPartition(y = data$Class, p = 0.15)
+sample <- data[indx$Resample1,]
+filterCtrl <- sbfControl(functions = rfSBF, method = "cv", verbose = FALSE)
+rfWithFilter <- sbf(form = Class ~ ., data = sample, sbfControl = filterCtrl, allowParallel = TRUE, variables=TRUE)
+rfWithFilter
+selections <- rfWithFilter$variables$selectedVars
+selections
+selections <- append(selections, "Class")
+
+subdata <- data[selections]
+
+#Data splitting
+set.seed(1313)
+indxTrain <- createDataPartition(y = subdata$Class, p = 0.75)
+str(indxTrain)
+
+dataTrain <- subdata[indxTrain$Resample1,]
+dataTest <- subdata[-indxTrain$Resample1,]
+```
+
+###Random Forest
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+forest <- randomForest(Class ~ ., data = dataTrain, importance = TRUE, na.action = na.omit)
+varImpPlot(forest)
+importance(forest)
+predForest = predict(forest, dataTest, type="class")
+plot(forest, main="Model Fit for Random Forest")
+
+confusionMatrix(predForest, dataTest$Class)
+
+tab <- table(true = dataTest$Class, predicted = predForest)
+rf5eAcc <- sum(diag(tab)) / sum(tab)
+rf5eAcc
+```
+
+###K-fold cross validation
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+kfold <- train(Class ~ ., data = subdata, trControl=trainControl(method="cv", number=3), method="rf")
+kfpred <- predict(kfold, subdata)
+
+confusionMatrix(kfpred, subdata$Class)
+
+tab <- table(true = subdata$Class, predicted = kfpred)
+kf5eAcc <- sum(diag(tab)) / sum(tab)
+kf5eAcc
+```
+
+###Bootstrap
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+bstrap <- train(Class ~ ., data = subdata, trControl=trainControl(method="boot", number=3), method="rf")
+bspred <- predict(bstrap, subdata)
+
+confusionMatrix(bspred, subdata$Class)
+
+tab <- table(true = subdata$Class, predicted = bspred)
+bs5eAcc <- sum(diag(tab)) / sum(tab)
+bs5eAcc
+```
+
+
+##Uneven class distribution
+###Data Preparation
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+#Create a copy
+data = newsPopularity
+
+#Divide shares into classes
+categories = cut(data$shares, c(0, 1000, 2000, 3000, 4000, Inf))
+data$Class = as.numeric(categories)
+data$Class = factor(data$Class)
+
+set.seed(1313)
+indx <- createDataPartition(y = data$Class, p = 0.2)
+
+data <- data[indx$Resample1,]
+length(levels(data$Class))
+
+par(mar = rep(2, 4))
+barplot(table(data$Class), col="lightgreen", main="Distribution of Class variable")
+summary(data$Class)
+prop.table(table(data$Class))
+
+data <- subset(data, select = -c(shares))
+
+#Removing near zero variance variables
+nzv <- nearZeroVar(data)
+names(data)[nzv]
+data <- data[, -nzv]
+
+#Normalisation
+preProcValues <- preProcess(data, method = c("range"))
+data <- predict(preProcValues, data)
+
+#Removing highly correlated variables
+d.num <- data %>% select(which(sapply(data, is.numeric)))
+too_high <- findCorrelation(cor(d.num), cutoff = 0.725, verbose = FALSE)
+names(d.num)[too_high]
+data = data[,-c(too_high)]
+
+#SBF
+set.seed(1313)
+indx <- createDataPartition(y = data$Class, p = 0.15)
+sample <- data[indx$Resample1,]
+filterCtrl <- sbfControl(functions = rfSBF, method = "cv", verbose = FALSE)
+rfWithFilter <- sbf(form = Class ~ ., data = sample, sbfControl = filterCtrl, allowParallel = TRUE, variables=TRUE)
+rfWithFilter
+selections <- rfWithFilter$variables$selectedVars
+selections
+selections <- append(selections, "Class")
+
+subdata <- data[selections]
+
+#Data splitting
+set.seed(1313)
+indxTrain <- createDataPartition(y = subdata$Class, p = 0.75)
+str(indxTrain)
+
+dataTrain <- subdata[indxTrain$Resample1,]
+dataTest <- subdata[-indxTrain$Resample1,]
+```
+
+###Random Forest
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+forest <- randomForest(Class ~ ., data = dataTrain, importance = TRUE, na.action = na.omit)
+varImpPlot(forest)
+importance(forest)
+predForest = predict(forest, dataTest, type="class")
+plot(forest, main="Model Fit for Random Forest")
+
+confusionMatrix(predForest, dataTest$Class)
+
+tab <- table(true = dataTest$Class, predicted = predForest)
+rf5unAcc <- sum(diag(tab)) / sum(tab)
+rf5unAcc
+```
+
+###K-fold cross validation
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+kfold <- train(Class ~ ., data = subdata, trControl=trainControl(method="cv", number=3), method="rf")
+kfpred <- predict(kfold, subdata)
+
+confusionMatrix(kfpred, subdata$Class)
+
+tab <- table(true = subdata$Class, predicted = kfpred)
+kf5unAcc <- sum(diag(tab)) / sum(tab)
+kf5unAcc
+```
+
+###Bootstrap
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+bstrap <- train(Class ~ ., data = subdata, trControl=trainControl(method="boot", number=3), method="rf")
+bspred <- predict(bstrap, subdata)
+
+confusionMatrix(bspred, subdata$Class)
+
+tab <- table(true = subdata$Class, predicted = bspred)
+bs5unAcc <- sum(diag(tab)) / sum(tab)
+bs5unAcc
+```
+
+
+#Final Conclusions
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+sum_table <- matrix(c(rf3eAcc, kf3eAcc, bs3eAcc, rf3unAcc, kf3unAcc, bs3unAcc, rf5eAcc, kf5eAcc, bs5eAcc, rf5unAcc, kf5unAcc, bs5unAcc), ncol=3, nrow = 4, byrow = TRUE)
+colnames(sum_table) <- c("Random Forest", "K-fold", "Bootstrap")
+rownames(sum_table) <- c("3-class even", "3-class uneven", "5-class even", "5-class uneven")
+sum_table
+```
+
+
+
+After previous phases we found out the among the methods we learnt Random Forest was the most powerful. In order to get a deeper knowledge in what else could also affect the results we decided to experiment on target variable with 3 and 5 classes, each with even and uneven distribution as well as other sampling methods - `K-fold` cross validation and `Bootstrap`.
+
+
+In both classifications (3 and 5 class) we observe an increase of 10 percentage points for uneven class in comparison to even class. In our opinion it is like that, because for uneven classes the probabilities are not similar hence chances for correct predictions are higher. However, in both distribution cases, the 5-class yield results much lower, with the difference around `15-16%`. For uneven class distribution the accuracy was `47%` in comparison to `58%` for 3-classes. Nevertheless both results are satisfying when considering the number of classes and comparing to the probability of choosing a correct answer at random.
+
+Moreover, additional sampling methods like `K-fold` and `Bootstrap` gave us much higher results with the highest being `97%` for both sampling methods in case of 3-class classification.
+
+Confusion matrices show that both methods suffered to classify the smallest classes (3 and 4) with around half of them being incorrectly predicted. This is likely due to the fact that `K-fold` and `Bootstrap` use subsets of the data and the smaller classes didn't occur enough for the forest to be trained properly. 
+
+In conclusion, based on results obtained in this phase and the previous ones we can say that the smaller number of classes, the higher accuracy of predictions and it is worth trying different sampling methods as they may give better results than using simple data partition.

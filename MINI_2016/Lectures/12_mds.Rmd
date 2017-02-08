@@ -1,0 +1,106 @@
+---
+title: "MDS"
+author: "Przemysłam Biecek, Anna Wróblewska"
+date: "12 January 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Isometric scaling
+
+PCA is very popular, but it is not the only method that can be used for dimension reduction. Other, very popular one, is the Kruskal's non-metric multidimensional scaling. 
+
+There are few interesting and important differences.
+
+* As an input we will use distance matrix not original data. Thus we can use this method even if we are working with non numerical data (e.g. documents). 
+All we need is to define dissimilarity
+* Solution is calculated through numerical optimization, sometimes it can be unstable.
+* The new coordinated are derived in such a way, that the overall stress is minimized, where stress is defined as the sum of squared differences between the original and transformed dataset (but other definitions of stress are also valid).
+
+https://en.wikipedia.org/wiki/Multidimensional_scaling
+
+https://jonlefcheck.net/2012/10/24/nmds-tutorial-in-r/
+
+### Basic example
+
+Let us start with an example
+
+Sammon scaling - the sum of squared differences between the initial distances and obtained ones, weighted by the distances
+
+```{r}
+library(MASS)
+head(USArrests)
+distances <- dist(scale(USArrests))
+
+USArrests <- unique(USArrests)
+distances <- distances+0.01
+
+mds <- sammon(distances, k=2)
+str(mds)
+
+clusters <- kmeans(USArrests, 10)
+mds.clusters <- sammon(dist(clusters$centers), k=2)
+plot(mds.clusters$points, pch=19, col="white")
+text(mds.clusters$points[,1], mds$points[,2], 1:10)
+
+plot(mds.clusters$points, pch=19, col=clusters$cluster)
+
+```
+
+We can then see some diagnostics
+
+```{r}
+stress <- Shepard(dist(clusters$centers), mds.clusters$points)
+plot(stress)
+
+stress <- Shepard(distances, mds$points)
+plot(stress)
+```
+
+Kruskal scaling - different objective, square root of the ratio of squared difference between distances divided by squares of initial distances.
+
+```{r}
+mds2 <- isoMDS(distances, k=2)
+str(mds2)
+plot(mds2$points)
+```
+
+We can then see some diagnostics
+```{r}
+stress <- Shepard(distances, mds2$points)
+plot(stress)
+```
+
+Another simple example for different scaling algorithms
+```{r}
+library(graphics)
+loc <- cmdscale(eurodist)
+x <- loc[, 1]
+y <- -loc[, 2] # reflect so North is at the top
+## note asp = 1, to ensure Euclidean distances are represented correctly
+plot(x, y, type = "n", xlab = "", ylab = "", asp = 1, axes = FALSE,
+     main = "cmdscale(eurodist)")
+text(x, y, rownames(loc), cex = 0.6)
+
+loc<- sammon(eurodist)
+x <- loc$points[, 1]
+y <- -loc$points[, 2] # reflect so North is at the top
+plot(x,y, type = "n", xlab = "", ylab = "", asp = 1, axes = FALSE,
+     main = "sammon(eurodist)")
+text(x,y, rownames(loc$points), cex = 0.6)
+stress <- Shepard(eurodist, loc$points)
+plot(stress)
+
+loc <- isoMDS(eurodist)
+x <- loc$points[, 1]
+y <- -loc$points[, 2] # reflect so North is at the top
+plot(x,y, type = "n", xlab = "", ylab = "", asp = 1, axes = FALSE,
+     main = "isoMDS(eurodist)")
+text(x,y, rownames(loc$points), cex = 0.6)
+stress <- Shepard(eurodist, loc$points)
+plot(stress)
+```
+

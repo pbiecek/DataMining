@@ -1,0 +1,298 @@
+---
+title: |
+    | Poject #1 - Classification 
+    | Class in social networks
+author: "Viet Ba Mai, Klaudia Magda"
+date: "November 2nd, 2016"
+output: 
+  html_document:
+    toc : TRUE
+---
+
+#Introduction
+The goal of this project is to predict the number of shares in social networks using the *ONline News Popularity* dataset from UCI.
+In this report we will implement two classifiers on preprocessed set using variables selected with the help of filters and compare their performance.
+
+
+#Libraries used
+```{r, message=FALSE, warning=FALSE}
+library(e1071)
+library(caret)
+library(magrittr)
+library(plyr)
+library(dplyr)
+library(corrplot)
+library(randomForest)
+library(ROCR)
+```
+
+
+#Data preparation
+##Target variable
+The target variable of the set is `shares`. The first thing one can notice is that it contains almost 1500 distinct values, where more of them occur only once. This means that this variable has a very high variance and trying to train the classifiers with it would yield very inaccurate result. More than that the feature selection function we will use in the next sections are unable to handle such a big number of classes.
+
+This target variable has a more continuous nature and would be more suitable for regression, but as our goal was to make classification it was necessary to categorise `shares`.
+
+Our solution to this problem was to made the target binary as it has the most promising chances of returning a good result.
+
+We decided to follow the *Predicting and Evaluating the Popularity of Online News* report by Ha Ren and Quan Yang and divide the `shares` into classes `1` for values greater than 1400 and `0` otherwise.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+data <- read.csv(file.path(file.path(getwd(), "OnlineNewsPopularity"), "OnlineNewsPopularity.csv"), header=TRUE, sep=",", encoding="UTF-8")
+dataCopy = data
+dataCopy$shares = factor(dataCopy$shares)
+length(levels(dataCopy$shares))
+data <- within(data, Class <- ifelse(shares > 1400, 1, 0))
+data$Class = factor(data$Class)
+barplot(table(data$Class), col="lightgreen", main="Distribution of Class variable")
+prop.table(table(data$Class))
+```
+
+
+##Preprocessing
+In order to make working with the data easier we immediatelly dropped the original target variable `shares` as well as non-predictive columns `url`, `timedelta` and `shares`.
+We also removed rows with missing values using `complete.cases` as they may cause problems in the future.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+data <- subset(data, select = -c(url, timedelta, shares))
+sum(!complete.cases(data))
+data <- data[complete.cases(data),]
+```
+
+
+###Near Zero Variance
+Some of predictors may be non-informative (f.e very similar or even constant throughout the whole data) and in some cases even break the model.
+Such variables are called `zero` or `near zero variance` and it is a good practice to remove them before classification.
+
+To do so we used a `nearZeroVar` function which removed from our set 2 variables, so in total at this point we had 56 predictors. Unfortunately this is still too many.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+nzv <- nearZeroVar(data)
+names(data)[nzv]
+data <- data[, -nzv]
+```
+
+
+###Normalisation
+Another good practise is to normalise continuous data as it reduces redundancy of data.
+In order to do that we used the `preProcess` function from `caret` with the option `range` that scales the data to be between 0 and 1.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+preProcValues <- preProcess(data, method = c("range"))
+dataNorm <- predict(preProcValues, data)
+```
+
+
+###Highly correlated variables
+Having multiple variables which are highly correlated to one another brings no new information to training hence such predictors can be also excluded from the set.
+`findCorrelation` function found 10 variables above the correlation cutoff `0.75`.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+d.num <- dataNorm %>% select(which(sapply(dataNorm, is.numeric)))
+too_high <- findCorrelation(cor(d.num), cutoff = 0.75, verbose = FALSE)
+names(d.num)[too_high]
+data = dataNorm[,-c(too_high)]
+```
+
+
+#Feature selection
+After data preparation we were still left with 46 predictors.
+In order to choose only the best ones for classification we decided to use a `filter` method which is more efficient than `wrapper` methods, because the predictors are evaluated in terms of their relationship to the class values rather than evaluating many models (which drastically increases the time complexity) like in case of `wrapper`. Having a large number of predictors it was crucial to choose a method with a better performance, even though `wrapper` may have more accurate results.
+
+
+##Sample
+In order to decrease the time needed for feature selection we created a small sample from the data. Since creating a subset of original data may result in losing classes, even though it is very unlikely in case of binary classification, we still made few steps to check if it was the case.
+
+If, for example, there was a target variable with a large number of classes and some were lost in the process of splitting then dropping levels would be necessary before selecting features.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+indxSample <- sample(seq_len(nrow(data)), size = 1000)
+sample <- data[indxSample, ]
+length(levels(sample$Class))
+sample$Class <- factor(sample$Class)
+length(levels(sample$Class))
+count(sample, 'Class')
+```
+
+
+##Univariate Filter
+We used the Selection By Filter (`sbf`) function to choose predictors for classification.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+filterCtrl <- sbfControl(functions = rfSBF, method = "repeatedcv", verbose = FALSE, repeats = 5)
+rfWithFilter <- sbf(form = Class ~ ., data = sample, sbfControl = filterCtrl, allowParallel = TRUE)
+rfWithFilter
+```
+
+
+###SBF result analysis
+From the correlation plot we can see by the colour and the size of circles that the selected variables are not highly correlated which makes them good predictors.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+subdata <- data[c("data_channel_is_entertainment", "data_channel_is_lifestyle", "data_channel_is_socmed", "is_weekend", "global_sentiment_polarity", "Class")]
+head(subdata)
+summary(subdata)
+sub.num <- subdata %>% select(which(sapply(subdata, is.numeric)))
+```
+```{r, echo=FALSE, fig.align='center', message=FALSE, warning=FALSE}
+corrplot(cor(sub.num), method="circle")
+barplot(table(subdata$data_channel_is_entertainment), col="lightgreen", main="Distribution of data_channel_is_entertainment variable")
+barplot(table(subdata$data_channel_is_lifestyle), col="lightgreen", main="Distribution of data_channel_is_lifestyle variable")
+barplot(table(subdata$data_channel_is_socmed), col="lightgreen", main="Distribution of data_channel_is_socmed variable")
+barplot(table(subdata$is_weekend), col="lightgreen", main="Distribution of is_weekend variable")
+```
+From barplots we can see that most records were not published on weekends, and are not of "Lifestyle" data channel, "Social Media" nor "Entertainment". However there is more Entertainment articles than the other categories.
+
+#Data splitting
+Having the data prepared for classification we need to divide it into a training and testing set. We chose the size of the training set to be 0.75 of the original data set.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+set.seed(1313)
+size <- floor(0.75 * nrow(subdata))
+indxTrain <- sample(seq_len(nrow(subdata)), size = size)
+
+dataTrain <- subdata[indxTrain, ]
+dataTest <- subdata[-indxTrain, ]
+```
+
+
+#Classifiers
+We decided to choose `knn` and `random forest` as our classifiers.
+
+
+##Nearest Neighbours
+
+###Finding optimal k
+At first we found the most optimal k in terms of performance.
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+tuneK <- 1:50
+performance <- sapply(tuneK, function(k) {
+  knnFit <- knn3(Class ~ ., data = dataTrain, k=k)
+  tab <- table(true = dataTest$Class,
+          predict = predict(knnFit, dataTest, type="class"))
+  sum(diag(tab)) / sum(tab)
+}) 
+
+optimal_k = which.max(performance)
+optimal_k
+performance[optimal_k]
+
+df <- data.frame(tuneK, performance)
+
+ggplot(df, aes(tuneK, performance)) +
+  geom_point() + 
+  geom_smooth(se=FALSE, span=0.1, size=2) +
+  theme_bw()
+```
+
+
+###Applying optimal k
+
+Now that the optimal `k` was found we used it in the `knn3` classifier.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+knnFit <- knn3(Class ~ ., data = dataTrain, k=optimal_k)
+knnFit
+pred_optimal <- predict(knnFit, dataTest, type="class")
+tab_optimal <- table(true = dataTest$Class, predicted = pred_optimal)
+sum(diag(tab_optimal)) / sum(tab_optimal)
+```
+
+
+##Random Forest
+Forest is a set of trees which contain a `vote` allowing us to find an appropriate result.
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+forest <- randomForest(Class ~ ., data = dataTrain, importance = TRUE, na.action = na.omit)
+varImpPlot(forest)
+importance(forest)
+predForest = predict(forest, dataTest, type="class")
+head(predForest)
+plot(forest, main="Model Fit for Random Forest")
+forestTab <- table(true = dataTest$Class, predicted = predForest)
+```
+
+
+##Random Forest for top 3 variables
+For comparison we will train the random forest with the top 3 predictors that were shown for `Mean Decrease in Accuracy` in the importance plot.
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+forestTop <- randomForest(Class ~ data_channel_is_entertainment + data_channel_is_socmed + is_weekend, data = dataTrain, importance = TRUE, na.action = na.omit)
+importance(forestTop)
+predForestTop = predict(forestTop, dataTest, type="class")
+head(predForestTop)
+plot(forestTop, main="Model Fit for Random Forest: Top 3")
+forestTopTab <- table(true = dataTest$Class, predicted = predForestTop)
+```
+
+
+#Performance
+We will check the performance of used classifiers with `Receiver Operating Characteristics` (`ROC`) curve and calculating `accuracy`, `precision`, `sensitivity` and `specificity`, which are the statistical measures of performance for binary classification.
+
+
+##Nearest Neighbours
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+pred_knn <- predict(knnFit, dataTest, type="prob")[,2]
+fit.pred = prediction(pred_knn, dataTest$Class)
+fit.perf = performance(fit.pred,"tpr","fpr")
+plot(fit.perf, colorize=TRUE)
+abline(a=0,b=1)
+
+accuracy1 <- sum(diag(tab_optimal)) / sum(tab_optimal)
+accuracy1
+precision1 <- tab_optimal[[1]] / (tab_optimal[[1]] + tab_optimal[[2]])
+precision1
+sensitivity1 <- tab_optimal[[1]] / (tab_optimal[[1]] + tab_optimal[[3]])
+sensitivity1
+specificity1 <- tab_optimal[[4]] / (tab_optimal[[4]] + tab_optimal[[2]])
+specificity1
+```
+
+
+##Random Forest
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+pred_rf <- predict(forest, dataTest, type="prob")[,2]
+fit.pred = prediction(pred_rf, dataTest$Class)
+fit.perf = performance(fit.pred,"tpr","fpr")
+plot(fit.perf, colorize=TRUE)
+abline(a=0,b=1)
+
+
+accuracy2 <- sum(diag(forestTab)) / sum(forestTab)
+accuracy2
+precision2 <- forestTab[[1]] / (forestTab[[1]] + forestTab[[2]])
+precision2
+sensitivity2 <- forestTab[[1]] / (forestTab[[1]] + forestTab[[3]])
+sensitivity2
+specificity2 <- forestTab[[4]] / (forestTab[[4]] + forestTab[[2]])
+specificity2
+```
+
+
+##Random Forest - Top 3
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center'}
+pred_rf3 <- predict(forest, dataTest, type="prob")[,2]
+fit.pred = prediction(pred_rf3, dataTest$Class)
+fit.perf = performance(fit.pred,"tpr","fpr")
+plot(fit.perf, colorize=TRUE)
+abline(a=0,b=1)
+
+
+accuracy3 <- sum(diag(forestTopTab)) / sum(forestTopTab)
+accuracy3
+precision3 <- forestTopTab[[1]] / (forestTopTab[[1]] + forestTopTab[[2]])
+precision3
+sensitivity3 <- forestTopTab[[1]] / (forestTopTab[[1]] + forestTopTab[[3]])
+sensitivity3
+specificity3 <- forestTopTab[[4]] / (forestTopTab[[4]] + forestTopTab[[2]])
+specificity3
+```
+
+
+#Conclusions
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+sum_table <- matrix(c(accuracy1, precision1, sensitivity1, specificity1, accuracy2, precision2, sensitivity2, specificity2,accuracy3, precision3, sensitivity3, specificity3), ncol=4, nrow = 3, byrow = TRUE)
+colnames(sum_table) <- c("Accuracy", "Precision", "Sensitivity", "Specificity")
+rownames(sum_table) <- c("KNN", "RF", "RF3")
+sum_table
+```
+
+In general both nearest neighbour (KNN) and random forest classifiers (RF and RF3) performed similarily.
+
+The result is satisfying and very close to the one obtained by the authors of the *Predicting and Evaluating the Popularity of Online News* report, so we may assume that the predictors were chosen correctly.
+
+However, analysing the table above we can see that the best classification result was obtained with the **random forest** in which we used 5 predictors chosen with `Selection By Filter` (RF).
+
+This is due to the fact that random forest uses multiple decision trees hence is more suitable for such complex data sets.
+
+Nevertheless, KNN, being a simpler method, still yields results very close to it.
+In case of the random forest trained with top 3 variables taken from the `importance` plot (RF3) the true positive rate (sensitivity) is almost 90%, but the true negative rate (specificity) is only 25%. Moreover by observing the model fit plots, both the OOB error and in-class OBB error were higher for RF3 than RF, so it was not the best approach to choose only that three predictors.

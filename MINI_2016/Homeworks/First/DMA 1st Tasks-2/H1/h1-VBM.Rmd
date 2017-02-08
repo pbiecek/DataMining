@@ -1,0 +1,198 @@
+---
+title: 'DMA - Homework #1'
+author: "Viet Ba Mai"
+date: "10 paüdziernika 2016"
+output:
+  html_document:
+    toc: TRUE
+---
+
+#Description
+In this homework we used the PogromcyDanych package along with its function setLang() which translates a dataset between English and Polish depending and the given parameter.
+The goal was to create summaries, both numerical and graphical, for the dataset skiJumps2013 which represent real data from ski jumping competitions held in 2013 and 2014. 
+The summaries were done on the following variables:
+
+- jumpSpeed
+
+- jumpDistance
+
+- compCountry
+
+- jumperCountry
+
+- jumperDateOfBirth.
+
+This report is done only on data where the competition was in 2014.
+
+
+10 observations of selected columns from the skiJumps2013 table (with a date filter applied on) are presented below.
+
+```{r, include=FALSE}
+  # 1. Load the PogromcyDanych package.
+  # 2. Use the setLang() function to translate columns names into English.
+  # 3. For the dataset skiJumps2013 present numerical and graphical summaries for following variables: jumpSpeed,   # jumpDistance, compCountry, jumperCountry, jumperDateOfBirth.
+  # 4. Create a report in knitr with these summaries. Use only competitions in 2014 year.
+#install.packages("PogromcyDanych")
+library(PogromcyDanych)
+setLang("eng")
+data(skiJumps2013)
+skiJumps2014 <- subset(skiJumps2013, as.Date(skiJumps2013$compDate) >= "2014-01-01")
+```
+
+```{r, echo=FALSE, cache=TRUE}
+head(skiJumps2014[, c("compDate", "jumpSpeed", "jumpDistance", "compCountry", "jumperCountry", "jumperDateOfBirth")], 10)
+#head(skiJumps2014, 10)
+```
+
+#Numerical Summaries
+##Categorical Variables
+For categorical values we use contingency tables. This is done by using the table() function.
+
+1. Competition Country:
+
+```{r, echo=FALSE, cache=TRUE}
+sort(table(skiJumps2014$compCountry), decreasing=TRUE)
+```
+
+2. Jumper's Country:
+
+```{r, echo=FALSE, cache=TRUE}
+sort(table(skiJumps2014$jumperCountry), decreasing=TRUE)
+```
+
+3. Jumper's Date Of Birth:
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE, R.options=list(max.print=15)}
+sort(table(skiJumps2014$jumperDateOfBirth), decreasing=TRUE)
+```
+The number of output was limited to 15.
+
+
+##Continuous Variables
+For continuous values we use the summary() function.
+
+1. Jump Speed:
+
+```{r, echo=FALSE, cache=TRUE}
+summary(skiJumps2014$jumpSpeed)
+```
+
+2. Jump Distance:
+
+```{r, echo=FALSE, cache=TRUE}
+summary(skiJumps2014$jumpDistance)
+```
+
+#Graphical Summaries
+##Categorical Variables
+Barplots [barplot()] are very well suited to visualize contingency tables.
+
+1. Competition Country:
+
+```{r, echo=FALSE, cache=TRUE}
+comp_country <- table(skiJumps2014$compCountry)
+barplot(comp_country, horiz = TRUE, las=1, col="lightyellow")
+
+```
+
+2. Jumper's Country:
+
+```{r, echo=FALSE, cache=TRUE}
+jumper_country <- table(skiJumps2014$jumperCountry)
+barplot(jumper_country, las=2, col="khaki")
+
+```
+
+3. Jumper's Year Of Birth:
+
+```{r, echo=FALSE, cache=TRUE}
+jumper_bday <- table(as.numeric(format(skiJumps2014$jumperDateOfBirth, '%Y', col="lightpurple")))
+barplot(jumper_bday, las=2)
+```
+
+Years were extracted from full dates to make the graph clearer.
+
+
+##Continuous Variables
+Histograms [hist()] and boxplots [boxplot()] can be used to represent the distribution of continuous values.
+
+
+1. Jump Speed:
+
+```{r, echo=FALSE, cache=TRUE}
+par(mar=c(5,5,2,2))
+hist(skiJumps2014$jumpSpeed, col="lightblue")
+boxplot(skiJumps2014$jumpSpeed, horizontal = TRUE)
+
+```
+
+2. Jump Distance:
+
+```{r, echo=FALSE, cache=TRUE}
+hist(skiJumps2014$jumpDistance, col="lightgreen")
+boxplot(skiJumps2014$jumpDistance, horizontal = TRUE)
+```
+
+#2-variable representations
+##Numerical Summaries for different discrete variables
+
+1. Jump Speed by Jumper Country:
+
+
+```{r, echo=FALSE, cache=TRUE}
+by(skiJumps2014$jumpSpeed, skiJumps2014$jumperCountry, summary)
+```      
+
+
+2. Jump Distance by Jumper Country:
+
+```{r, echo=FALSE, cache=TRUE}
+by(skiJumps2014$jumpDistance, skiJumps2014$jumperCountry, summary)
+```
+
+##Graphical summary for two discrete variables
+Mosaicplots may be useful to show relations between different categorical variables.
+
+Competition Country and Jumper Country:
+
+```{r, echo=FALSE, cache=TRUE}
+countries <- table(skiJumps2014$compCountry, skiJumps2014$jumperCountry)
+#countries <- table(skiJumps2014$compCountry, as.numeric(format(skiJumps2014$jumperDateOfBirth)))
+mosaicplot(countries, las=2, main="", color = c("orange", "yellow"))
+```
+
+##Numerical summary of relation between discrete and continuous variables.
+
+Jumper Country and Jump Distance:
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE, R.options=list(max.print=25)}
+country_bday <- table(skiJumps2014$jumperCountry, skiJumps2014$jumpDistance)
+round(prop.table(country_bday, 2),1)
+```
+The number of output was limited to 25.
+
+
+##Graphical summary of continuous variables.
+Again, boxplots are very good for this type of variables. Additionally, a more advanced way is to use vioplot [vioplot()].
+
+Jump Distance and Jump Speed:
+
+```{r, echo=FALSE, cache=TRUE}
+boxplot(skiJumps2014$jumpDistance, skiJumps2014$jumpSpeed)
+par(mar=c(5,15,2,2))
+#install.packages("vioplot")
+#library(vioplot)
+#vioplot(skiJumps2014$jumperCountry[skiJumps2014$jumpSpeed < 75],
+#        skiJumps2014$jumperCountry[skiJumps2014$jumpSpeed >= 75])
+
+```
+
+#Conclusions
+Most of competitions were held in, respectively, Austria, Germany and Finland. The first two countries also have the biggest number of jumpers.
+
+Most of the competitors were born in 1991 and the second most frequent birth year is 1989 with the frequency being almost only a half of the aforementioned year.
+
+In terms of the jump itself, the usual speed is around 80 to 100 while the distance is between 100 and 150.
+
+Germany has the highest maximum jumping speed (101.50) while Slovenia has the highest maximum jumping distance (199.0).
+On the other hand Romania has the lowest mean jumping speed (88.97) and Japan has the lowest mean in jumping distance (112.0).

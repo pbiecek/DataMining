@@ -1,0 +1,469 @@
+---
+title: "project1_p2"
+output: html_document
+---
+```{r setup, include=FALSE}
+library(nnet)
+library("C50")
+library("party")
+library(rpart)
+library("randomForest")
+library("ROCR")
+library("e1071")
+library("caret")
+library("magrittr")
+library("plyr")
+library("class")
+library(ggplot2)
+library(reshape2)
+library("entropy")
+library(lattice)
+library(MASS)
+library(gbm)
+```
+
+ The goal is to develop a **multi-class classifier** that predicts the labels for the test data set. 
+ Observations are online news articles with 60 features and the goal is to *predict the level of popularity* of the article. 
+ There are five classes that we are trying to predict,: 1 -> obscure  articles that are shared very few times, 
+                                                        2 -> mediocre , 
+                                                        3 -> popular , 
+                                                        4 -> super popular  and 
+                                                        5 -> viral  articles 
+```{r prep, include=FALSE}
+#Prepare the data
+#data <- read.csv(file.path(file.path(getwd(), "OnlineNewsPopularity"), "OnlineNewsPopularity.csv"), header=TRUE, sep=",", encoding="UTF-8")
+data <- read.csv(file.path(getwd(),  "OnlineNewsPopularity.csv"), header=TRUE, sep=",", encoding="UTF-8")
+
+```
+
+dividing our dataset into 5 classes based on the no of shares:
+
+```{r split}
+data$class <- with( data
+                    , ifelse(shares < 800 ,1 
+                            ,ifelse(shares >= 800 & shares < 1000 ,2 
+                                     ,ifelse(shares >= 1000 & shares < 2000 ,3 
+                                             ,ifelse(shares >= 2000 & shares < 2000000 ,4 ,5)))))
+
+
+```
+
+In preprocessing we use mutual information value. It is said that it can also choose variables that are highly correlated, which is unwanted, but since we removed those earlier, there is no such problem now. Mutual information is diffrenet from correlation, because correlation finds variables that hold the same information and mutual information is about finding variables that hold information on the same model as the other variable.
+
+```{r preproc, include=FALSE}
+## Data Preprocessing
+# Removing non-predictive variables i.e url , timedelta ,shares(we have processed class variable from shares)
+useless <- names(data) %in% c("url","timedelta","shares")
+Online_useful <-data[!useless]
+
+# near zero variance variables are those that have one unique value or 
+#                              they have very few unique values relative to the number of samples or
+#                              the ratio of frequency of most common value to the frequency of second most common value is large. 
+# so Removing the near zero variance variables, will make our dataset less unstable
+nzv <- nearZeroVar(Online_useful)
+online_nzv <- Online_useful[, -nzv]
+
+# checking and removing corellated variables,corellation refers to the extent to which two variables have a linear relationship with each other. 
+# Correlation is checked only for numeric variables, in our case all variables are numeric.
+high.corr.num <- findCorrelation(cor(online_nzv), cutoff = .8)
+myvars <- names(online_nzv)[high.corr.num]
+myvars
+myvars <- names(online_nzv) %in% c("kw_avg_avg", 
+                                      "data_channel_is_world",
+                                      "kw_min_min" ,               
+                                      "self_reference_max_shares",
+                                      "kw_max_min" ,
+                                      "self_reference_min_shares",
+                                      "n_non_stop_words",         
+                                      "n_unique_tokens")
+online_corr <-online_nzv[myvars]
+## for visualization of correlated variables and there dependencies:     
+library(ggplot2)
+library(reshape2)
+qplot(x=Var1, y=Var2, data=melt(cor(online_corr, use="p")), fill=value, geom="tile") + scale_fill_gradient2(limits=c(-1, 1))
+
+useless2 <- names(online_nzv ) %in% c("kw_avg_avg", 
+                                      "data_channel_is_world",
+                                      "kw_min_min" ,               
+                                      "self_reference_max_shares",
+                                      "kw_max_min" ,
+                                      "n_non_stop_words",         
+                                      "n_unique_tokens")
+Online <- online_nzv[!useless2]
+Online$class = factor(Online$class)
+
+coln <- names(Online)
+
+fn <- function(r, c) {mi.plugin(rbind(Online[,r], Online[,c]))}
+
+mif <- outer(coln, coln, Vectorize(fn))
+mic <- outer(coln, "class", Vectorize(fn))
+
+
+#Build the plot
+rgb.palette <- colorRampPalette(c("blue", "yellow"), space = "rgb")
+#levelplot(mic, main="stage 12-14 array correlation matrix", xlab="", ylab="", col.regions=rgb.palette(120), cuts=100, at=seq(0,1,0.01))
+#levelplot(mif, main="stage 12-14 array correlation matrix", xlab="", ylab="", col.regions=rgb.palette(120), cuts=100, at=seq(0,1,0.01))
+
+#Filtered from above commented
+coln_filtered = c(coln[3], coln[4], coln[8], coln[11], coln[12], coln[13], coln[14], coln[15], coln[16], coln[24], coln[25], coln[26], coln[27], coln[28], coln[29], coln[30], coln[31], coln[32], coln[33], coln[34], coln[35], "class")
+mif_filtered <- outer(coln_filtered, coln_filtered, Vectorize(fn))
+levelplot(mif_filtered, main="stage 12-14 array correlation matrix", xlab="", ylab="", col.regions=rgb.palette(120), cuts=100, at=seq(0,1,0.01))
+
+Online <- Online[coln_filtered]
+
+filterCtrl <- sbfControl(functions = rfSBF, method = "repeatedcv", verbose = FALSE, repeats = 5)
+rfWithFilter <- sbf(form = class ~ ., data = Online[0:1000,], sbfControl = filterCtrl, allowParallel = TRUE)
+
+## Using Importance function to fetch imporatant variables
+all_var_random_forest <- randomForest(class ~ ., data = Online , importance = TRUE, na.action = na.omit)
+varImpPlot(all_var_random_forest)
+importance(all_var_random_forest)
+sortedImportance=order(all_var_random_forest$importance[,5])
+sortedImportance
+impp_var <- names(Online) %in% c("weekday_is_thursday", 
+                                 "weekday_is_friday", 
+                                 "weekday_is_wednesday",
+                                 "weekday_is_sunday", 
+                                 "weekday_is_saturday", 
+                                 "data_channel_is_bus",
+                                 "kw_max_max", 
+                                 "average_token_length", 
+                                 "kw_avg_min",  
+                                 "class")
+#Online <-Online[impp_var]
+# we will not reduce our sample because the accuracy is going down for fewer variables
+
+## Normalizing dataset over Range
+preProcValues <- preProcess(Online, method = c("range"))
+
+## Data Partitioning
+set.seed(20)
+indxTrain <- createDataPartition(y = Online$class, p = 0.05)
+Online_train <- predict(preProcValues, Online[indxTrain$Resample1, ])
+indxTrain <- createDataPartition(y = Online$class, p = 0.05)
+Online_test <- predict(preProcValues,Online[indxTrain$Resample1, ])
+
+# here we are trying to have equal length/records training and testing dataset
+len <- min(dim(Online_train)[1], dim(Online_test)[1])
+Online_train <- Online_train[0:len,]
+Online_test <- Online_test[0:len,]
+```
+## Classification
+
+We have used 2 Type of resampling : K-fold and Bootstrap Sampling.
+
+**K-fold **:Here the samples are randomly partitioned into k sets (called folds) of roughly equal size. 
+A model is fit using all the samples except the first subset. Then, the prediction error of the fitted model is calculated
+using the first held-out samples. The same operation is repeated for each fold and the model's performance 
+is calculated by averaging the errors across the different test sets. kk is usually fixed at 5 or 10 . 
+Cross-validation provides an estimate of the test error for each model6. Cross-validation is one of the most 
+widely-used method for model selection, and for choosing tuning parameter values.
+
+The **bootstrap** is a simulation-based procedure for estimating and validating distributions. It is useful when:
+                          The theoretical distribution of a statistic is complicated or unknown.
+                          The sample size is insufficient for straightforward statistical inference.
+Inshort, we use bootstrap to derive an empirical distribution and confidence intervals for a sample median, which lacks a theoretical distribution.
+
+### Random forest 
+```{r rf}
+random_forest1 <- randomForest(class ~ ., data = Online_train, importance = TRUE, na.action = na.omit)
+predictions <- predict(random_forest1, Online_test)
+
+plot(random_forest1, main="Random Forest Fit")
+
+confusionMatrix <- confusionMatrix(predictions, Online_test$class)
+confusionMatrix
+
+tab <- table(true = Online_test$class, predicted = predictions)
+rfAccuracy = sum(diag(tab)) / sum(tab)
+rfAccuracy
+```
+
+#### random forest : K-fold cross validation
+```{r rf2}
+train_control <- trainControl(method="repeatedcv", number=10, repeats=3)
+random_forest2 <- train(class ~ ., data = Online_train, trControl=train_control, method="rf")
+predictions <- predict(random_forest2, Online_test)
+confusionMatrix <- confusionMatrix(predictions, Online_test$class)
+confusionMatrix
+
+tab <- table(true = Online_test$class, predicted = predictions)
+rfKFoldAccuracy = sum(diag(tab)) / sum(tab)
+rfKFoldAccuracy
+```
+
+
+#### random forest : Bootstrap
+```{r rfb}
+train_control <- trainControl(method="boot", number=10)
+random_forest3 <- train(class ~ ., data = Online_train, trControl=train_control, method="rf")
+predictions <- predict(random_forest3, Online_test)
+confusionMatrix <- confusionMatrix(predictions, Online_test$class)
+confusionMatrix
+
+tab <- table(true = Online_test$class, predicted = predictions)
+rfBootstrapAccuracy = sum(diag(tab)) / sum(tab)
+rfBootstrapAccuracy
+```
+
+### Decision tree
+#### ctree
+```{r dtc}
+decision_tree1 <- ctree(class ~ ., data = Online_train)
+predictions <- predict(decision_tree1, Online_test )
+confusionMatrix <- confusionMatrix(predictions, Online_test$class)
+confusionMatrix
+plot(decision_tree1)
+tab <- table(true = Online_test$class, predicted = predictions)
+treeAccuracy = sum(diag(tab)) / sum(tab)
+treeAccuracy
+```
+
+#### rtree:Recursive partitioning for classification,regression and survival trees. multiclass problem in rpart
+
+```{r dtr}
+rtree1 <- rpart(class ~ ., data = Online_train, method="class")
+predictions <- predict(rtree1, Online_test)
+```
+
+#### ctree: K-fold cross validation
+
+```{r dtk}
+train_control <- trainControl(method="cv", number=10)
+decision_tree2 <- train(class ~ ., data = Online_train, trControl=train_control, method="ctree")
+predictions <- predict(decision_tree2, Online_test)
+confusionMatrix <- confusionMatrix(predictions, Online_test$class)
+confusionMatrix
+
+tab <- table(true = Online_test$class, predicted = predictions)
+treeKFoldAccuracy = sum(diag(tab)) / sum(tab)
+treeKFoldAccuracy
+```
+
+#### rpart: K-fold cross validation
+
+```{r dtrk}
+rtree2 <- train(class ~ ., data = Online_train, trControl=train_control, method="rpart")
+predictions <- predict(rtree2, Online_test)
+confusionMatrix <- confusionMatrix(predictions, Online_test$class)
+confusionMatrix
+
+tab <- table(true = Online_test$class, predicted = predictions)
+treeRpartKFoldAccuracy = sum(diag(tab)) / sum(tab)
+treeRpartKFoldAccuracy
+```
+
+
+#### Bootstrap
+
+```{r dtb}
+train_control <- trainControl(method="boot", number=10)
+# ctree
+decision_tree3 <- train(class ~ ., data = Online_train, trControl=train_control, method="ctree")
+predictions <- predict(decision_tree3, Online_test)
+confusionMatrix <- confusionMatrix(predictions, Online_test$class)
+confusionMatrix
+
+tab <- table(true = Online_test$class, predicted = predictions)
+treeBootstrapAccuracy = sum(diag(tab)) / sum(tab)
+treeBootstrapAccuracy
+
+# rtree
+rtree3 <- train(class ~ ., data = Online_train, trControl=train_control, method="rpart")
+predictions <- predict(rtree3, Online_test)
+confusionMatrix <- confusionMatrix(predictions, Online_test$class)
+confusionMatrix
+
+tab <- table(true = Online_test$class, predicted = predictions)
+treeRpartBootstrapAccuracy = sum(diag(tab)) / sum(tab)
+treeRpartBootstrapAccuracy
+
+###knn : K Nearest Neighbour
+knnFit1 <- knn3(class ~ ., data = Online_train, k=38) #we computed OptimalK in Phase1 & it gave hightest performance for 38
+predictions <- predict(knnFit1, Online_test )
+##knn : K-fold cross validation
+tlength = 20
+train_control <- trainControl(method="cv", number=10)
+knnfit2 <- train(class ~ ., data = Online_train, trControl=train_control, method="knn", tuneLength = tlength)
+klist <-knnfit2$bestTune[[1]]
+predictions <- predict(knnfit2, Online_test )
+confusionMatrix(predictions, Online_test$class)
+confusionMatrix
+
+cvk = knnfit2$bestTune[[1]]
+
+tab <- table(true = Online_test$class, predicted = predictions)
+knnKFoldAccuracy = sum(diag(tab)) / sum(tab)
+knnKFoldAccuracy
+#knn : Bootstraps
+train_control <- trainControl(method="boot", number=10)
+knnfit3 <- train(class ~ ., data = Online_train, trControl=train_control, method="knn", tuneLength = 20)
+predictions <- predict(knnfit3, Online_test)
+confusionMatrix(predictions, Online_test$class)
+confusionMatrix
+
+bk = knnfit3$bestTune[[1]]
+
+tab <- table(true = Online_test$class, predicted = predictions)
+knnBootstrapAccuracy = sum(diag(tab)) / sum(tab)
+knnBootstrapAccuracy
+```
+
+
+### SVM : Support Vector Machines
+# Support Vector Machine (SVM) is a discriminative classifier formally defined by a separating hyperplane. In other words, given labeled training data (supervised learning), the algorithm outputs an optimal hyperplane which categorizes test data
+
+```{r svm}
+options(warn=-1)
+svm1 <- svm(class ~ ., data = Online_train, kernel='linear', cost=10, scale=FALSE, probability = TRUE)
+predictions <- predict(svm1, Online_test )
+
+confusionMatrix <- confusionMatrix(predictions, Online_test$class)
+confusionMatrix
+
+tab <- table(true = Online_test$class, predicted = predictions)
+svmAccuracy = sum(diag(tab)) / sum(tab)
+svmAccuracy
+```
+
+#### SVM: K-fold cross validation
+
+```{r svmk}
+train_control <- trainControl(method="cv", number=10)
+svm2 <- train(class ~ ., data = Online_train, trControl=train_control, method="svmLinear") #Support Vector Machines with Linear Kernel
+predictions <- predict(svm2, Online_test )
+confusionMatrix <- confusionMatrix(predictions, Online_test$class)
+confusionMatrix
+
+tab <- table(true = Online_test$class, predicted = predictions)
+svmKFoldAccuracy = sum(diag(tab)) / sum(tab)
+svmKFoldAccuracy
+```
+
+
+#### SVM: Bootstrap
+
+```{r svmb}
+train_control <- trainControl(method="boot", number=10)
+svm3 <- train(class ~ ., data = Online_train, trControl=train_control, method="svmLinear")
+predictions <- predict(svm3, Online_test)
+confusionMatrix <- confusionMatrix(predictions, Online_test$class)
+confusionMatrix
+
+tab <- table(true = Online_test$class, predicted = predictions)
+svmBootstrapAccuracy = sum(diag(tab)) / sum(tab)
+svmBootstrapAccuracy
+```
+
+### Using *train Model by tag* Method
+
+```{r}
+control <- trainControl(method="repeatedcv", number=10, repeats=3) # set crossvalidation sampling method
+```
+### LDA:Linear Discriminant Analysis
+
+```{r}
+set.seed(7)
+modelLda <- train(class ~ ., data = Online_train, method="lda", trControl=control)
+tab <- table(true = Online_test$class, predicted = predict(modelLda, Online_test))
+ldaAccuracy = sum(diag(tab)) / sum(tab)
+ldaAccuracy
+```
+
+### QDA: Quadratic Discriminant Analysis
+
+```{r qda}
+#set.seed(7)
+#modelQda <- train(class ~ ., data = Online_train, method="qda", trControl=control)
+#tab <- table(true = Online_test$class, predicted = predict(modelQda, Online_test))
+#qdaAccuracy = sum(diag(tab)) / sum(tab)
+#qdaAccuracy
+```
+
+###GBM :Stochastic Gradient Boosting
+
+```{r gbm}
+set.seed(7)
+modelGbm <- train(class ~ ., data = Online_train, method="gbm", trControl=control)
+tab <- table(true = Online_test$class, predicted = predict(modelGbm, Online_test))
+gbmAccuracy = sum(diag(tab)) / sum(tab)
+gbmAccuracy
+```
+
+
+###Multinomial logistic regression
+
+```{r MLR}
+modelMLR <- multinom(class ~ ., data = Online_train)
+tab <- table(true = Online_test$class, predicted = predict(modelMLR, Online_test))
+MLRAccuracy = sum(diag(tab)) / sum(tab)
+MLRAccuracy
+```
+
+## Summary
+
+```{r sum}
+accuracy <- matrix (c( rfAccuracy,rfKFoldAccuracy,rfBootstrapAccuracy,
+                       treeAccuracy,
+                       treeKFoldAccuracy,treeRpartKFoldAccuracy,
+                       treeBootstrapAccuracy,treeRpartBootstrapAccuracy,
+                       knnKFoldAccuracy,knnBootstrapAccuracy,
+                       svmAccuracy,svmKFoldAccuracy,svmBootstrapAccuracy,
+                       ldaAccuracy,
+                       gbmAccuracy,
+                       MLRAccuracy ), byrow=FALSE)
+rownames(accuracy) <- c("Random forest","Random forest: K-fold","Random forest:Bootstrap",
+                        "Decision tree",
+                        "Decision tree K-Fold","Decision tree K-Fold rpart",
+                        "Decision tree Bootstrap","Decision tree Bootstrap rpart",
+                        "K-nearest neighbours K-Fold","K-nearest neighbours  Bootstrap",
+                        "SVM","SVM K-Fold","SVM Bootstrap",
+                        "LDA",   
+                        "GBM",  
+                        "multinomial logistic regression");
+colnames(accuracy) <- c("Accuracy")
+accuracy <- as.table(accuracy)
+accuracy
+#########-----------------results of all methods-----------
+##collect resamples
+#results <- resamples(list( 
+#  randomForest = random_forest1, 
+#                           randomForestKFold = random_forest2,
+#                           randomForestBootstrap = random_forest3 , 
+#                          tree=decision_tree1, 
+#                          treeKFold=decision_tree2,
+#                          treeBootstrap=decision_tree3, 
+#                          knn=knnFit1,
+#                          knnKFold=knnfit2,
+#                          knnBootstrap= knnfit3, 
+#                          SVM=svm1,
+#                          SVMKFold=svm2,
+#                          SVMBootstrap=svm3,
+#                          lda=modelLda,    
+#                          GBM=modelGbm,  
+#                          MLR= modelMLR))
+##summarize the distributions
+#summary(results)
+```
+                                 Accuracy
+Random forest                   0.4380040
+Random forest: K-fold           0.4475806
+Random forest:Bootstrap         0.4501008
+Decision tree                   0.3996976
+Decision tree K-Fold            0.4027218
+Decision tree K-Fold rpart      0.3996976
+Decision tree Bootstrap         0.4027218
+Decision tree Bootstrap rpart   0.3981855
+K-nearest neighbours K-Fold     0.4007056
+K-nearest neighbours  Bootstrap 0.4062500
+SVM                             0.4047379
+SVM K-Fold                      0.4072581
+SVM Bootstrap                   0.4072581
+LDA                             0.4148185
+GBM                             0.4213710
+multinomial logistic regression 0.4092742
+## Conclusion
+From the summary table We Observe the accuracy values are more or less the same, 
+but still the best performing classifier is random forest.
+The reason behind this is that Random Forest takes into account multiple decision trees and is usefull for complex datasets.
